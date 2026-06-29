@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+dist/
+
+# Build artifacts
+*.tsbuildinfo
+coverage/
+
+# Environment
+.env*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Firebase
+.firebase/
+
+# Vercel
+.vercel/
+
+# Turbo
+.turbo/
+
+# MiroFish service
+mirofish-service/.venv/
+mirofish-service/data/
+mirofish-service/__pycache__/
+mirofish-service/**/__pycache__/
+
+# Local history rebuild helpers
+History.txt
+_commit_msgs.json
