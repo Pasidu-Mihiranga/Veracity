@@ -8,3 +8,4 @@ Incremental progress notes aligned to project history.
 - trail: fix: make Apify Twitter integration call API reliably
 - trail: feat: add API usage and Steal strategy header tabs
 - trail: fix: surface API errors for execution plan Refine and explain failures
+- trail: fix: Apify default actor id, URL-encode console links, gate debug logs
