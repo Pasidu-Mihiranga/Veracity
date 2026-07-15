@@ -7,3 +7,4 @@ Incremental progress notes aligned to project history.
 - trail: fix: correct mirofish live completion status reporting
 - trail: fix: make Apify Twitter integration call API reliably
 - trail: feat: add API usage and Steal strategy header tabs
+- trail: fix: surface API errors for execution plan Refine and explain failures
