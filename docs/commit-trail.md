@@ -13,3 +13,4 @@ Incremental progress notes aligned to project history.
 - trail: fix: persist mirofish agent output in saved chat messages
 - trail: chore: follow-up - Initial commit
 - trail: chore: follow-up - feat: Initialize Next.js project with Tailwind CSS
+- trail: chore: follow-up - plan.md
