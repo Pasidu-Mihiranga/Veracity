@@ -10,3 +10,4 @@ Incremental progress notes aligned to project history.
 - trail: fix: surface API errors for execution plan Refine and explain failures
 - trail: fix: Apify default actor id, URL-encode console links, gate debug logs
 - trail: fix: Apify X scraper for Hobby timeout and false handles
+- trail: fix: persist mirofish agent output in saved chat messages
