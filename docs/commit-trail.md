@@ -14,3 +14,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - Initial commit
 - trail: chore: follow-up - feat: Initialize Next.js project with Tailwind CSS
 - trail: chore: follow-up - plan.md
+- trail: chore: follow-up - .claude created
