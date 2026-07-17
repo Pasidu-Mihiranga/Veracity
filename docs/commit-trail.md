@@ -20,3 +20,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - google auth done
 - trail: chore: follow-up - 6 agent development as M4
 - trail: chore: follow-up - apis updated
+- trail: chore: follow-up - env updated
