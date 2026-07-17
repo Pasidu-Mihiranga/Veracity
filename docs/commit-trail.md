@@ -22,3 +22,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - apis updated
 - trail: chore: follow-up - env updated
 - trail: chore: follow-up - Update .env.example
+- trail: chore: follow-up - finalizing parts
