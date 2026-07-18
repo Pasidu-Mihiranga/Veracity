@@ -24,3 +24,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - Update .env.example
 - trail: chore: follow-up - finalizing parts
 - trail: chore: follow-up - Refactor code structure for improved readability and maintainability
+- trail: chore: follow-up - feat: Implement initial Growth Intelligence Assistant with a chat UI, agent architecture, and artifact rendering components.
