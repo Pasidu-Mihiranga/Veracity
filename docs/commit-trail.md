@@ -26,3 +26,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - Refactor code structure for improved readability and maintainability
 - trail: chore: follow-up - feat: Implement initial Growth Intelligence Assistant with a chat UI, agent architecture, and artifact rendering components.
 - trail: chore: follow-up - feat: Introduce Win/Loss agent for competitor analysis and integrate artifact rendering into the chat UI.
+- trail: chore: follow-up - image uploading fixed
