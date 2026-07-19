@@ -36,3 +36,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - state management and memory management
 - trail: chore: follow-up - feat: add delete history, follow-up persistence, image display, context fix, and README
 - trail: chore: follow-up - refactor: remove standalone output configuration from next.config.ts
+- trail: chore: follow-up - feat: Implement a new authentication page with email/password and Google OAuth sign-in/sign-up, including associated global styles.
