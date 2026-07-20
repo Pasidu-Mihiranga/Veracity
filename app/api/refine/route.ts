@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 import { orchestrate } from '@/lib/agents/orchestrator';
 import { buildFeedbackSummary, buildRefinementDeltas } from '@/lib/agents/refine-utils';
 import type {
@@ -13,41 +13,13 @@ import type {
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 
-// Refine a prior run using accumulated feedback/outcomes.
-// Flow:
-//   1. Read the prior assistant message and session history.
-//   2. Read all outcomes for the session (recommendation feedback, actions,
-//      variant results).
-//   3. Build a feedbackSummary string and inject it into research context.
-//   4. Re-run FULL orchestration (research + execution), not only Stage 2.
-//   5. Return the refined OrchestratorOutput + execution plan + change deltas.
-//
-// This is the "learning across cycles" proof: each refine improves on
-// the previous, grounded in real numbers the user pasted in.
-
 interface RefineBody {
   sessionId: string;
-  messageId: string;                 // prior assistant message
-  focus?: string;                    // optional "refine around X" steer
+  messageId: string;
+  focus?: string;
 }
 
 interface StoredOrchestratorOutput extends OrchestratorOutput {}
-
-async function getSupabase() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (toSet) => {
-          toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
-      },
-    },
-  );
-}
 
 export async function POST(req: NextRequest) {
   let body: RefineBody;
@@ -61,21 +33,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'sessionId and messageId are required' }, { status: 400 });
   }
 
-  const supabase = await getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: 'Not signed in' }, { status: 401 });
   }
 
-  // 1. Pull the prior assistant message so we have the research outputs
-  const { data: msgRow, error: msgErr } = await supabase
-    .from('chat_messages')
-    .select('id, content, metadata, created_at')
-    .eq('id', body.messageId)
-    .eq('session_id', body.sessionId)
-    .single();
+  const { rows: msgRows } = await query<{
+    id: string;
+    content: string;
+    metadata: Record<string, unknown>;
+    created_at: string;
+  }>(
+    `SELECT m.id, m.content, m.metadata, m.created_at
+     FROM chat_messages m
+     JOIN chat_sessions s ON s.id = m.session_id
+     WHERE m.id = $1 AND m.session_id = $2 AND s.user_id = $3
+     LIMIT 1`,
+    [body.messageId, body.sessionId, user.id],
+  );
 
-  if (msgErr || !msgRow) {
+  const msgRow = msgRows[0];
+  if (!msgRow) {
     return NextResponse.json(
       { ok: false, error: 'Saved message not found for this session (it may not have been persisted yet). Wait for the run to save, or send a new query.' },
       { status: 404 },
@@ -95,36 +73,44 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2. Pull all session feedback in parallel
   const [feedbackRes, actionsRes, resultsRes] = await Promise.all([
-    supabase.from('recommendation_feedback').select('*').eq('session_id', body.sessionId).order('created_at', { ascending: false }).limit(30),
-    supabase.from('recommendation_actions').select('*').eq('session_id', body.sessionId).order('created_at', { ascending: false }).limit(30),
-    supabase.from('variant_results').select('*').eq('session_id', body.sessionId).order('created_at', { ascending: false }).limit(30),
+    query(
+      `SELECT * FROM recommendation_feedback WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30`,
+      [body.sessionId],
+    ),
+    query(
+      `SELECT * FROM recommendation_actions WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30`,
+      [body.sessionId],
+    ),
+    query(
+      `SELECT * FROM variant_results WHERE session_id = $1 ORDER BY created_at DESC LIMIT 30`,
+      [body.sessionId],
+    ),
   ]);
 
   const feedbackSummary = buildFeedbackSummary(
-    feedbackRes.data ?? [],
-    actionsRes.data ?? [],
-    resultsRes.data ?? [],
+    feedbackRes.rows ?? [],
+    actionsRes.rows ?? [],
+    resultsRes.rows ?? [],
     body.focus,
   );
 
   const feedbackApplied: FeedbackAppliedCounts = {
-    recommendationFeedback: feedbackRes.data?.length ?? 0,
-    recommendationActions: actionsRes.data?.length ?? 0,
-    variantResults: resultsRes.data?.length ?? 0,
+    recommendationFeedback: feedbackRes.rows?.length ?? 0,
+    recommendationActions: actionsRes.rows?.length ?? 0,
+    variantResults: resultsRes.rows?.length ?? 0,
   };
 
-  // 3. Rebuild history up to the message being refined and re-run full orchestration.
-  const { data: historyRows } = await supabase
-    .from('chat_messages')
-    .select('role, content, created_at')
-    .eq('session_id', body.sessionId)
-    .lte('created_at', msgRow.created_at)
-    .order('created_at', { ascending: true })
-    .limit(80);
+  const { rows: historyRows } = await query<{ role: 'user' | 'assistant'; content: string; created_at: string }>(
+    `SELECT role, content, created_at
+     FROM chat_messages
+     WHERE session_id = $1 AND created_at <= $2::timestamptz
+     ORDER BY created_at ASC
+     LIMIT 80`,
+    [body.sessionId, msgRow.created_at],
+  );
 
-  const history: ConversationMessage[] = (historyRows ?? []).map((row: { role: 'user' | 'assistant'; content: string; created_at: string }) => ({
+  const history: ConversationMessage[] = historyRows.map((row) => ({
     role: row.role,
     content: row.content,
     timestamp: row.created_at,

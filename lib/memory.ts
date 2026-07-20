@@ -1,5 +1,3 @@
-import { createClient } from '@/lib/supabase-browser';
-
 export interface UserMemory {
   role: string | null;
   company: string | null;
@@ -28,36 +26,12 @@ const EMPTY_MEMORY: UserMemory = {
   updated_at: new Date().toISOString(),
 };
 
-// ── Read ──────────────────────────────────────────────────────────────────────
-
 export async function getUserMemory(): Promise<UserMemory> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return EMPTY_MEMORY;
-
-  const { data, error } = await supabase
-    .from('user_memory')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (error || !data) return EMPTY_MEMORY;
-
-  return {
-    role: data.role ?? null,
-    company: data.company ?? null,
-    products: data.products ?? [],
-    competitors: data.competitors ?? [],
-    interests: data.interests ?? [],
-    facts: (data.facts as MemoryFact[]) ?? [],
-    raw_summary: data.raw_summary ?? null,
-    updated_at: data.updated_at,
-  };
+  const res = await fetch('/api/memory', { credentials: 'include' });
+  if (!res.ok) return EMPTY_MEMORY;
+  const json = await res.json();
+  return (json.memory as UserMemory) ?? EMPTY_MEMORY;
 }
-
-// ── Extract + merge after a query ─────────────────────────────────────────────
-// Called in the background after every assistant response.
-// Delegates to server-side API route — keeps Gemini key off the client.
 
 export async function extractAndUpdateMemory(
   sessionId: string,
@@ -69,15 +43,13 @@ export async function extractAndUpdateMemory(
     await fetch('/api/memory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ sessionId, userQuery, assistantAnswer, existingMemory }),
     });
   } catch (err) {
-    // Non-fatal — memory extraction never blocks the UI
     console.error('memory extraction failed:', err);
   }
 }
-
-// ── Build memory context string for agents ────────────────────────────────────
 
 export function buildMemoryContext(memory: UserMemory): string {
   if (!memory.raw_summary && memory.products.length === 0 && memory.facts.length === 0) {
@@ -99,4 +71,3 @@ export function buildMemoryContext(memory: UserMemory): string {
 
   return lines.join('\n');
 }
-

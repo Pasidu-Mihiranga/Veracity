@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 
 export const runtime = 'nodejs';
-
-// ── Body shapes ─────────────────────────────────────────────────────────────
-// A single unified endpoint that accepts three kinds of feedback payloads.
-// Discriminated union keeps the wire format small and the UI simple.
 
 type RecommendationFeedbackBody = {
   kind: 'recommendation-feedback';
   sessionId: string;
   messageId?: string | null;
-  recommendationKey: string;          // stable hash built on the client
+  recommendationKey: string;
   title: string;
   rating: 'up' | 'down' | 'neutral';
   note?: string;
@@ -47,22 +43,6 @@ type VariantResultBody = {
 
 type FeedbackBody = RecommendationFeedbackBody | RecommendationActionBody | VariantResultBody;
 
-async function getSupabase() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (toSet) => {
-          toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
-      },
-    },
-  );
-}
-
 export async function POST(req: NextRequest) {
   let body: FeedbackBody;
   try {
@@ -75,8 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'missing kind or sessionId' }, { status: 400 });
   }
 
-  const supabase = await getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
   }
@@ -86,16 +65,20 @@ export async function POST(req: NextRequest) {
       if (!body.recommendationKey || !body.title || !body.rating) {
         return NextResponse.json({ ok: false, error: 'missing required fields' }, { status: 400 });
       }
-      const { error } = await supabase.from('recommendation_feedback').insert({
-        user_id: user.id,
-        session_id: body.sessionId,
-        message_id: body.messageId ?? null,
-        recommendation_key: body.recommendationKey,
-        title: body.title,
-        rating: body.rating,
-        note: body.note ?? null,
-      });
-      if (error) throw error;
+      await query(
+        `INSERT INTO recommendation_feedback
+          (user_id, session_id, message_id, recommendation_key, title, rating, note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          user.id,
+          body.sessionId,
+          body.messageId ?? null,
+          body.recommendationKey,
+          body.title,
+          body.rating,
+          body.note ?? null,
+        ],
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -103,16 +86,20 @@ export async function POST(req: NextRequest) {
       if (!body.recommendationKey || !body.title || !body.action) {
         return NextResponse.json({ ok: false, error: 'missing required fields' }, { status: 400 });
       }
-      const { error } = await supabase.from('recommendation_actions').insert({
-        user_id: user.id,
-        session_id: body.sessionId,
-        message_id: body.messageId ?? null,
-        recommendation_key: body.recommendationKey,
-        title: body.title,
-        action: body.action,
-        metadata: body.metadata ?? {},
-      });
-      if (error) throw error;
+      await query(
+        `INSERT INTO recommendation_actions
+          (user_id, session_id, message_id, recommendation_key, title, action, metadata)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+        [
+          user.id,
+          body.sessionId,
+          body.messageId ?? null,
+          body.recommendationKey,
+          body.title,
+          body.action,
+          JSON.stringify(body.metadata ?? {}),
+        ],
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -120,23 +107,28 @@ export async function POST(req: NextRequest) {
       if (!body.variantId) {
         return NextResponse.json({ ok: false, error: 'missing variantId' }, { status: 400 });
       }
-      const { error } = await supabase.from('variant_results').insert({
-        user_id: user.id,
-        session_id: body.sessionId,
-        message_id: body.messageId ?? null,
-        variant_id: body.variantId,
-        variant_angle: body.variantAngle ?? null,
-        hypothesis: body.hypothesis ?? null,
-        success_metric: body.successMetric ?? null,
-        sent_count: body.sentCount ?? null,
-        open_rate: body.openRate ?? null,
-        reply_rate: body.replyRate ?? null,
-        click_rate: body.clickRate ?? null,
-        meetings_booked: body.meetingsBooked ?? null,
-        hypothesis_confirmed: body.hypothesisConfirmed ?? null,
-        notes: body.notes ?? null,
-      });
-      if (error) throw error;
+      await query(
+        `INSERT INTO variant_results
+          (user_id, session_id, message_id, variant_id, variant_angle, hypothesis, success_metric,
+           sent_count, open_rate, reply_rate, click_rate, meetings_booked, hypothesis_confirmed, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [
+          user.id,
+          body.sessionId,
+          body.messageId ?? null,
+          body.variantId,
+          body.variantAngle ?? null,
+          body.hypothesis ?? null,
+          body.successMetric ?? null,
+          body.sentCount ?? null,
+          body.openRate ?? null,
+          body.replyRate ?? null,
+          body.clickRate ?? null,
+          body.meetingsBooked ?? null,
+          body.hypothesisConfirmed ?? null,
+          body.notes ?? null,
+        ],
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -147,7 +139,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── GET — pull accumulated outcomes for a session (used by /refine) ─────────
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const sessionId = url.searchParams.get('sessionId');
@@ -155,22 +146,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'sessionId required' }, { status: 400 });
   }
 
-  const supabase = await getSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
   }
 
   const [feedbackRes, actionsRes, resultsRes] = await Promise.all([
-    supabase.from('recommendation_feedback').select('*').eq('session_id', sessionId).order('created_at', { ascending: false }).limit(50),
-    supabase.from('recommendation_actions').select('*').eq('session_id', sessionId).order('created_at', { ascending: false }).limit(50),
-    supabase.from('variant_results').select('*').eq('session_id', sessionId).order('created_at', { ascending: false }).limit(50),
+    query(
+      `SELECT * FROM recommendation_feedback WHERE session_id = $1 AND user_id = $2
+       ORDER BY created_at DESC LIMIT 50`,
+      [sessionId, user.id],
+    ),
+    query(
+      `SELECT * FROM recommendation_actions WHERE session_id = $1 AND user_id = $2
+       ORDER BY created_at DESC LIMIT 50`,
+      [sessionId, user.id],
+    ),
+    query(
+      `SELECT * FROM variant_results WHERE session_id = $1 AND user_id = $2
+       ORDER BY created_at DESC LIMIT 50`,
+      [sessionId, user.id],
+    ),
   ]);
 
   return NextResponse.json({
     ok: true,
-    feedback: feedbackRes.data ?? [],
-    actions: actionsRes.data ?? [],
-    variantResults: resultsRes.data ?? [],
+    feedback: feedbackRes.rows,
+    actions: actionsRes.rows,
+    variantResults: resultsRes.rows,
   });
 }

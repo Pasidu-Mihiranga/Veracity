@@ -4,6 +4,11 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { InteractiveRobotSpline } from '@/components/ui/interactive-3d-robot';
+
+/** Spline Viewer scene (.splinecode) */
+const ROBOT_SCENE =
+  'https://prod.spline.design/jvo0ld6GvAywAP1G/scene.splinecode';
 
 function AuthForm() {
   const router = useRouter();
@@ -20,24 +25,14 @@ function AuthForm() {
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
-    if (searchParams.get('error')) {
-      setError('Authentication failed. Please try again.');
-    }
+    const err = searchParams.get('error');
+    if (err) setError(err);
   }, [searchParams]);
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setGoogleLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
-      setError(error.message);
-      setGoogleLoading(false);
-    }
+    window.location.href = '/api/auth/google';
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -47,21 +42,16 @@ function AuthForm() {
     setSuccessMsg('');
 
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) {
-        setError(error.message);
-      } else {
-        setSuccessMsg('Check your email to confirm your account.');
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else {
+        router.push('/');
+        router.refresh();
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setError(error.message);
-      } else {
+      if (error) setError(error.message);
+      else {
         router.push('/');
         router.refresh();
       }
@@ -71,150 +61,174 @@ function AuthForm() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#111111] flex-col justify-between p-12">
-        <div>
-          <h1 className="font-serif text-4xl font-bold text-white tracking-tight">Veracity</h1>
-          <p className="text-white/40 text-sm font-mono mt-1 uppercase tracking-widest">Growth Intelligence</p>
-        </div>
-
-        <div>
-          <blockquote className="text-white/80 text-2xl font-serif leading-relaxed mb-6">
-            "Boardroom-quality growth intelligence in minutes — not weeks."
-          </blockquote>
-          <div className="flex flex-col gap-4">
-            {[
-              { stat: '6+', label: 'Intelligence domains' },
-              { stat: '16+', label: 'Live data sources' },
-              { stat: '<5 min', label: 'To a strategic brief' },
-            ].map(({ stat, label }) => (
-              <div key={label} className="flex items-center gap-4">
-                <span className="text-accent-secondary font-mono text-xl font-bold w-16">{stat}</span>
-                <span className="text-white/50 text-sm">{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-white/20 text-xs font-mono">
-          Veracity AI × Hatch · 15 March 2026
-        </p>
+    <div className="auth-page min-h-screen relative overflow-hidden">
+      {/* Full-page Spline background */}
+      <div className="auth-robot-bg absolute inset-0 z-0">
+        <InteractiveRobotSpline
+          scene={ROBOT_SCENE}
+          className="auth-robot-viewer"
+        />
       </div>
+      {/* Covers “Built with Spline” — above viewer, below UI cards */}
+      <div className="auth-spline-badge-cover" aria-hidden />
 
-      {/* Right panel — auth form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-8 text-center">
-            <h1 className="font-serif text-3xl font-bold text-gradient-signature">Veracity</h1>
+      <div className="relative z-20 min-h-screen flex pointer-events-none">
+        {/* Left branding */}
+        <div className="hidden lg:flex lg:w-[52%] flex-col justify-between p-10 xl:p-14 min-h-screen">
+          <div className="auth-card pointer-events-auto w-fit px-5 py-4">
+            <picture>
+              <source srcSet="/logo.avif" type="image/avif" />
+              <img
+                src="/logo.png"
+                alt="Veracity"
+                width={160}
+                height={54}
+                className="auth-logo h-14 w-auto max-w-[280px] object-left object-contain"
+                draggable={false}
+              />
+            </picture>
+            <p className="text-slate-700 text-sm font-medium tracking-wide mt-2 pl-0.5">
+              Growth Intelligence Platform
+            </p>
           </div>
 
-          <div className="veracity-card p-8">
-            <h2 className="text-2xl font-semibold text-foreground mb-1">
-              {mode === 'signin' ? 'Welcome back' : 'Create account'}
-            </h2>
-            <p className="text-muted-foreground text-sm mb-6">
-              {mode === 'signin'
-                ? 'Sign in to access your intelligence dashboard.'
-                : 'Start building growth intelligence today.'}
-            </p>
+          <div className="auth-card p-8 max-w-md pointer-events-auto my-auto">
+            <p className="label-mono mb-3">Why teams use it</p>
+            <blockquote className="font-display text-xl font-bold leading-snug tracking-tight mb-6">
+              Boardroom-quality growth intelligence in minutes — not weeks.
+            </blockquote>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { stat: '6+', label: 'Domains' },
+                { stat: '16+', label: 'Signals' },
+                { stat: '<5m', label: 'To brief' },
+              ].map(({ stat, label }) => (
+                <div key={label} className="auth-stat px-3 py-3 text-center">
+                  <div className="font-display font-extrabold text-accent text-lg">{stat}</div>
+                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-            {/* Google button */}
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-              className="w-full flex items-center justify-center gap-3 border border-border bg-card hover:bg-muted rounded-xl px-4 py-3 text-sm font-medium text-foreground transition-all hover:-translate-y-[1px] hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0 mb-5"
-            >
-              {googleLoading ? (
-                <span className="w-5 h-5 border-2 border-border border-t-accent rounded-full animate-spin" />
-              ) : (
-                <GoogleIcon />
-              )}
-              Continue with Google
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">or</span>
-              <div className="flex-1 h-px bg-border" />
+        {/* Right — sign-in */}
+        <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
+          <div className="w-full max-w-[400px] pointer-events-auto">
+            <div className="lg:hidden mb-8 auth-card w-fit px-4 py-3">
+              <picture>
+                <source srcSet="/logo.avif" type="image/avif" />
+                <img
+                  src="/logo.png"
+                  alt="Veracity"
+                  width={140}
+                  height={47}
+                  className="auth-logo h-12 w-auto max-w-[220px] object-left object-contain"
+                  draggable={false}
+                />
+              </picture>
             </div>
 
-            {/* Email/password form */}
-            <form onSubmit={handleEmailAuth} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-mono text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  placeholder="you@company.com"
-                  className="w-full h-11 px-4 bg-muted border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent/40 transition-all placeholder:text-muted-foreground"
-                />
+            <div className="auth-card p-7 sm:p-8">
+              <h2 className="font-display text-xl font-extrabold tracking-tight mb-1">
+                {mode === 'signin' ? 'Sign in' : 'Create account'}
+              </h2>
+              <p className="text-sm mb-6 text-slate-500">
+                {mode === 'signin'
+                  ? 'Access your intelligence workspace.'
+                  : 'Set up access in under a minute.'}
+              </p>
+
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+                className="auth-btn-secondary w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-semibold disabled:opacity-60 mb-4 min-h-11"
+              >
+                {googleLoading ? (
+                  <span className="w-4 h-4 border-2 border-slate-300 border-t-accent rounded-full animate-spin" />
+                ) : (
+                  <GoogleIcon />
+                )}
+                Continue with Google
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">or</span>
+                <div className="flex-1 h-px bg-slate-200" />
               </div>
 
-              <div>
-                <label className="block text-xs font-mono text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
+              <form onSubmit={handleEmailAuth} className="flex flex-col gap-3.5">
+                <div>
+                  <label className="label-mono block mb-1.5 text-slate-500">Email</label>
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
                     required
-                    minLength={6}
-                    placeholder="••••••••"
-                    className="w-full h-11 px-4 pr-12 bg-muted border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent/40 transition-all placeholder:text-muted-foreground"
+                    placeholder="you@company.com"
+                    className="auth-input w-full h-11 px-3.5 text-sm outline-none"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
                 </div>
-              </div>
 
-              {/* Error / success */}
-              {error && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  {error}
+                <div>
+                  <label className="label-mono block mb-1.5 text-slate-500">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      placeholder="••••••••"
+                      className="auth-input w-full h-11 px-3.5 pr-11 text-sm outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-2"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
-              )}
-              {successMsg && (
-                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-                  {successMsg}
-                </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={loading || googleLoading}
-                className="w-full h-11 bg-gradient-signature text-white rounded-xl font-medium text-sm transition-all hover:-translate-y-[1px] hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : mode === 'signin' ? 'Sign in' : 'Create account'}
-              </button>
-            </form>
+                {error && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl auth-stat text-sm text-slate-700">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-accent" />
+                    {error}
+                  </div>
+                )}
+                {successMsg && (
+                  <div className="p-3 rounded-xl auth-stat text-sm text-accent">
+                    {successMsg}
+                  </div>
+                )}
 
-            {/* Toggle mode */}
-            <p className="text-center text-sm text-muted-foreground mt-5">
-              {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-              <button
-                onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setSuccessMsg(''); }}
-                className="text-accent font-medium hover:underline"
-              >
-                {mode === 'signin' ? 'Sign up' : 'Sign in'}
-              </button>
-            </p>
+                <button
+                  type="submit"
+                  disabled={loading || googleLoading}
+                  className="bg-gradient-signature w-full h-11 font-semibold text-sm text-white disabled:opacity-60 flex items-center justify-center gap-2 mt-1"
+                >
+                  {loading ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : mode === 'signin' ? 'Sign in' : 'Create account'}
+                </button>
+              </form>
+
+              <p className="text-center text-sm text-slate-500 mt-5">
+                {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setSuccessMsg(''); }}
+                  className="text-accent font-semibold hover:underline focus-ring rounded"
+                >
+                  {mode === 'signin' ? 'Sign up' : 'Sign in'}
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -224,7 +238,11 @@ function AuthForm() {
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#A5A3A3] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-slate-400 border-t-accent rounded-full animate-spin" />
+      </div>
+    }>
       <AuthForm />
     </Suspense>
   );
@@ -232,7 +250,7 @@ export default function AuthPage() {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" aria-hidden>
       <path d="M47.532 24.5528C47.532 22.9214 47.3997 21.2811 47.1175 19.6761H24.48V28.9181H37.4434C36.9055 31.8988 35.177 34.5356 32.6461 36.2111V42.2078H40.3801C44.9217 38.0278 47.532 31.8547 47.532 24.5528Z" fill="#4285F4"/>
       <path d="M24.48 48.0016C30.9529 48.0016 36.4116 45.8764 40.3888 42.2078L32.6549 36.2111C30.5031 37.675 27.7252 38.5039 24.4888 38.5039C18.2275 38.5039 12.9187 34.2798 11.0139 28.6006H3.03296V34.7825C7.10718 42.8868 15.4056 48.0016 24.48 48.0016Z" fill="#34A853"/>
       <path d="M11.0051 28.6006C9.99973 25.6199 9.99973 22.3922 11.0051 19.4115V13.2296H3.03298C-0.371021 20.0112 -0.371021 28.0009 3.03298 34.7825L11.0051 28.6006Z" fill="#FBBC04"/>

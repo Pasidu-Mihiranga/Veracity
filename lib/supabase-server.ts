@@ -1,26 +1,33 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import {
+  AUTH_COOKIE,
+  authenticateUser,
+  clearAuthCookie,
+  createSessionToken,
+  createUser,
+  getCurrentUser,
+  setAuthCookie,
+  type AuthUser,
+} from '@/lib/auth';
 
+/** Compatibility shim — previously returned a Supabase server client. */
 export async function createClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Called from Server Component — cookies set in middleware instead
-          }
-        },
+  return {
+    auth: {
+      async getUser(): Promise<{ data: { user: AuthUser | null }; error: null }> {
+        const user = await getCurrentUser();
+        return { data: { user }, error: null };
       },
-    }
-  );
+    },
+  };
 }
+
+export {
+  AUTH_COOKIE,
+  authenticateUser,
+  clearAuthCookie,
+  createSessionToken,
+  createUser,
+  getCurrentUser,
+  setAuthCookie,
+};
+export type { AuthUser };

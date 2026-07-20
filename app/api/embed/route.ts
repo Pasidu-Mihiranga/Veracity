@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 import { embedText } from '@/lib/embeddings';
 
 export const runtime = 'nodejs';
@@ -24,41 +25,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'sessionId, role, content are required' }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  // Verify session ownership (RLS will also enforce this on insert)
-  const { data: session } = await supabase
-    .from('chat_sessions')
-    .select('id')
-    .eq('id', sessionId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!session) {
+  const { rows: sessions } = await query(
+    `SELECT id FROM chat_sessions WHERE id = $1 AND user_id = $2 LIMIT 1`,
+    [sessionId, user.id],
+  );
+  if (!sessions[0]) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
   const embedding = await embedText(content);
   if (!embedding) {
-    // Embedding model unavailable (quota, region, or key scope) — skip indexing silently.
-    // The chat system works without semantic recall; embeddings are a background enhancement only.
     return NextResponse.json({ ok: true, skipped: true });
   }
 
-  const { error } = await supabase.from('chat_embeddings').insert({
-    session_id: sessionId,
-    message_id: messageId ?? null,
-    role,
-    content: content.slice(0, 8000),
-    embedding: embedding as unknown as string, // pgvector accepts number[] via supabase-js
-  });
-
-  if (error) {
-    console.error('[embed insert]', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await query(
+      `INSERT INTO chat_embeddings (session_id, message_id, role, content, embedding)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [sessionId, messageId ?? null, role, content.slice(0, 8000), JSON.stringify(embedding)],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'embed insert failed';
+    console.error('[embed insert]', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

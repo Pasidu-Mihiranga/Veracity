@@ -18,8 +18,8 @@ function jsonError(message: string, status: number) {
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return jsonError('Not authenticated', 401);
   }
 

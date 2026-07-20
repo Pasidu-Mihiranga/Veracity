@@ -46,11 +46,10 @@ function jsonError(message: string, status: number): Response {
 export async function POST(req: NextRequest) {
   // ── Auth gate (parity with /api/feedback, /api/refine, /api/recall) ─────────
   // Orchestration spends real tokens and hits live APIs on every invocation,
-  // so the endpoint must require a signed-in Supabase user before any work
-  // starts. Unauthenticated callers get 401 *before* the stream opens.
+  // so the endpoint must require a signed-in user before any work starts.
   const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
     return jsonError('Not authenticated', 401);
   }
 

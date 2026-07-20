@@ -1,5 +1,3 @@
-import { createClient } from '@/lib/supabase-browser';
-
 export interface ChatSession {
   id: string;
   title: string;
@@ -16,53 +14,46 @@ export interface StoredMessage {
   created_at: string;
 }
 
-// ── Sessions ──────────────────────────────────────────────────────────────────
-
 export async function createSession(title: string): Promise<ChatSession | null> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data, error } = await supabase
-    .from('chat_sessions')
-    .insert({ user_id: user.id, title, updated_at: new Date().toISOString() })
-    .select()
-    .single();
-
-  if (error) { console.error('createSession:', error.message); return null; }
-  return data as ChatSession;
+  const res = await fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) {
+    console.error('createSession:', res.status);
+    return null;
+  }
+  const json = await res.json();
+  return (json.session as ChatSession) ?? null;
 }
 
 export async function updateSessionTitle(sessionId: string, title: string): Promise<void> {
-  const supabase = createClient();
-  await supabase
-    .from('chat_sessions')
-    .update({ title, updated_at: new Date().toISOString() })
-    .eq('id', sessionId);
+  await fetch(`/api/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ title }),
+  });
 }
 
 export async function listSessions(): Promise<ChatSession[]> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('chat_sessions')
-    .select('id, title, created_at, updated_at')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(40);
-
-  if (error) { console.error('listSessions:', error.message); return []; }
-  return (data ?? []) as ChatSession[];
+  const res = await fetch('/api/sessions', { credentials: 'include' });
+  if (!res.ok) {
+    console.error('listSessions:', res.status);
+    return [];
+  }
+  const json = await res.json();
+  return (json.sessions ?? []) as ChatSession[];
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  const supabase = createClient();
-  await supabase.from('chat_sessions').delete().eq('id', sessionId);
+  await fetch(`/api/sessions/${sessionId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
 }
-
-// ── Messages ──────────────────────────────────────────────────────────────────
 
 export async function saveMessage(
   sessionId: string,
@@ -70,39 +61,26 @@ export async function saveMessage(
   content: string,
   metadata: Record<string, unknown> = {},
 ): Promise<string | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .insert({
-      session_id: sessionId,
-      role,
-      content,
-      metadata,
-    })
-    .select('id')
-    .single();
-  if (error) {
-    console.error('saveMessage:', error.message);
+  const res = await fetch(`/api/sessions/${sessionId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ role, content, metadata }),
+  });
+  if (!res.ok) {
+    console.error('saveMessage:', res.status);
     return null;
   }
-
-  // Keep updated_at fresh on the session
-  await supabase
-    .from('chat_sessions')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', sessionId);
-
-  return (data?.id as string | undefined) ?? null;
+  const json = await res.json();
+  return (json.id as string | undefined) ?? null;
 }
 
 export async function loadMessages(sessionId: string): Promise<StoredMessage[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .select('*')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true });
-
-  if (error) { console.error('loadMessages:', error.message); return []; }
-  return (data ?? []) as StoredMessage[];
+  const res = await fetch(`/api/sessions/${sessionId}/messages`, { credentials: 'include' });
+  if (!res.ok) {
+    console.error('loadMessages:', res.status);
+    return [];
+  }
+  const json = await res.json();
+  return (json.messages ?? []) as StoredMessage[];
 }

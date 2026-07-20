@@ -1,11 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { query } from '@/lib/db';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Cache TTL in minutes per tool type
 const CACHE_TTL: Record<string, number> = {
   serpapi_search: 30,
   serpapi_news: 15,
@@ -15,31 +9,18 @@ const CACHE_TTL: Record<string, number> = {
   firecrawl: 120,
 };
 
-export interface CacheEntry {
-  id?: string;
-  cache_key: string;
-  tool: string;
-  result: unknown;
-  created_at?: string;
-}
-
 export async function getCached(tool: string, cacheKey: string): Promise<unknown | null> {
   try {
     const ttlMinutes = CACHE_TTL[tool] ?? 30;
     const cutoff = new Date(Date.now() - ttlMinutes * 60 * 1000).toISOString();
-
-    const { data, error } = await supabase
-      .from('signal_cache')
-      .select('result')
-      .eq('cache_key', cacheKey)
-      .eq('tool', tool)
-      .gte('created_at', cutoff)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error || !data) return null;
-    return data.result;
+    const { rows } = await query<{ result: unknown }>(
+      `SELECT result FROM signal_cache
+       WHERE cache_key = $1 AND tool = $2 AND created_at >= $3::timestamptz
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [cacheKey, tool, cutoff],
+    );
+    return rows[0]?.result ?? null;
   } catch {
     return null;
   }
@@ -47,12 +28,13 @@ export async function getCached(tool: string, cacheKey: string): Promise<unknown
 
 export async function setCache(tool: string, cacheKey: string, result: unknown): Promise<void> {
   try {
-    await supabase.from('signal_cache').upsert({
-      cache_key: cacheKey,
-      tool,
-      result,
-      created_at: new Date().toISOString(),
-    }, { onConflict: 'cache_key,tool' });
+    await query(
+      `INSERT INTO signal_cache (cache_key, tool, result, created_at)
+       VALUES ($1, $2, $3::jsonb, now())
+       ON CONFLICT (cache_key, tool)
+       DO UPDATE SET result = EXCLUDED.result, created_at = now()`,
+      [cacheKey, tool, JSON.stringify(result)],
+    );
   } catch {
     // Cache write failure is non-fatal
   }
@@ -60,29 +42,30 @@ export async function setCache(tool: string, cacheKey: string, result: unknown):
 
 export async function saveConversation(
   sessionId: string,
-  messages: { role: string; content: string }[]
+  messages: { role: string; content: string }[],
 ): Promise<void> {
   try {
-    await supabase.from('conversations').upsert({
-      session_id: sessionId,
-      messages,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'session_id' });
+    await query(
+      `INSERT INTO conversations (session_id, messages, updated_at)
+       VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (session_id)
+       DO UPDATE SET messages = EXCLUDED.messages, updated_at = now()`,
+      [sessionId, JSON.stringify(messages)],
+    );
   } catch {
     // Non-fatal
   }
 }
 
 export async function getConversation(
-  sessionId: string
+  sessionId: string,
 ): Promise<{ role: string; content: string }[] | null> {
   try {
-    const { data } = await supabase
-      .from('conversations')
-      .select('messages')
-      .eq('session_id', sessionId)
-      .single();
-    return data?.messages ?? null;
+    const { rows } = await query<{ messages: { role: string; content: string }[] }>(
+      `SELECT messages FROM conversations WHERE session_id = $1 LIMIT 1`,
+      [sessionId],
+    );
+    return rows[0]?.messages ?? null;
   } catch {
     return null;
   }

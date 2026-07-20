@@ -1,13 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateHuggingFaceJson } from '@/lib/agents/gemini';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 import type { UserMemory, MemoryFact } from '@/lib/memory';
 
 export const runtime = 'nodejs';
 
 function dedupe(arr: string[]): string[] {
   return [...new Set(arr.map(s => s.trim()).filter(Boolean))];
+}
+
+const EMPTY_MEMORY: UserMemory = {
+  role: null,
+  company: null,
+  products: [],
+  competitors: [],
+  interests: [],
+  facts: [],
+  raw_summary: null,
+  updated_at: new Date().toISOString(),
+};
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ memory: EMPTY_MEMORY }, { status: 401 });
+
+  const { rows } = await query(
+    `SELECT role, company, products, competitors, interests, facts, raw_summary, updated_at
+     FROM user_memory WHERE user_id = $1 LIMIT 1`,
+    [user.id],
+  );
+  const data = rows[0];
+  if (!data) return NextResponse.json({ memory: EMPTY_MEMORY });
+
+  return NextResponse.json({
+    memory: {
+      role: data.role ?? null,
+      company: data.company ?? null,
+      products: data.products ?? [],
+      competitors: data.competitors ?? [],
+      interests: data.interests ?? [],
+      facts: (data.facts as MemoryFact[]) ?? [],
+      raw_summary: data.raw_summary ?? null,
+      updated_at: data.updated_at,
+    } satisfies UserMemory,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -23,28 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Server-side Supabase client
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
-            } catch {
-              // Called from a context where cookies can't be mutated — safe to ignore
-            }
-          },
-        },
-      }
-    );
-
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 
     const existingSummary = existingMemory.raw_summary
@@ -94,25 +110,32 @@ Return JSON with this exact shape:
 
     const mergedFacts = [...existingMemory.facts, ...newFacts].slice(-30);
 
-    const update: Record<string, unknown> = {
-      user_id: user.id,
-      products: mergedProducts,
-      competitors: mergedCompetitors,
-      interests: mergedInterests,
-      facts: mergedFacts,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (parsed.role) update.role = parsed.role;
-    if (parsed.company) update.company = parsed.company;
-    if (parsed.summary_update) update.raw_summary = parsed.summary_update;
-
-    await supabase.from('user_memory').upsert(update, { onConflict: 'user_id' });
+    await query(
+      `INSERT INTO user_memory (user_id, role, company, products, competitors, interests, facts, raw_summary, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, now())
+       ON CONFLICT (user_id) DO UPDATE SET
+         role = COALESCE(EXCLUDED.role, user_memory.role),
+         company = COALESCE(EXCLUDED.company, user_memory.company),
+         products = EXCLUDED.products,
+         competitors = EXCLUDED.competitors,
+         interests = EXCLUDED.interests,
+         facts = EXCLUDED.facts,
+         raw_summary = COALESCE(EXCLUDED.raw_summary, user_memory.raw_summary),
+         updated_at = now()`,
+      [
+        user.id,
+        parsed.role ?? existingMemory.role,
+        parsed.company ?? existingMemory.company,
+        mergedProducts,
+        mergedCompetitors,
+        mergedInterests,
+        JSON.stringify(mergedFacts),
+        (parsed.summary_update as string | undefined) ?? existingMemory.raw_summary,
+      ],
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    // Memory extraction is non-critical — return 200 on rate limit / transient
-    // provider errors so the client doesn't surface a DevTools error.
     const msg = err instanceof Error ? err.message : String(err);
     const lower = msg.toLowerCase();
     if (
