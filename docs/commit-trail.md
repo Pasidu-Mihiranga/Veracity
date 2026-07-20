@@ -38,3 +38,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - refactor: remove standalone output configuration from next.config.ts
 - trail: chore: follow-up - feat: Implement a new authentication page with email/password and Google OAuth sign-in/sign-up, including associated global styles.
 - trail: chore: follow-up - add skills
+- trail: chore: follow-up - feat: Update skill descriptions and purposes for A/B Test Orchestrator, Campaign Brief Generator, Channel Strategist, Growth Copywriter, Humanizer, Memory Updater, Growth Loop Orchestrator, Positioning Strategist, UI Renderer, and Visual Artifact Generator
