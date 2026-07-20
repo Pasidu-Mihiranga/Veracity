@@ -41,3 +41,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - feat: Update skill descriptions and purposes for A/B Test Orchestrator, Campaign Brief Generator, Channel Strategist, Growth Copywriter, Humanizer, Memory Updater, Growth Loop Orchestrator, Positioning Strategist, UI Renderer, and Visual Artifact Generator
 - trail: chore: follow-up - add a RAG to chat history
 - trail: chore: follow-up - feat: Member 3 — Execution Engine (Content + A/B + Outreach)
+- trail: chore: follow-up - fix: replace fragile theme detection with useTheme() in ExecutionPlan, fix Promise.reject patterns in sub-agents
