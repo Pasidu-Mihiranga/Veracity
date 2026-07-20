@@ -43,3 +43,4 @@ Incremental progress notes aligned to project history.
 - trail: chore: follow-up - feat: Member 3 — Execution Engine (Content + A/B + Outreach)
 - trail: chore: follow-up - fix: replace fragile theme detection with useTheme() in ExecutionPlan, fix Promise.reject patterns in sub-agents
 - trail: chore: follow-up - UI update
+- trail: chore: follow-up - feat: Member 3 — Execution Engine (Content + A/B + Outreach)
