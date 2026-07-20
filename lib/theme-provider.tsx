@@ -18,46 +18,52 @@ interface ThemeContextValue {
   textSubtle: string;
 }
 
+/** Brand: ice / cyan / navy / black / white only */
 const DARK: Omit<ThemeContextValue, 'theme' | 'isDark' | 'toggle'> = {
-  bg: '#0a0a0a',
-  surface: '#111111',
-  surface2: '#161616',
-  border: '#2e2e2e',
-  borderStrong: '#484848',
-  text: '#ededed',
-  textMuted: '#c2c2c2',
-  textSubtle: '#6b6b6b',
+  bg: '#070D16',
+  surface: '#070D16',
+  surface2: '#070D16',
+  border: 'transparent',
+  borderStrong: 'transparent',
+  text: '#E8F4FC',
+  textMuted: '#A8C0D8',
+  textSubtle: '#6B849C',
 };
 
 const LIGHT: Omit<ThemeContextValue, 'theme' | 'isDark' | 'toggle'> = {
-  bg: '#fafafa',
-  surface: '#ffffff',
-  surface2: '#f5f5f5',
-  border: '#e0e0e0',
-  borderStrong: '#c0c0c0',
-  text: '#111111',
-  textMuted: '#383838',
-  textSubtle: '#717171',
+  bg: '#D6E4F0',
+  surface: '#D6E4F0',
+  surface2: '#D6E4F0',
+  border: 'transparent',
+  borderStrong: 'transparent',
+  text: '#061424',
+  textMuted: '#1A3554',
+  textSubtle: '#2E4F72',
 };
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'dark',
-  isDark: true,
+  theme: 'light',
+  isDark: false,
   toggle: () => {},
-  ...DARK,
+  ...LIGHT,
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const saved = localStorage.getItem('veracity-theme') as Theme | null;
-    if (saved) setTheme(saved);
+    if (saved === 'dark' || saved === 'light') setTheme(saved);
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
-  }, [theme]);
+    if (!mounted) return;
+    const root = document.documentElement;
+    root.classList.toggle('light', theme === 'light');
+    root.classList.toggle('dark', theme === 'dark');
+  }, [theme, mounted]);
 
   const toggle = () => {
     setTheme(prev => {

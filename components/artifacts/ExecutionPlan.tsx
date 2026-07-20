@@ -16,12 +16,12 @@ interface Props {
 
 type Tab = 'variants' | 'brief' | 'deployment';
 
-const ANGLE_COLORS = ['#3b82f6', '#a855f7', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
+const ANGLE_COLORS = ['#3D9EFF', '#2A7FD4', '#00C4FF', '#3D9EFF', '#0B1A2E', '#5AB0E8'];
 
 const CHANNEL_COLORS: Record<string, string> = {
-  email: '#3b82f6',
-  linkedin: '#0077b5',
-  ads: '#f59e0b',
+  email: '#3D9EFF',
+  linkedin: '#2A7FD4',
+  ads: '#3D9EFF',
 };
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
@@ -61,7 +61,7 @@ function HoverCard({ children, style, className = '' }: { children: React.ReactN
         ...style,
         transform: hovered ? 'translateY(-2px)' : 'none',
         boxShadow: hovered
-          ? '0 8px 25px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,112,243,0.15)'
+          ? '0 8px 25px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,196,255,0.15)'
           : (style?.boxShadow ?? '0 1px 3px rgba(0,0,0,0.06)'),
       }}
       onMouseEnter={() => setHovered(true)}
@@ -88,7 +88,7 @@ function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) 
       type="button"
       onClick={onCopy}
       className="text-[11px] font-mono px-2.5 py-1 rounded-md flex items-center gap-1.5 transition-all hover:opacity-80"
-      style={{ color: copied ? '#10b981' : textSubtle, border: `1px solid ${copied ? 'rgba(16,185,129,0.35)' : borderC}`, background: copied ? 'rgba(16,185,129,0.06)' : 'transparent' }}
+      style={{ color: copied ? '#00C4FF' : textSubtle, border: `1px solid ${copied ? 'rgba(0,196,255,0.35)' : borderC}`, background: copied ? 'rgba(0,196,255,0.06)' : 'transparent' }}
     >
       {copied ? <Check size={11} /> : <Copy size={11} />}
       {copied ? 'Copied' : label}
@@ -165,7 +165,7 @@ function DeploymentTimeline({ steps }: { steps: DeploymentStep[] }) {
         <div className="flex items-end gap-1" style={{ height: 64 }}>
           {sorted.map((step, i) => {
             const height = Math.max(16, (step.day / maxDay) * 56);
-            const color = CHANNEL_COLORS[step.channel] ?? '#6366f1';
+            const color = CHANNEL_COLORS[step.channel] ?? '#5AB0E8';
             return (
               <div key={`tl-${i}`} className="flex-1 flex flex-col items-center gap-1 group" title={`Day ${step.day}: ${step.action}`}>
                 <div
@@ -260,7 +260,7 @@ function RecordResultForm({
           <div className="flex items-center justify-end">
             <button type="button" onClick={submit} disabled={saving || saved}
               className="text-[11px] font-mono px-4 py-1.5 rounded-md transition-all hover:opacity-90 disabled:opacity-60"
-              style={{ color: '#fff', background: saved ? '#10b981' : accentColor }}
+              style={{ color: '#fff', background: saved ? '#00C4FF' : accentColor }}
             >{saved ? 'Saved ✓' : saving ? 'Saving…' : 'Save result'}</button>
           </div>
         </div>
@@ -326,8 +326,8 @@ function VariantDetail({
             <div className="p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Mail size={14} style={{ color: '#3b82f6' }} />
-                  <span className="text-[11px] font-mono font-semibold uppercase tracking-wider" style={{ color: '#3b82f6' }}>Email Sequence</span>
+                  <Mail size={14} style={{ color: '#3D9EFF' }} />
+                  <span className="text-[11px] font-mono font-semibold uppercase tracking-wider" style={{ color: '#3D9EFF' }}>Email Sequence</span>
                 </div>
                 <CopyButton text={`Subject: ${email.subject}\n\n${email.body}`} label="Copy email" />
               </div>
@@ -503,13 +503,13 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
   ];
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: `1px solid #0070f3`, background: cardBg, boxShadow: '0 0 0 1px rgba(0,112,243,0.1)' }}>
+    <div className="rounded-xl overflow-hidden" style={{ border: `1px solid #00C4FF`, background: cardBg, boxShadow: '0 0 0 1px rgba(0,196,255,0.1)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 gap-3" style={{ borderBottom: `1px solid ${borderC}`, background: 'rgba(0,112,243,0.05)' }}>
+      <div className="flex items-center justify-between px-5 py-4 gap-3" style={{ borderBottom: `1px solid ${borderC}`, background: 'rgba(0,196,255,0.05)' }}>
         <div className="flex items-center gap-3 min-w-0">
-          <ArrowRight size={15} style={{ color: '#0070f3' }} className="shrink-0" />
+          <ArrowRight size={15} style={{ color: '#00C4FF' }} className="shrink-0" />
           <span className="text-[15px] font-semibold" style={{ color: textMain }}>Execution Plan</span>
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-md truncate" style={{ color: '#0070f3', background: 'rgba(0,112,243,0.1)', border: '1px solid rgba(0,112,243,0.2)' }}>
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-md truncate" style={{ color: '#00C4FF', background: 'rgba(0,196,255,0.1)', border: '1px solid rgba(0,196,255,0.2)' }}>
             {product}
           </span>
         </div>
@@ -517,15 +517,15 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
           {feedbackEnabled && (
             <button type="button" onClick={handleRefine} disabled={isRefining}
               className="flex items-center gap-1.5 text-[11px] font-mono px-3 py-1.5 rounded-md transition-all hover:opacity-80 disabled:opacity-50"
-              style={{ color: '#0070f3', background: 'rgba(0,112,243,0.08)', border: '1px solid rgba(0,112,243,0.3)' }}>
+              style={{ color: '#00C4FF', background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.3)' }}>
               <RefreshCw size={11} className={isRefining ? 'animate-spin' : ''} />
               {isRefining ? 'Refining…' : 'Refine'}
             </button>
           )}
           <span className="text-[11px] font-mono px-2.5 py-1 rounded-md" style={{
-            color: output.confidence === 'high' ? '#10b981' : output.confidence === 'medium' ? '#f59e0b' : '#6b7280',
-            background: output.confidence === 'high' ? 'rgba(16,185,129,0.1)' : output.confidence === 'medium' ? 'rgba(245,158,11,0.1)' : 'rgba(107,114,128,0.1)',
-            border: `1px solid ${output.confidence === 'high' ? 'rgba(16,185,129,0.25)' : output.confidence === 'medium' ? 'rgba(245,158,11,0.25)' : 'rgba(107,114,128,0.2)'}`,
+            color: output.confidence === 'high' ? '#00C4FF' : output.confidence === 'medium' ? '#3D9EFF' : '#6B849C',
+            background: output.confidence === 'high' ? 'rgba(0,196,255,0.1)' : output.confidence === 'medium' ? 'rgba(61,158,255,0.1)' : 'rgba(107,114,128,0.1)',
+            border: `1px solid ${output.confidence === 'high' ? 'rgba(0,196,255,0.25)' : output.confidence === 'medium' ? 'rgba(61,158,255,0.25)' : 'rgba(107,114,128,0.2)'}`,
           }}>{output.confidence}</span>
         </div>
       </div>
@@ -533,8 +533,8 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
         <div
           className="px-5 py-2 text-[11px] font-mono"
           style={{
-            background: refineHadError ? 'rgba(239,68,68,0.08)' : 'rgba(0,112,243,0.05)',
-            color: refineHadError ? '#f87171' : '#0070f3',
+            background: refineHadError ? 'rgba(11,26,46,0.08)' : 'rgba(0,196,255,0.05)',
+            color: refineHadError ? '#6B849C' : '#00C4FF',
             borderBottom: `1px solid ${borderC}`,
           }}
         >
@@ -548,8 +548,8 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className="flex items-center gap-2 px-5 py-3 text-[13px] font-mono font-medium transition-all hover:opacity-80"
             style={{
-              color: activeTab === tab.key ? '#0070f3' : textSubtle,
-              borderBottom: activeTab === tab.key ? '2px solid #0070f3' : '2px solid transparent',
+              color: activeTab === tab.key ? '#00C4FF' : textSubtle,
+              borderBottom: activeTab === tab.key ? '2px solid #00C4FF' : '2px solid transparent',
               marginBottom: '-1px',
             }}>
             {tab.icon} {tab.label}
@@ -614,14 +614,14 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
         {/* ── Brief ── */}
         {activeTab === 'brief' && brief && (
           <div className="flex flex-col gap-5">
-            <HoverCard style={{ background: 'rgba(0,112,243,0.05)', border: '1px solid rgba(0,112,243,0.2)' }}>
+            <HoverCard style={{ background: 'rgba(0,196,255,0.05)', border: '1px solid rgba(0,196,255,0.2)' }}>
               <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <p className="text-[10px] font-mono font-semibold uppercase tracking-widest mb-2" style={{ color: '#0070f3' }}>Objective</p>
+                  <p className="text-[10px] font-mono font-semibold uppercase tracking-widest mb-2" style={{ color: '#00C4FF' }}>Objective</p>
                   <p className="text-[14px] leading-relaxed" style={{ color: textMain }}>{brief.objective}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-mono font-semibold uppercase tracking-widest mb-2" style={{ color: '#0070f3' }}>Target Audience</p>
+                  <p className="text-[10px] font-mono font-semibold uppercase tracking-widest mb-2" style={{ color: '#00C4FF' }}>Target Audience</p>
                   <p className="text-[14px]" style={{ color: textMain }}>{brief.targetAudience}</p>
                 </div>
               </div>
@@ -633,7 +633,7 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                 <ul className="flex flex-col gap-1.5">
                   {brief.painPoints.map((p, i) => (
                     <li key={`pain-${i}`} className="flex items-start gap-2 text-[13px]" style={{ color: textMuted }}>
-                      <span style={{ color: '#ef4444', marginTop: '2px', flexShrink: 0 }}>✕</span>{p}
+                      <span style={{ color: '#0B1A2E', marginTop: '2px', flexShrink: 0 }}>✕</span>{p}
                     </li>
                   ))}
                 </ul>
@@ -669,7 +669,7 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                   <ul className="flex flex-col gap-1">
                     {brief.successMetrics.map((m, i) => (
                       <li key={`metric-${i}`} className="flex items-center gap-2 text-[13px]" style={{ color: textMuted }}>
-                        <CheckCircle2 size={11} style={{ color: '#10b981', flexShrink: 0 }} />{m}
+                        <CheckCircle2 size={11} style={{ color: '#00C4FF', flexShrink: 0 }} />{m}
                       </li>
                     ))}
                   </ul>
@@ -683,7 +683,7 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                 <ol className="flex flex-col gap-1.5">
                   {brief.nextSteps.map((s, i) => (
                     <li key={`step-${i}`} className="flex items-start gap-2 text-[13px]" style={{ color: textMuted }}>
-                      <span className="text-[11px] font-mono w-5 shrink-0 mt-0.5 font-semibold" style={{ color: '#0070f3' }}>{i + 1}.</span>{s}
+                      <span className="text-[11px] font-mono w-5 shrink-0 mt-0.5 font-semibold" style={{ color: '#00C4FF' }}>{i + 1}.</span>{s}
                     </li>
                   ))}
                 </ol>
@@ -706,7 +706,7 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                       return (
                         <button key={ch} type="button" onClick={() => setSelectedChannel(ch)}
                           className="text-[11px] font-mono px-3 py-1.5 rounded-md transition-all hover:opacity-80"
-                          style={{ color: active ? '#0070f3' : textSubtle, background: active ? 'rgba(0,112,243,0.08)' : 'transparent', border: `1px solid ${active ? 'rgba(0,112,243,0.2)' : borderC}` }}>
+                          style={{ color: active ? '#00C4FF' : textSubtle, background: active ? 'rgba(0,196,255,0.08)' : 'transparent', border: `1px solid ${active ? 'rgba(0,196,255,0.2)' : borderC}` }}>
                           {ch === 'all' ? 'All' : ch}
                         </button>
                       );
@@ -714,13 +714,13 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                   </div>
                   <button type="button" onClick={handlePublishAll}
                     className="text-[11px] font-mono px-4 py-1.5 rounded-md transition-all hover:opacity-80"
-                    style={{ color: '#fff', background: '#0070f3' }}>
+                    style={{ color: '#fff', background: '#00C4FF' }}>
                     Publish all
                   </button>
                 </div>
 
                 {publishStatus && (
-                  <div className="text-[11px] font-mono px-3 py-2 rounded-md" style={{ color: '#0070f3', background: 'rgba(0,112,243,0.06)', border: '1px solid rgba(0,112,243,0.15)' }}>
+                  <div className="text-[11px] font-mono px-3 py-2 rounded-md" style={{ color: '#00C4FF', background: 'rgba(0,196,255,0.06)', border: '1px solid rgba(0,196,255,0.15)' }}>
                     {publishStatus}
                   </div>
                 )}
@@ -731,17 +731,17 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                   const stepVisible = selectedChannel === 'all' || step.channel === selectedChannel;
                   return (
                     <HoverCard key={`deploy-${i}`} style={{
-                      background: cardBg2, border: `1px solid ${isDone ? 'rgba(16,185,129,0.3)' : borderC}`,
+                      background: cardBg2, border: `1px solid ${isDone ? 'rgba(0,196,255,0.3)' : borderC}`,
                       opacity: stepVisible ? (isDone ? 0.75 : 1) : 0.5,
                     }}>
                       <div className="flex items-start gap-3 px-4 py-3.5">
                         <button type="button" onClick={() => toggleStepComplete(i)} className="mt-1 shrink-0 transition-all hover:scale-110"
-                          style={{ color: isDone ? '#10b981' : borderC }}>
+                          style={{ color: isDone ? '#00C4FF' : borderC }}>
                           {isDone ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                         </button>
                         <div className="flex flex-col items-center gap-0.5 shrink-0 w-12">
                           <span className="text-[10px] font-mono" style={{ color: textSubtle }}>Day</span>
-                          <span className="text-[18px] font-bold font-mono" style={{ color: isDone ? '#10b981' : '#0070f3' }}>{step.day}</span>
+                          <span className="text-[18px] font-bold font-mono" style={{ color: isDone ? '#00C4FF' : '#00C4FF' }}>{step.day}</span>
                         </div>
                         <div className="w-px self-stretch mx-1" style={{ background: borderC }} />
                         <div className="flex-1 min-w-0">
@@ -751,7 +751,7 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                               {CHANNEL_ICONS[step.channel]} {step.channel}
                             </span>
                             {isPublished && (
-                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md" style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>published</span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md" style={{ color: '#00C4FF', background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>published</span>
                             )}
                           </div>
                           <p className="text-[13px] font-medium" style={{ color: textMain, textDecoration: isDone ? 'line-through' : 'none' }}>{step.action}</p>
@@ -759,7 +759,7 @@ export function ExecutionPlan({ output, product, sessionId, messageId, onRefined
                           <div className="flex items-center gap-2 mt-2.5">
                             <button type="button" onClick={() => handlePublishStep(i)}
                               className="text-[11px] font-mono px-3 py-1 rounded-md transition-all hover:opacity-80"
-                              style={{ color: '#0070f3', background: 'rgba(0,112,243,0.08)', border: '1px solid rgba(0,112,243,0.2)' }}>
+                              style={{ color: '#00C4FF', background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>
                               publish
                             </button>
                             <button type="button" onClick={() => toggleStepComplete(i)}

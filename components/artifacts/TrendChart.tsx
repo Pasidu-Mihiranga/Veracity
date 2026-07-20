@@ -9,23 +9,23 @@ interface TrendChartProps {
 }
 
 const OUTLOOK_COLOR = {
-  accelerating: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-  consolidating: 'text-amber-700 bg-amber-50 border-amber-200',
+  accelerating: 'text-sky-600 bg-sky-50 border-sky-200',
+  consolidating: 'text-sky-700 bg-sky-50 border-sky-200',
   maturing: 'text-blue-600 bg-blue-50 border-blue-200',
-  emerging: 'text-violet-600 bg-violet-50 border-violet-200',
+  emerging: 'text-sky-600 bg-sky-50 border-sky-200',
 };
 
 const DIRECTION_COLOR = {
-  up: '#10b981',
-  flat: '#94a3b8',
-  down: '#ef4444',
+  up: '#00C4FF',
+  flat: '#6B849C',
+  down: '#0B1A2E',
 };
 
 function CustomTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
     const d: TrendDataPoint = payload[0].payload;
     return (
-      <div className="bg-card border border-border rounded-xl shadow-lg p-3 text-xs max-w-[220px]">
+      <div className="bg-background neu-extruded rounded-xl p-3 text-xs max-w-[220px]">
         <p className="font-mono font-medium text-foreground mb-1">{d.keyword}</p>
         <p className="text-muted-foreground leading-relaxed">{d.signal}</p>
         <p className="text-[10px] text-muted-foreground mt-1 font-mono">Source: {d.source}</p>

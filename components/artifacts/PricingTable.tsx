@@ -8,9 +8,9 @@ interface Props {
 }
 
 const WTP_CONFIG = {
-  premium:         { label: 'Premium Market',     class: 'text-violet-600 bg-violet-50 border-violet-200' },
-  'mid-market':    { label: 'Mid-Market',          class: 'text-blue-600 bg-blue-50 border-blue-200'       },
-  'price-sensitive': { label: 'Price Sensitive',   class: 'text-amber-700 bg-amber-50 border-amber-200'    },
+  premium:         { label: 'Premium Market',     class: 'text-accent bg-accent/10 border-accent/20' },
+  'mid-market':    { label: 'Mid-Market',          class: 'text-accent-secondary bg-accent-secondary/10 border-accent-secondary/20' },
+  'price-sensitive': { label: 'Price Sensitive',   class: 'text-navy bg-navy/10 border-navy/20 dark:text-ice dark:bg-ice/10 dark:border-ice/20' },
 };
 
 export function PricingTable({ output }: Props) {
@@ -43,7 +43,7 @@ export function PricingTable({ output }: Props) {
                 <ul className="flex flex-col gap-0.5 mt-1">
                   {tier.features.slice(0, 4).map((f, fi) => (
                     <li key={fi} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                      <span className="text-emerald-500 shrink-0">✓</span>{f}
+                      <span className="text-[color:var(--accent)] shrink-0">✓</span>{f}
                     </li>
                   ))}
                 </ul>

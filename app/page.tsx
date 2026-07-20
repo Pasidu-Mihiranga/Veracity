@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Send, Plus, Search, ChevronRight, ChevronLeft, RefreshCw, ArrowUpRight,
@@ -110,57 +110,71 @@ type Domain = typeof ALL_DOMAINS[number];
 const DOMAIN_META: Record<Domain, {
   label: string; short: string;
   icon: React.ReactNode;
-  color: string;       // text color
-  bg: string;          // subtle tint bg (dark)
-  bgLight: string;     // subtle tint bg (light)
-  border: string;      // accent border
+  color: string;       // dark-mode text/icon
+  colorLight: string;  // light-mode text/icon (higher contrast)
+  bg: string;
+  bgLight: string;
+  border: string;
 }> = {
   'market-trends': {
     label: 'Market & Trend Sensing',   short: 'Market Trends',
     icon: <TrendingUp size={14} />,
-    color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', bgLight: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.3)',
+    color: '#00C4FF', colorLight: '#0052A3',
+    bg: 'rgba(0,196,255,0.12)', bgLight: 'rgba(0,82,163,0.1)', border: 'rgba(0,82,163,0.35)',
   },
   'competitive': {
     label: 'Competitive Landscape',    short: 'Competitive',
     icon: <Swords size={14} />,
-    color: '#a855f7', bg: 'rgba(168,85,247,0.08)', bgLight: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.3)',
+    color: '#3D9EFF', colorLight: '#1A5A9A',
+    bg: 'rgba(61,158,255,0.12)', bgLight: 'rgba(26,90,154,0.1)', border: 'rgba(26,90,154,0.35)',
   },
   'win-loss': {
     label: 'Win / Loss Intelligence',  short: 'Win / Loss',
     icon: <Trophy size={14} />,
-    color: '#10b981', bg: 'rgba(16,185,129,0.08)', bgLight: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.3)',
+    color: '#7EC8FF', colorLight: '#0B4F8C',
+    bg: 'rgba(126,200,255,0.12)', bgLight: 'rgba(11,79,140,0.1)', border: 'rgba(11,79,140,0.35)',
   },
   'pricing': {
     label: 'Pricing & Packaging',      short: 'Pricing',
     icon: <DollarSign size={14} />,
-    color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', bgLight: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.3)',
+    color: '#2A7FD4', colorLight: '#0B4F8C',
+    bg: 'rgba(42,127,212,0.12)', bgLight: 'rgba(11,79,140,0.1)', border: 'rgba(11,79,140,0.35)',
   },
   'positioning': {
     label: 'Positioning & Messaging',  short: 'Positioning',
     icon: <Megaphone size={14} />,
-    color: '#ef4444', bg: 'rgba(239,68,68,0.08)', bgLight: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.3)',
+    color: '#1A5A9A', colorLight: '#063A6B',
+    bg: 'rgba(26,90,154,0.12)', bgLight: 'rgba(6,58,107,0.1)', border: 'rgba(6,58,107,0.35)',
   },
   'adjacent': {
     label: 'Adjacent Market Collision', short: 'Adjacent',
     icon: <Telescope size={14} />,
-    color: '#6366f1', bg: 'rgba(99,102,241,0.08)', bgLight: 'rgba(99,102,241,0.06)', border: 'rgba(99,102,241,0.3)',
+    color: '#5AB0E8', colorLight: '#1A5A9A',
+    bg: 'rgba(90,176,232,0.12)', bgLight: 'rgba(26,90,154,0.1)', border: 'rgba(26,90,154,0.35)',
   },
   'execution-engine': {
     label: 'Execution Engine',          short: 'Execution',
     icon: <Rocket size={14} />,
-    color: '#0070f3', bg: 'rgba(0,112,243,0.08)', bgLight: 'rgba(0,112,243,0.06)', border: 'rgba(0,112,243,0.3)',
+    color: '#00C4FF', colorLight: '#0052A3',
+    bg: 'rgba(0,196,255,0.12)', bgLight: 'rgba(0,82,163,0.1)', border: 'rgba(0,82,163,0.35)',
   },
   'mirofish': {
     label: 'MiroFish (Forecast)',        short: 'MiroFish',
     icon: <Fish size={14} />,
-    color: '#06b6d4', bg: 'rgba(6,182,212,0.08)', bgLight: 'rgba(6,182,212,0.06)', border: 'rgba(6,182,212,0.3)',
+    color: '#9ED8FF', colorLight: '#0B4F8C',
+    bg: 'rgba(158,216,255,0.14)', bgLight: 'rgba(11,79,140,0.1)', border: 'rgba(11,79,140,0.4)',
   },
   'mirofish-live': {
     label: 'MiroFish Live (Real VPS)',   short: 'MiroFish Live',
     icon: <Fish size={14} />,
-    color: '#10b981', bg: 'rgba(16,185,129,0.08)', bgLight: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.3)',
+    color: '#1A5A9A', colorLight: '#063A6B',
+    bg: 'rgba(0,196,255,0.1)', bgLight: 'rgba(6,58,107,0.1)', border: 'rgba(6,58,107,0.3)',
   },
 };
+
+function domainAccent(meta: { color: string; colorLight: string }, isDark: boolean) {
+  return isDark ? meta.color : meta.colorLight;
+}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -190,16 +204,23 @@ function hydrateMessage(m: StoredMessage, idx: number): Message {
 
 /* ─── Confidence badge ───────────────────────────────────── */
 function ConfidenceBadge({ level }: { level?: string }) {
+  const { isDark } = useTheme();
   if (!level) return null;
-  const styles: Record<string, { color: string; bg: string; border: string }> = {
-    high:   { color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)'  },
-    medium: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)'  },
-    low:    { color: '#6b7280', bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.25)' },
-  };
+  const styles: Record<string, { color: string; bg: string; border: string }> = isDark
+    ? {
+        high:   { color: '#00C4FF', bg: 'rgba(0,196,255,0.12)',  border: 'rgba(0,196,255,0.3)'  },
+        medium: { color: '#3D9EFF', bg: 'rgba(61,158,255,0.12)',  border: 'rgba(61,158,255,0.3)'  },
+        low:    { color: '#6B849C', bg: 'rgba(107,132,156,0.12)', border: 'rgba(107,132,156,0.25)' },
+      }
+    : {
+        high:   { color: '#0052A3', bg: 'rgba(0,82,163,0.1)',  border: 'rgba(0,82,163,0.28)'  },
+        medium: { color: '#1A5A9A', bg: 'rgba(26,90,154,0.1)',  border: 'rgba(26,90,154,0.28)'  },
+        low:    { color: '#2E4F72', bg: 'rgba(46,79,114,0.1)', border: 'rgba(46,79,114,0.25)' },
+      };
   const s = styles[level] ?? styles.low;
   return (
-    <span className="text-[10px] font-mono font-medium uppercase tracking-wide px-2 py-0.5 rounded"
-      style={{ color: s.color, background: s.bg, border: `1px solid ${s.border}` }}>
+    <span className="neu-pill text-[10px] font-mono font-medium uppercase tracking-wide px-2.5 py-0.5"
+      style={{ color: s.color, background: s.bg }}>
       {level}
     </span>
   );
@@ -231,6 +252,7 @@ function SidebarAgentRow({
 }) {
   const { isDark, textMuted, textSubtle } = useTheme();
   const meta   = DOMAIN_META[domain];
+  const accent = domainAccent(meta, isDark);
   const status = run?.status ?? 'idle';
 
   return (
@@ -240,40 +262,41 @@ function SidebarAgentRow({
         type="button"
         onClick={onToggle}
         aria-label={`${selected ? 'Disable' : 'Enable'} ${meta.short}`}
-        className="w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all"
+        className="w-4 h-4 rounded shrink-0 flex items-center justify-center transition-all"
         style={{
-          borderColor: selected ? meta.color : (isDark ? '#444' : '#cbd5e1'),
-          background: selected ? meta.color : 'transparent',
-          boxShadow: selected ? `0 0 6px ${meta.color}33` : 'none',
+          background: selected ? accent : 'var(--background)',
+          boxShadow: selected
+            ? `inset 2px 2px 4px rgba(0,0,0,0.2), 0 0 6px ${accent}44`
+            : 'var(--shadow-extruded-sm)',
+          border: 'none',
         }}
       >
         {selected && <Check size={10} color="#fff" strokeWidth={3} />}
       </button>
       <div className="w-4 shrink-0 flex justify-center">
-        {status === 'running'   && <RefreshCw size={12} style={{ color: meta.color }} className="animate-spin" />}
-        {status === 'completed' && <CheckCircle2 size={12} style={{ color: '#10b981' }} />}
-        {status === 'failed'    && <AlertCircle size={12} style={{ color: '#ef4444' }} />}
-        {(status === 'idle' || status === 'pending') && <Circle size={12} style={{ color: isDark ? '#444' : '#bbb' }} />}
+        {status === 'running'   && <RefreshCw size={12} style={{ color: accent }} className="animate-spin" />}
+        {status === 'completed' && <CheckCircle2 size={12} style={{ color: 'var(--status-ok)' }} />}
+        {status === 'failed'    && <AlertCircle size={12} style={{ color: 'var(--status-fail)' }} />}
+        {(status === 'idle' || status === 'pending') && <Circle size={12} style={{ color: 'var(--foreground-subtle)' }} />}
       </div>
       <span className="text-[13px] flex-1 truncate" style={{
         textDecoration: selected ? 'none' : 'line-through',
-        color: status === 'running'   ? meta.color :
+        color: status === 'running'   ? accent :
                status === 'completed' ? undefined :
-               status === 'failed'    ? '#ef4444' : textSubtle,
+               status === 'failed'    ? 'var(--status-fail)' : textSubtle,
         fontWeight: status === 'running' ? 600 : selected ? 500 : 400,
         letterSpacing: '-0.01em',
       }}>
         {meta.short}
         {domain === 'mirofish-live' && status === 'idle' && (
-          <span className="ml-1.5 text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded"
-            style={{ color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', verticalAlign: 'middle' }}>
+          <span className="ml-1.5 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 neu-pill-positive">
             VPS
           </span>
         )}
       </span>
       {status === 'running' && (
-        <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded"
-          style={{ color: meta.color, background: meta.bg, border: `1px solid ${meta.border}` }}>
+        <span className="neu-pill-accent text-[9px] font-mono font-semibold px-1.5 py-0.5"
+          style={{ color: accent }}>
           live
         </span>
       )}
@@ -291,17 +314,12 @@ function AgentCard({
   domain: Domain; run?: AgentRun; output?: AgentOutput;
   isExpanded: boolean; onClick: () => void;
 }) {
-  const { isDark, surface, border, textMuted, textSubtle } = useTheme();
+  const { isDark, surface, textMuted, textSubtle } = useTheme();
   const meta      = DOMAIN_META[domain];
+  const accent    = domainAccent(meta, isDark);
   const status    = run?.status ?? 'idle';
   const snippet   = output?.facts?.[0] ?? output?.interpretation?.[0];
   const clickable = !!output;
-
-  const borderColor = isExpanded
-    ? meta.color
-    : status === 'running'
-    ? meta.border
-    : border;
 
   const bgTint = (status === 'running' || status === 'completed')
     ? (isDark ? meta.bg : meta.bgLight)
@@ -311,45 +329,46 @@ function AgentCard({
     <button
       onClick={onClick}
       disabled={!clickable && status !== 'running'}
-      className="relative flex flex-col gap-3 p-4 rounded-lg text-left transition-all duration-200"
+      className="relative flex flex-col gap-3 p-4 rounded-[20px] text-left transition-all duration-300"
       style={{
-        background: `color-mix(in srgb, var(--card), transparent 0%)`,
-        border: `1px solid ${borderColor}`,
-        boxShadow: isExpanded ? `0 0 0 1px ${meta.color}33, 0 4px 16px ${meta.color}15` : 'var(--shadow-sm)',
+        background: 'var(--background)',
+        border: 'none',
+        boxShadow: isExpanded
+          ? `var(--shadow-inset), 0 0 0 2px ${accent}44`
+          : status === 'running'
+            ? `var(--shadow-extruded-sm), 0 0 0 1px ${accent}33`
+            : 'var(--shadow-extruded)',
         cursor: clickable ? 'pointer' : 'default',
-        opacity: status === 'idle' ? 0.6 : 1,
+        opacity: status === 'idle' ? 0.65 : 1,
       }}
-      onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLButtonElement).style.borderColor = meta.color; }}
-      onMouseLeave={e => { if (!isExpanded) (e.currentTarget as HTMLButtonElement).style.borderColor = status === 'running' ? meta.border : 'var(--border)'; }}
     >
       {/* Colour wash */}
       {(status === 'running' || (status === 'completed' && isExpanded)) && (
-        <div className="absolute inset-0 rounded-lg pointer-events-none" style={{ background: bgTint }} />
+        <div className="absolute inset-0 rounded-[20px] pointer-events-none" style={{ background: bgTint }} />
       )}
 
       {/* Header */}
       <div className="relative flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span style={{ color: status === 'idle' ? 'var(--foreground-subtle)' : meta.color }}>{meta.icon}</span>
+          <span style={{ color: status === 'idle' ? 'var(--foreground-subtle)' : accent }}>{meta.icon}</span>
           <span className="text-[11px] font-mono font-semibold uppercase tracking-widest truncate"
-            style={{ color: status === 'idle' ? 'var(--foreground-subtle)' : meta.color }}>
+            style={{ color: status === 'idle' ? 'var(--foreground-subtle)' : accent }}>
             {meta.short}
           </span>
         </div>
 
         {status === 'idle' && (
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-            style={{ color: 'var(--foreground-subtle)', border: '1px solid var(--border)' }}>idle</span>
+          <span className="neu-pill text-[9px] font-mono px-2 py-0.5" style={{ color: 'var(--foreground-subtle)' }}>idle</span>
         )}
         {status === 'pending' && (
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1"
-            style={{ color: 'var(--muted-foreground)', border: '1px solid var(--border)' }}>
+          <span className="neu-pill text-[9px] font-mono px-2 py-0.5 flex items-center gap-1"
+            style={{ color: 'var(--muted-foreground)' }}>
             queued <RefreshCw size={7} className="animate-spin" />
           </span>
         )}
         {status === 'running' && (
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded flex items-center gap-1 font-medium"
-            style={{ color: meta.color, background: meta.bg, border: `1px solid ${meta.border}` }}>
+          <span className="neu-pill-accent text-[9px] font-mono px-2 py-0.5 flex items-center gap-1 font-medium"
+            style={{ color: accent }}>
             live <RefreshCw size={7} className="animate-spin" />
           </span>
         )}
@@ -357,8 +376,7 @@ function AgentCard({
           <ConfidenceBadge level={output.confidence} />
         )}
         {status === 'failed' && (
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-            style={{ color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>failed</span>
+          <span className="neu-pill-negative text-[9px] font-mono px-2 py-0.5">failed</span>
         )}
       </div>
 
@@ -384,19 +402,18 @@ function AgentCard({
           <p className="agent-snippet line-clamp-3">{snippet}</p>
         )}
         {status === 'failed' && (
-          <p className="text-xs" style={{ color: '#ef4444' }}>Agent failed — partial data only.</p>
+          <p className="text-xs" style={{ color: '#0B1A2E' }}>Agent failed — partial data only.</p>
         )}
       </div>
 
       {/* Footer */}
       {output?.sources && output.sources.length > 0 && (
-        <div className="relative flex items-center gap-1.5 pt-2.5"
-          style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="relative flex items-center gap-1.5 pt-2.5">
           <span className="text-[10px] font-mono" style={{ color: 'var(--foreground-subtle)' }}>
             {output.sources.length} sources
           </span>
           <ChevronRight size={10} className="ml-auto transition-transform duration-150"
-            style={{ color: meta.color, transform: isExpanded ? 'rotate(90deg)' : 'none' }} />
+            style={{ color: accent, transform: isExpanded ? 'rotate(90deg)' : 'none' }} />
         </div>
       )}
     </button>
@@ -407,7 +424,7 @@ function AgentCard({
 export default function VeracityDashboard() {
   const router   = useRouter();
   const supabase = createClient();
-  const { isDark, toggle: toggleTheme, surface, surface2, border, borderStrong, text, textMuted, textSubtle } = useTheme();
+  const { isDark, toggle: toggleTheme, surface, surface2, text, textMuted, textSubtle } = useTheme();
   const [messages, setMessages]           = useState<Message[]>([]);
   const [inputValue, setInputValue]       = useState('');
   const [isLoading, setIsLoading]         = useState(false);
@@ -431,6 +448,7 @@ export default function VeracityDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   /** Top header tabs: main intelligence vs usage vs steal strategy. */
   const [topTab, setTopTab] = useState<'intelligence' | 'usage' | 'steal'>('intelligence');
+  const [headerCompact, setHeaderCompact] = useState(false);
   /** Rolling totals for API Usage tab (reset on new query). */
   const [sessionUsage, setSessionUsage] = useState({
     queries: 0,
@@ -443,6 +461,11 @@ export default function VeracityDashboard() {
   const fileInputRef    = useRef<HTMLInputElement>(null);
   const followUpEndRef  = useRef<HTMLDivElement>(null);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
+  const mainScrollRef   = useRef<HTMLDivElement>(null);
+  const headerIslandRef = useRef<HTMLElement>(null);
+  const headerCompress  = useRef(0);
+  const headerTarget    = useRef(0);
+  const headerRaf       = useRef(0);
 
   const autoResizeTextarea = useCallback(() => {
     const ta = textareaRef.current;
@@ -456,6 +479,49 @@ export default function VeracityDashboard() {
   useEffect(() => {
     autoResizeTextarea();
   }, [inputValue, autoResizeTextarea]);
+
+  const tickHeaderCompress = useCallback(() => {
+    headerRaf.current = 0;
+    const island = headerIslandRef.current;
+    if (!island) return;
+
+    const next = headerCompress.current + (headerTarget.current - headerCompress.current) * 0.14;
+    headerCompress.current = Math.abs(headerTarget.current - next) < 0.001
+      ? headerTarget.current
+      : next;
+
+    const t = headerCompress.current;
+    island.style.setProperty('--hc', t.toFixed(4));
+    const compact = t > 0.58;
+    island.classList.toggle('header-island--compact', compact);
+    setHeaderCompact(prev => (prev === compact ? prev : compact));
+
+    if (headerCompress.current !== headerTarget.current) {
+      headerRaf.current = requestAnimationFrame(tickHeaderCompress);
+    }
+  }, []);
+
+  const onMainScroll = useCallback(() => {
+    const el = mainScrollRef.current;
+    if (!el) return;
+    // Map ~0–96px scroll into 0–1 with a soft ease-in curve
+    const raw = Math.min(1, Math.max(0, el.scrollTop / 96));
+    headerTarget.current = raw * raw * (3 - 2 * raw); // smoothstep
+    if (!headerRaf.current) {
+      headerRaf.current = requestAnimationFrame(tickHeaderCompress);
+    }
+  }, [tickHeaderCompress]);
+
+  useEffect(() => () => {
+    if (headerRaf.current) cancelAnimationFrame(headerRaf.current);
+  }, []);
+
+  // React's style={{ background }} can wipe --hc; restore after paint.
+  useLayoutEffect(() => {
+    const island = headerIslandRef.current;
+    if (!island) return;
+    island.style.setProperty('--hc', headerCompress.current.toFixed(4));
+  });
 
   const allSelected = ALL_DOMAINS.every(d => selectedAgents[d]);
 
@@ -1118,30 +1184,33 @@ export default function VeracityDashboard() {
     return !!run || !!output || d === 'mirofish';
   });
 
-  /* ─ Inline style helpers (from ThemeContext) ─ */
+  /* ─ Neumorphism helpers ─ */
   const sidebarBg  = surface;
-  const headerBg   = isDark ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.92)';
-  const borderC    = border;
+  const headerBg   = surface;
+  const borderC    = 'transparent';
   const textMain   = text;
   const cardBg     = surface;
   const cardBg2    = surface2;
-  const inputBg    = surface2;
+  const neuExtruded = 'var(--shadow-extruded)';
+  const neuInset    = 'var(--shadow-inset)';
+  const neuExtrudedSm = 'var(--shadow-extruded-sm)';
+  /* Readable accent for text/icons — bright cyan washes out on light surfaces */
+  const accentInk = isDark ? '#00C4FF' : '#0052A3';
+  const accentInkSoft = isDark ? '#3D9EFF' : '#1A5A9A';
 
   return (
-    <div className={isDark ? '' : 'light'} style={{ display: 'contents' }}>
-    <div className="flex h-screen w-full overflow-hidden" style={{ background: isDark ? '#0a0a0a' : '#f9f9f9', color: textMain, fontFamily: 'inherit' }}>
+    <div className={isDark ? 'dark' : 'light'} style={{ display: 'contents' }}>
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground font-sans">
 
       {/* ══════════════════════════════════ SIDEBAR ══ */}
       <aside
         className="sidebar-transition flex-shrink-0 flex flex-col h-full relative"
         style={{
-          width: sidebarCollapsed ? '0px' : '300px',
-          minWidth: sidebarCollapsed ? '0px' : '300px',
-          background: `linear-gradient(160deg, ${cardBg} 0%, ${cardBg2} 68%, ${cardBg} 100%)`,
-          borderRight: sidebarCollapsed ? 'none' : `1px solid ${borderC}`,
-          boxShadow: sidebarCollapsed ? 'none' : (isDark ? '0 16px 40px rgba(0,0,0,0.45)' : '0 16px 40px rgba(15,23,42,0.12)'),
-          // Keep overflow visible so the collapse/expand button is still reachable
-          // even when width is 0.
+          width: sidebarCollapsed ? '0px' : '280px',
+          minWidth: sidebarCollapsed ? '0px' : '280px',
+          background: sidebarBg,
+          borderRight: 'none',
+          boxShadow: sidebarCollapsed ? 'none' : neuExtrudedSm,
           overflow: 'visible',
         }}
       >
@@ -1161,7 +1230,7 @@ export default function VeracityDashboard() {
         <div
           className="flex flex-col h-full"
           style={{
-            width: '300px',
+            width: '280px',
             opacity: sidebarCollapsed ? 0 : 1,
             transition: 'opacity 0.2s ease',
             overflow: 'hidden',
@@ -1169,53 +1238,58 @@ export default function VeracityDashboard() {
         >
 
           {/* Logo */}
-          <div className="px-5 pt-5 pb-4" style={{ borderBottom: `1px solid ${borderC}` }}>
+          <div className="px-4 pt-4 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-signature">
-                <Sparkles size={14} color="#fff" />
-              </div>
-              <div>
-                <span className="text-base font-bold tracking-tight" style={{ color: textMain }}>Veracity</span>
-                <p className="text-[10px] font-mono leading-none" style={{ color: textSubtle }}>growth intelligence</p>
+              <img
+                src="/robot.avif"
+                alt=""
+                width={40}
+                height={46}
+                className="brand-mascot w-10 h-10 shrink-0"
+                draggable={false}
+              />
+              <div className="min-w-0">
+                <img
+                  src="/logo-text.avif"
+                  alt="Veracity"
+                  width={140}
+                  height={40}
+                  className="brand-logo h-6 w-auto max-w-[140px] object-left"
+                  draggable={false}
+                />
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] leading-none mt-1.5" style={{ color: textSubtle }}>Growth Intelligence</p>
               </div>
             </div>
           </div>
 
           {/* New query */}
-          <div className="px-3 pt-3 pb-2.5">
+          <div className="px-3 pt-3 pb-2">
             <button
               onClick={() => { handleNewQuery(); }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-semibold transition-all focus-ring"
-              style={{
-                background: 'linear-gradient(135deg, rgba(0,112,243,0.1), rgba(77,124,255,0.05))',
-                border: `1px solid rgba(0,112,243,0.2)`,
-                color: '#0070f3',
-              }}
-              onMouseEnter={e => { const b = e.currentTarget; b.style.background = 'linear-gradient(135deg, rgba(0,112,243,0.15), rgba(77,124,255,0.08))'; b.style.borderColor = 'rgba(0,112,243,0.35)'; }}
-              onMouseLeave={e => { const b = e.currentTarget; b.style.background = 'linear-gradient(135deg, rgba(0,112,243,0.1), rgba(77,124,255,0.05))'; b.style.borderColor = 'rgba(0,112,243,0.2)'; }}
+              className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold focus-ring min-h-11"
             >
               <Plus size={14} /> New query
             </button>
           </div>
 
           {/* ─ Agents panel ─ */}
-          <div className="px-3 pb-3">
-            <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${borderC}`, background: isDark ? '#0d0d0d' : '#fafafa' }}>
-              <div className="px-3 py-3 flex flex-col gap-2" style={{ borderBottom: `1px solid ${borderC}` }}>
+          <div className="px-3 pb-2">
+            <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
+              <div className="px-3 py-2.5 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Layers size={12} style={{ color: textSubtle }} />
-                    <span className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: textSubtle }}>
+                    <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>
                       Agents
                     </span>
                   </div>
                   {isLoading && totalCount > 0 && (
-                    <span className="text-[10px] font-mono flex items-center gap-1" style={{ color: textMuted }}>
+                    <span className="text-[10px] font-semibold flex items-center gap-1" style={{ color: textMuted }}>
                       <RefreshCw size={9} className="animate-spin" /> {completedCount}/{totalCount}
                     </span>
                   )}
                   {hasResult && !isLoading && (
-                    <span className="text-[10px] font-mono font-semibold" style={{ color: '#10b981' }}>{completedCount}/{totalCount}</span>
+                    <span className="text-[10px] font-semibold" style={{ color: accentInk }}>{completedCount}/{totalCount}</span>
                   )}
                 </div>
                 <div className="flex items-center justify-between">
@@ -1252,15 +1326,15 @@ export default function VeracityDashboard() {
           </div>
 
           {/* Recent sessions */}
-          <div className="flex-1 overflow-y-auto px-3 pb-3">
-            <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${borderC}`, background: isDark ? '#0d0d0d' : '#fafafa' }}>
-              <div className="px-3 py-2.5 flex items-center justify-between" style={{ borderBottom: `1px solid ${borderC}` }}>
+          <div className="flex-1 overflow-y-auto px-3 pb-2">
+            <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
+              <div className="px-3 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <History size={12} style={{ color: textSubtle }} />
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: textSubtle }}>Recent</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>Recent</span>
                 </div>
                 {sessions.length > 0 && (
-                  <span className="text-[10px] font-mono" style={{ color: textSubtle }}>{sessions.length}</span>
+                  <span className="text-[10px] font-semibold" style={{ color: textSubtle }}>{sessions.length}</span>
                 )}
               </div>
               <div className="py-1.5 px-1.5">
@@ -1285,7 +1359,7 @@ export default function VeracityDashboard() {
                             {session.title}
                           </p>
                           {session.created_at && (
-                            <p className="text-[9px] font-mono mt-0.5" style={{ color: textSubtle }}>
+                            <p className="text-[9px] font-medium mt-0.5" style={{ color: textSubtle }}>
                               {new Date(session.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </p>
                           )}
@@ -1299,10 +1373,8 @@ export default function VeracityDashboard() {
                             }
                             await refreshSessions();
                           }}
-                          className="absolute right-1.5 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
-                          style={{ color: '#ef4444' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                          className="absolute right-1.5 w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                          style={{ color: '#0B1A2E' }}
                           title="Delete session"
                         >
                           <Trash2 size={11} />
@@ -1320,9 +1392,9 @@ export default function VeracityDashboard() {
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-3 flex items-center gap-2" style={{ borderTop: `1px solid ${borderC}` }}>
+          <div className="px-4 py-2.5 flex items-center gap-2">
             <div className="live-dot" />
-            <span className="text-[10px] font-mono" style={{ color: textSubtle }}>live · sourced · grounded</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: textSubtle }}>live · sourced · grounded</span>
           </div>
         </div>
       </aside>
@@ -1330,167 +1402,112 @@ export default function VeracityDashboard() {
       {/* ═══════════════════════════════════ MAIN ══ */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
 
-        {/* ── Header ── */}
-        <header className="shrink-0 flex flex-col gap-0 z-20"
-          style={{ background: headerBg, borderBottom: `1px solid ${borderC}`, backdropFilter: 'blur(12px)' }}>
-
-          {/* Top bar with stats & user */}
-          <div className="flex items-center justify-between gap-3 px-4 md:px-6 py-2">
-            {sidebarCollapsed && (
-              <div className="flex items-center gap-2 mr-2">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-gradient-signature">
-                  <Sparkles size={11} color="#fff" />
-                </div>
-                <span className="text-sm font-bold tracking-tight" style={{ color: textMain }}>Veracity</span>
-              </div>
-            )}
-            <div className="flex items-center gap-3 text-[11px] font-mono" style={{ color: textMuted }}>
-              <span className="flex items-center gap-1.5"><Activity size={11} style={{ color: textSubtle }} /> &lt;5 min</span>
-              <span className="hidden sm:flex items-center gap-1.5"><Shield size={11} style={{ color: textSubtle }} /> sourced</span>
-              <span className="hidden sm:flex items-center gap-1.5"><Zap size={11} style={{ color: textSubtle }} /> 16+ signals</span>
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-              {selectedAgents.mirofish && (
-                <span className="shrink-0 hidden lg:flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded"
-                  style={{ color: '#06b6d4', background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.3)' }}>
-                  {mirofishRunning ? <RefreshCw size={10} className="animate-spin" /> : <Fish size={10} />} forecast
-                </span>
-              )}
-              {selectedAgents['mirofish-live'] && (
-                <span className="shrink-0 hidden lg:flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded"
-                  style={{ color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                  <Fish size={10} /> live VPS
-                </span>
-              )}
-              <button
-                onClick={toggleTheme}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0"
-                style={{ border: `1px solid ${borderC}`, background: isDark ? '#1a1a1a' : '#f0f0f0', color: textMuted }}
-                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {isDark ? <Sun size={14} /> : <Moon size={14} />}
-              </button>
-              <div className="relative shrink-0">
-                <button onClick={() => setShowUserMenu(v => !v)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-semibold transition-opacity hover:opacity-80"
-                  style={{ background: '#0070f3', color: '#fff' }}>
-                  {userEmail ? userEmail[0].toUpperCase() : <User size={13} />}
-                </button>
-                {showUserMenu && (
-                  <div className="absolute right-0 top-10 w-52 rounded-xl py-1 z-50"
-                    style={{ background: isDark ? '#111' : '#fff', border: `1px solid ${borderC}`, boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.12)' }}>
-                    {userEmail && (
-                      <p className="px-3 py-2 text-[12px] font-mono truncate" style={{ color: textMuted, borderBottom: `1px solid ${borderC}` }}>{userEmail}</p>
-                    )}
-                    <button onClick={handleSignOut}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors"
-                      style={{ color: textMuted }}
-                      onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = textMain; b.style.background = isDark ? '#1a1a1a' : '#f4f4f4'; }}
-                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = textMuted; b.style.background = 'transparent'; }}>
-                      <LogOut size={13} style={{ color: textSubtle }} /> Sign out
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Top-level view tabs (intelligence / usage / strategy) */}
-          <div
-            className="flex flex-wrap items-center gap-1.5 px-4 md:px-6 border-t"
-            style={{ borderColor: borderC, paddingTop: 6, paddingBottom: 6 }}
+        {/* ── Floating header island ── */}
+        <div
+          className={`shrink-0 z-30 px-3 md:px-5 pt-3 pb-1 ${sidebarCollapsed ? 'pl-12 md:pl-14' : ''}`}
+        >
+          <header
+            ref={headerIslandRef}
+            className={`header-island ${headerCompact ? 'header-island--compact' : ''} ${sidebarCollapsed ? 'header-island--rail' : ''}`}
+            style={{ background: headerBg }}
           >
-            {[
-              { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={12} /> },
-              { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={12} /> },
-              { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={12} /> },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setTopTab(tab.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors"
-                style={{
-                  color: topTab === tab.id ? textMain : textMuted,
-                  background: topTab === tab.id ? (isDark ? 'rgba(0,112,243,0.12)' : 'rgba(0,112,243,0.08)') : 'transparent',
-                  border: topTab === tab.id ? '1px solid rgba(0,112,243,0.25)' : '1px solid transparent',
-                }}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Search bar — only on Intelligence tab */}
-          {topTab === 'intelligence' && (
-          <div className="px-4 md:px-6 pb-4 pt-1">
-            {attachedImages.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {attachedImages.map((img, i) => (
-                  <div key={i} className="relative group">
-                    <img src={img.dataUrl} alt={img.name} className="h-10 w-10 object-cover rounded-lg" style={{ border: `1px solid ${borderC}` }} />
-                    <button onClick={() => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: isDark ? '#333' : '#666', color: '#fff' }}>
-                      <X size={9} />
-                    </button>
-                  </div>
-                ))}
+            {/* Brand — only when sidebar is collapsed */}
+            {sidebarCollapsed && (
+              <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
+                <img
+                  src="/logo.avif"
+                  alt="Veracity"
+                  width={140}
+                  height={36}
+                  className="brand-logo h-8 w-auto object-left object-contain"
+                  draggable={false}
+                />
               </div>
             )}
 
-            <div className="query-bar-glow relative flex items-end rounded-xl transition-all"
-              style={{
-                border: `1.5px solid ${borderC}`,
-                background: isDark ? 'rgba(22,22,22,0.9)' : 'rgba(255,255,255,0.95)',
-                boxShadow: isDark ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)',
-              }}>
-              <Search size={16} className="absolute left-4 top-3.5 pointer-events-none" style={{ color: textSubtle }} />
-              <textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={e => { setInputValue(e.target.value); autoResizeTextarea(); }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend(inputValue);
-                  }
-                }}
-                placeholder="Ask a growth intelligence question…"
-                className="query-textarea w-full pl-11 pr-[90px] py-3 bg-transparent outline-none font-sans"
-                style={{ color: textMain }}
-                disabled={isLoading}
-                rows={1}
-              />
-              <div className="absolute right-3 bottom-2.5 flex items-center gap-1.5">
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-                  style={{ color: textSubtle }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = textMain; (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = textSubtle; (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-                  <Paperclip size={15} />
-                </button>
+            {/* View tabs */}
+            <div className="header-island-tabs flex items-center gap-1.5 shrink-0">
+              {[
+                { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={12} /> },
+                { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={12} /> },
+                { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={12} /> },
+              ].map(tab => (
                 <button
-                  onClick={() => handleSend(inputValue)}
-                  disabled={(!inputValue.trim() && attachedImages.length === 0) || isLoading}
-                  className="flex items-center justify-center w-8 h-8 rounded-lg text-[13px] font-medium transition-all disabled:opacity-30"
-                  style={{ background: '#0070f3', color: '#fff' }}
-                  onMouseEnter={e => { if (!(e.currentTarget as HTMLButtonElement).disabled) (e.currentTarget as HTMLButtonElement).style.background = '#0060df'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#0070f3'; }}
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setTopTab(tab.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all min-h-9"
+                  style={{
+                    color: topTab === tab.id ? accentInk : textMuted,
+                    background: 'var(--background)',
+                    border: 'none',
+                    boxShadow: topTab === tab.id ? 'var(--shadow-inset-sm)' : 'var(--shadow-extruded-sm)',
+                  }}
                 >
-                  {isLoading
-                    ? <RefreshCw size={14} className="animate-spin" />
-                    : <Send size={14} />}
+                  {tab.icon}
+                  <span className="header-island-tab-label">{tab.label}</span>
                 </button>
-              </div>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+              ))}
             </div>
-          </div>
-          )}
-        </header>
+
+            {/* Stats + actions */}
+            <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
+              <div className="header-island-stats flex items-center gap-2.5 sm:gap-3 text-[11px] font-medium shrink-0" style={{ color: textMuted }}>
+                <span className="flex items-center gap-1.5"><Activity size={11} style={{ color: textSubtle }} /> &lt;5 min</span>
+                <span className="hidden md:flex items-center gap-1.5"><Shield size={11} style={{ color: textSubtle }} /> sourced</span>
+                <span className="hidden lg:flex items-center gap-1.5"><Zap size={11} style={{ color: textSubtle }} /> 16+ signals</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {selectedAgents.mirofish && (
+                  <span className="neu-pill-accent shrink-0 hidden xl:flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 header-island-chip">
+                    {mirofishRunning ? <RefreshCw size={10} className="animate-spin" /> : <Fish size={10} />} forecast
+                  </span>
+                )}
+                {selectedAgents['mirofish-live'] && (
+                  <span className="neu-pill-positive shrink-0 hidden xl:flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 header-island-chip">
+                    <Fish size={10} /> live VPS
+                  </span>
+                )}
+                <button
+                  onClick={toggleTheme}
+                  className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ color: textMuted }}
+                  title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {isDark ? <Sun size={14} /> : <Moon size={14} />}
+                </button>
+                <div className="relative shrink-0">
+                  <button onClick={() => setShowUserMenu(v => !v)}
+                    className="header-avatar w-9 h-9 flex items-center justify-center text-[12px] font-bold shrink-0 text-white"
+                    title={userEmail || 'Account'}
+                  >
+                    {userEmail ? userEmail[0].toUpperCase() : <User size={13} />}
+                  </button>
+                  {showUserMenu && (
+                    <div className="veracity-card absolute right-0 top-11 w-52 py-1.5 z-50">
+                      {userEmail && (
+                        <p className="px-3 py-2 text-[12px] font-medium truncate" style={{ color: textMuted }}>{userEmail}</p>
+                      )}
+                      <button onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
+                        style={{ color: textMuted }}>
+                        <LogOut size={13} style={{ color: textSubtle }} /> Sign out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </header>
+        </div>
 
         {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto grid-bg" style={{ padding: 'clamp(16px, 3vw, 32px)' }}>
+        <div
+          ref={mainScrollRef}
+          onScroll={onMainScroll}
+          className="flex-1 overflow-y-auto"
+          style={{ padding: 'clamp(16px, 3vw, 32px)', paddingBottom: 'clamp(24px, 4vw, 40px)' }}
+        >
           <div className="flex flex-col gap-7 max-w-[1400px] w-full mx-auto">
 
             {topTab === 'usage' && (
@@ -1505,52 +1522,59 @@ export default function VeracityDashboard() {
 
             {topTab === 'intelligence' && (
             <>
-
-            {/* Empty state */}
+            {/* Empty state — brand left, suggestions right */}
             {messages.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-6">
-                <div>
-                  <h2 className="empty-heading mb-2">
-                    Growth Intelligence
+              <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-10 lg:gap-14 min-h-[58vh] px-2 w-full max-w-5xl mx-auto">
+                {/* Left — non-clickable brand copy */}
+                <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-md">
+                  <img
+                    src="/robot.avif"
+                    alt=""
+                    width={140}
+                    height={148}
+                    className="brand-mascot w-[7.5rem] h-auto mb-5 animate-float drop-shadow-md"
+                    draggable={false}
+                  />
+                  <p className="label-mono mb-3 flex justify-center lg:justify-start">Boardroom brief in minutes</p>
+                  <h2 className="empty-heading mb-3">
+                    Ask a growth question
                   </h2>
-                  <p className="text-[13px]" style={{ color: textMuted }}>
-                    live signals · 6 specialist agents · confidence-scored
+                  <p className="text-[14px] leading-relaxed" style={{ color: textMuted }}>
+                    Six specialist agents pull live signals, score confidence, and render findings inline — not as chat walls.
                   </p>
                 </div>
-                <div className="flex flex-col gap-2 w-full max-w-lg">
+
+                {/* Right — clickable suggestions */}
+                <div className="flex-1 flex flex-col gap-2.5 w-full max-w-xl">
                   {DEMO_QUERIES.map(q => (
-                    <button key={q} onClick={() => handleSend(q)}
-                      className="flex items-center gap-3 px-4 py-3.5 rounded-lg text-[13px] text-left transition-all"
-                      style={{ background: cardBg, border: `1px solid ${borderC}`, color: textMuted }}
-                      onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = isDark ? '#404040' : '#aaa'; b.style.color = textMain; }}
-                      onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = borderC; b.style.color = textMuted; }}
-                    >
-                      <Search size={13} style={{ color: textSubtle, flexShrink: 0 }} />
-                      <span className="flex-1 demo-query-text">{q}</span>
-                      <ChevronRight size={12} style={{ color: textSubtle, flexShrink: 0 }} />
+                    <button key={q} onClick={() => handleSend(q)} className="suggest-row">
+                      <span className="neu-well w-8 h-8 shrink-0">
+                        <Search size={13} className="text-accent" />
+                      </span>
+                      <span className="flex-1 demo-query-text text-left">{q}</span>
+                      <ChevronRight size={14} style={{ color: textSubtle, flexShrink: 0 }} />
                     </button>
                   ))}
-                </div>
-                <div className="flex flex-col gap-2 w-full max-w-lg pt-2">
-                  <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Run another product</p>
-                  <button
-                    onClick={() => handleSend('What should Clay build or reposition over the next six months to capture emerging demand?')}
-                    className="flex items-center gap-3 px-4 py-3.5 rounded-lg text-[13px] text-left transition-all"
-                    style={{ background: cardBg2, border: `1px solid ${borderC}`, color: textMuted }}
-                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = isDark ? '#404040' : '#aaa'; b.style.color = textMain; }}
-                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.borderColor = borderC; b.style.color = textMuted; }}
-                  >
-                    <Layers size={13} style={{ color: textSubtle, flexShrink: 0 }} />
-                    <span className="flex-1 demo-query-text">What should Clay build or reposition over the next six months to capture emerging demand?</span>
-                    <ChevronRight size={12} style={{ color: textSubtle, flexShrink: 0 }} />
-                  </button>
+                  <div className="flex flex-col gap-2 mt-2">
+                    <p className="label-mono text-left">Generalize to another product</p>
+                    <button
+                      onClick={() => handleSend('What should Clay build or reposition over the next six months to capture emerging demand?')}
+                      className="suggest-row"
+                    >
+                      <span className="neu-well w-8 h-8 shrink-0">
+                        <Layers size={13} className="text-accent" />
+                      </span>
+                      <span className="flex-1 demo-query-text text-left">What should Clay build or reposition over the next six months to capture emerging demand?</span>
+                      <ChevronRight size={14} style={{ color: textSubtle, flexShrink: 0 }} />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* ── Agent Tabs ── */}
             {(currentResult || isLoading) && (
-              <div className="rounded-xl p-5" style={{ border: `1px solid ${borderC}`, background: cardBg }}>
+              <div className="veracity-card p-5" style={{ background: cardBg }}>
                 <div className="flex items-center justify-between mb-5 gap-3">
                   <div className="flex flex-col gap-2 min-w-0 flex-1">
                     <p className="text-[16px] font-bold tracking-tight" style={{ color: textMain }}>
@@ -1559,7 +1583,7 @@ export default function VeracityDashboard() {
                     {messages.filter(m => m.role === 'user').pop()?.images && (
                       <div className="flex flex-wrap gap-2">
                         {messages.filter(m => m.role === 'user').pop()?.images?.map((img, i) => (
-                          <img key={i} src={img.dataUrl} alt={img.name} className="h-10 w-10 object-cover rounded-lg" style={{ border: `1px solid ${borderC}` }} />
+                          <img key={i} src={img.dataUrl} alt={img.name} className="h-10 w-10 object-cover rounded-lg" style={{ border: 'none', boxShadow: neuExtrudedSm }} />
                         ))}
                       </div>
                     )}
@@ -1569,12 +1593,13 @@ export default function VeracityDashboard() {
                       {ALL_DOMAINS.map(d => {
                         const s = getRunForDomain(d)?.status ?? 'idle';
                         const m = DOMAIN_META[d];
+                        const dot = domainAccent(m, isDark);
                         return (
                           <div key={d} className="w-2.5 h-2.5 rounded-full transition-all"
                             style={{
-                              background: s === 'completed' ? m.color : s === 'running' ? m.color : (isDark ? '#2a2a2a' : '#ddd'),
+                              background: s === 'completed' ? dot : s === 'running' ? dot : (isDark ? '#2a2a2a' : '#ddd'),
                               opacity: s === 'running' ? 1 : s === 'completed' ? 1 : 0.4,
-                              boxShadow: s === 'running' ? `0 0 6px ${m.color}55` : 'none',
+                              boxShadow: s === 'running' ? `0 0 6px ${dot}55` : 'none',
                             }}
                           />
                         );
@@ -1589,7 +1614,7 @@ export default function VeracityDashboard() {
                 </div>
 
                 {isLoading && orchLogLen > 0 && (
-                  <div className="mb-4 rounded-lg px-3 py-3" style={{ background: cardBg2, border: `1px solid ${borderC}` }}>
+                  <div className="mb-4 neu-inset rounded-[16px] px-3 py-3" style={{ background: cardBg2 }}>
                     <div className="flex items-center gap-1.5 mb-2 text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>
                       <Activity size={11} className="shrink-0 animate-pulse" />
                       <span>Pipeline</span>
@@ -1598,11 +1623,11 @@ export default function VeracityDashboard() {
                       <div className="min-w-[620px] flex items-center gap-2.5">
                         {pipelineStages.map((stage, i) => {
                           const stateColor = stage.state === 'failed'
-                            ? '#ef4444'
+                            ? '#0B1A2E'
                             : stage.state === 'completed'
-                              ? '#10b981'
+                              ? accentInk
                               : stage.state === 'running'
-                                ? '#0070f3'
+                                ? accentInk
                                 : textSubtle;
                           const fill = stage.state === 'completed' ? '100%' : stage.state === 'running' ? '62%' : '0%';
                           return (
@@ -1637,7 +1662,7 @@ export default function VeracityDashboard() {
                                 </span>
                               </div>
                               {i < pipelineStages.length - 1 && (
-                                <div className="relative h-2.5 w-12 rounded-full overflow-hidden" style={{ border: `1px solid ${borderC}`, background: isDark ? '#151515' : '#f4f4f5' }}>
+                                <div className="relative h-2.5 w-12 rounded-full overflow-hidden" style={{ border: 'none', boxShadow: neuExtrudedSm, background: isDark ? '#151515' : '#f4f4f5' }}>
                                   <div
                                     className={stage.state === 'running' ? 'animate-pulse' : ''}
                                     style={{
@@ -1664,30 +1689,33 @@ export default function VeracityDashboard() {
                     const isActive = expandedDomain === domain;
                     const status = run?.status ?? (output ? 'completed' : 'idle');
                     const meta = DOMAIN_META[domain];
+                    const dAccent = domainAccent(meta, isDark);
                     return (
                       <button
                         key={domain}
                         onClick={() => setExpandedDomain(domain)}
-                        className="px-3.5 py-2.5 rounded-lg text-left transition-all border min-w-[140px]"
+                        className="px-3.5 py-2.5 rounded-2xl text-left transition-all min-w-[140px]"
                         style={{
-                          borderColor: isActive ? meta.color : borderC,
-                          background: isActive ? (isDark ? meta.bg : meta.bgLight) : cardBg2,
-                          boxShadow: isActive ? `0 0 0 1px ${meta.color}33, 0 4px 12px ${meta.color}15` : 'none',
+                          background: isActive ? (isDark ? meta.bg : meta.bgLight) : 'var(--background)',
+                          boxShadow: isActive
+                            ? `var(--shadow-inset-sm), 0 0 0 2px ${dAccent}44`
+                            : 'var(--shadow-extruded-sm)',
+                          border: 'none',
                         }}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5">
-                            <span style={{ color: isActive ? meta.color : textSubtle }}>{meta.icon}</span>
-                            <span className="text-[11px] font-mono font-bold uppercase tracking-wide" style={{ color: isActive ? meta.color : textMuted }}>
+                            <span style={{ color: isActive ? dAccent : textSubtle }}>{meta.icon}</span>
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wide" style={{ color: isActive ? dAccent : textMuted }}>
                               {meta.short}
                             </span>
                           </div>
-                          {status === 'running' && <RefreshCw size={11} className="animate-spin" style={{ color: meta.color }} />}
-                          {status === 'completed' && <CheckCircle2 size={12} style={{ color: '#10b981' }} />}
-                          {status === 'failed' && <AlertCircle size={11} style={{ color: '#ef4444' }} />}
+                          {status === 'running' && <RefreshCw size={11} className="animate-spin" style={{ color: dAccent }} />}
+                          {status === 'completed' && <CheckCircle2 size={12} style={{ color: accentInk }} />}
+                          {status === 'failed' && <AlertCircle size={11} style={{ color: '#0B1A2E' }} />}
                         </div>
                         <p className="text-[10px] font-mono mt-1.5 uppercase tracking-wider font-medium" style={{
-                          color: status === 'completed' ? '#10b981' : status === 'running' ? meta.color : textSubtle,
+                          color: status === 'completed' ? accentInk : status === 'running' ? dAccent : textSubtle,
                         }}>
                           {status}
                         </p>
@@ -1700,37 +1728,33 @@ export default function VeracityDashboard() {
 
             {/* ── Expanded domain ── */}
             {expandedDomain && (
-              <div className="rounded-xl overflow-hidden" style={{
-                border: `1.5px solid ${DOMAIN_META[expandedDomain].border}`,
+              <div className="veracity-card overflow-hidden" style={{
                 background: cardBg,
-                boxShadow: `0 0 0 1px ${DOMAIN_META[expandedDomain].color}1a, 0 8px 24px ${DOMAIN_META[expandedDomain].color}08`,
+                boxShadow: `var(--shadow-extruded), 0 0 0 2px ${domainAccent(DOMAIN_META[expandedDomain], isDark)}33`,
               }}>
-                <div className="flex items-center justify-between px-5 py-4"
-                  style={{ borderBottom: `1px solid ${borderC}`, background: isDark ? DOMAIN_META[expandedDomain].bg : DOMAIN_META[expandedDomain].bgLight }}>
+                <div className="flex items-center justify-between px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ background: DOMAIN_META[expandedDomain].bg, border: `1px solid ${DOMAIN_META[expandedDomain].border}` }}>
-                      <span style={{ color: DOMAIN_META[expandedDomain].color }}>{DOMAIN_META[expandedDomain].icon}</span>
+                    <div className="neu-well w-9 h-9">
+                      <span style={{ color: domainAccent(DOMAIN_META[expandedDomain], isDark) }}>{DOMAIN_META[expandedDomain].icon}</span>
                     </div>
-                    <span className="text-[15px] font-bold tracking-tight" style={{ color: textMain }}>
+                    <span className="text-[15px] font-display font-extrabold tracking-tight" style={{ color: textMain }}>
                       {DOMAIN_META[expandedDomain].label}
                     </span>
                     {expandedOutput && <ConfidenceBadge level={expandedOutput.confidence} />}
-                    <span className="text-[9px] font-mono font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                      style={{ color: DOMAIN_META[expandedDomain].color, background: DOMAIN_META[expandedDomain].bg, border: `1px solid ${DOMAIN_META[expandedDomain].border}` }}>
+                    <span className="neu-pill-accent text-[9px] font-mono font-semibold uppercase tracking-widest px-2.5 py-0.5"
+                      style={{ color: domainAccent(DOMAIN_META[expandedDomain], isDark) }}>
                       live
                     </span>
                   </div>
                   <button onClick={() => setExpandedDomain(null)}
-                    className="p-1.5 rounded-lg transition-colors"
+                    className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center"
                     style={{ color: textMuted }}
-                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = isDark ? '#1a1a1a' : '#f0f0f0'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
+                    aria-label="Close">
                     <X size={15} />
                   </button>
                 </div>
 
-                <div className="p-6 lg:p-8 flex flex-col gap-7">
+                <div className="p-6 lg:p-8 flex flex-col gap-5">
                   {expandedOutput ? (
                     <ArtifactRenderer
                       output={expandedOutput}
@@ -1740,7 +1764,7 @@ export default function VeracityDashboard() {
                       onRefined={handleExecutionPlanRefined}
                     />
                   ) : (
-                    <div className="rounded-xl p-6" style={{ border: `1px solid ${borderC}`, background: cardBg2 }}>
+                    <div className="neu-inset rounded-3xl p-6">
                       <p className="text-sm font-bold mb-2" style={{ color: textMain }}>
                         {DOMAIN_META[expandedDomain].short} details are loading
                       </p>
@@ -1751,14 +1775,17 @@ export default function VeracityDashboard() {
                   )}
 
                   {expandedOutput && expandedOutput.facts.filter(f => !f.startsWith('[')).length > 0 && (
-                    <div className="rounded-lg p-5" style={{ background: isDark ? 'rgba(16,185,129,0.04)' : 'rgba(16,185,129,0.03)', border: `1px solid rgba(16,185,129,0.15)` }}>
-                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#10b981' }}>
-                        <CheckCircle2 size={13} /> Key Facts
+                    <div className="neu-extruded rounded-3xl p-5">
+                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#2C7A7B' }}>
+                        <span className="neu-well w-7 h-7">
+                          <CheckCircle2 size={13} style={{ color: accentInk }} />
+                        </span>
+                        Key Facts
                       </p>
                       <ul className="flex flex-col gap-3">
                         {expandedOutput.facts.filter(f => !f.startsWith('[')).map((f, i) => (
-                          <li key={i} className="flex items-start gap-3 text-[13.5px] leading-relaxed" style={{ color: isDark ? '#d4d4d4' : '#404040' }}>
-                            <span className="font-mono mt-0.5 shrink-0 font-bold" style={{ color: '#10b981' }}>✓</span>
+                          <li key={i} className="neu-inset rounded-2xl px-3.5 py-2.5 flex items-start gap-3 text-[13.5px] leading-relaxed" style={{ color: textMuted, boxShadow: 'var(--shadow-inset-sm)' }}>
+                            <span className="font-mono mt-0.5 shrink-0 font-bold" style={{ color: accentInk }}>✓</span>
                             <span>{f}</span>
                           </li>
                         ))}
@@ -1767,14 +1794,17 @@ export default function VeracityDashboard() {
                   )}
 
                   {expandedOutput && expandedOutput.interpretation.length > 0 && (
-                    <div className="rounded-lg p-5" style={{ background: isDark ? 'rgba(0,112,243,0.04)' : 'rgba(0,112,243,0.03)', border: `1px solid rgba(0,112,243,0.12)` }}>
-                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#0070f3' }}>
-                        <Activity size={13} /> Analysis
+                    <div className="neu-extruded rounded-3xl p-5">
+                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: accentInk }}>
+                        <span className="neu-well w-7 h-7">
+                          <Activity size={13} className="text-accent" />
+                        </span>
+                        Analysis
                       </p>
                       <ul className="flex flex-col gap-3">
                         {expandedOutput.interpretation.map((interp, i) => (
-                          <li key={i} className="flex items-start gap-3 text-[13.5px] leading-relaxed" style={{ color: isDark ? '#d4d4d4' : '#404040' }}>
-                            <span className="font-mono mt-0.5 shrink-0 font-bold" style={{ color: '#0070f3' }}>›</span>
+                          <li key={i} className="neu-inset rounded-2xl px-3.5 py-2.5 flex items-start gap-3 text-[13.5px] leading-relaxed" style={{ color: textMuted, boxShadow: 'var(--shadow-inset-sm)' }}>
+                            <span className="font-mono mt-0.5 shrink-0 font-bold text-accent">›</span>
                             <span>{interp}</span>
                           </li>
                         ))}
@@ -1787,10 +1817,10 @@ export default function VeracityDashboard() {
 
             {/* ── Summary card ── */}
             {currentResult?.content && (
-              <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${borderC}`, background: cardBg }}>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: `1px solid ${borderC}` }}>
+              <div className="rounded-lg overflow-hidden" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
+                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: 'none' }}>
                   <div className="flex items-center gap-2">
-                    <Layers size={14} style={{ color: '#0070f3' }} />
+                    <Layers size={14} style={{ color: accentInk }} />
                     <span className="text-[12px] font-mono font-semibold uppercase tracking-widest" style={{ color: textMuted }}>
                       Intelligence Summary
                     </span>
@@ -1813,8 +1843,8 @@ export default function VeracityDashboard() {
                       const isLive = !final && !!live;
                       return (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-2"
-                          style={{ color: textSubtle, background: cardBg2, border: `1px solid ${borderC}` }}>
-                          {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: '#f59e0b' }} />}
+                          style={{ color: textSubtle, background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
+                          {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: '#3D9EFF' }} />}
                           <span title="Wall-clock latency">{(latencyMs / 1000).toFixed(1)}s</span>
                           <span style={{ opacity: 0.3 }}>|</span>
                           <span title="Estimated cost">${cost.toFixed(4)}</span>
@@ -1829,7 +1859,7 @@ export default function VeracityDashboard() {
                     })()}
                     {currentResult.orchestratorOutput?.product && (
                       <span className="text-[11px] font-mono px-2 py-0.5 rounded"
-                        style={{ color: '#0070f3', background: 'rgba(0,112,243,0.1)', border: '1px solid rgba(0,112,243,0.2)' }}>
+                        style={{ color: accentInk, background: 'rgba(0,196,255,0.1)', border: '1px solid rgba(0,196,255,0.2)' }}>
                         {currentResult.orchestratorOutput.product}
                       </span>
                     )}
@@ -1847,16 +1877,16 @@ export default function VeracityDashboard() {
                     const researchDone = researchRuns.filter(r => r.status === 'completed').length;
                     const researchFailed = researchRuns.filter(r => r.status === 'failed').length;
                     return (
-                      <div className="flex flex-col gap-3 rounded-lg p-4" style={{ background: cardBg2, border: `1px solid ${borderC}` }}>
+                      <div className="flex flex-col gap-3 rounded-lg p-4" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
                         <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider" style={{ color: textSubtle }}>
                           <span>Phases</span>
-                          <span className="px-2 py-0.5 rounded-full" style={{ color: researchDone + researchFailed >= 6 ? '#10b981' : '#0070f3', background: researchDone + researchFailed >= 6 ? 'rgba(16,185,129,0.08)' : 'rgba(0,112,243,0.08)', border: `1px solid ${researchDone + researchFailed >= 6 ? 'rgba(16,185,129,0.2)' : 'rgba(0,112,243,0.2)'}` }}>
+                          <span className="px-2 py-0.5 rounded-full" style={{ color: researchDone + researchFailed >= 6 ? accentInk : accentInk, background: researchDone + researchFailed >= 6 ? 'rgba(0,196,255,0.08)' : 'rgba(0,196,255,0.08)', border: `1px solid ${researchDone + researchFailed >= 6 ? 'rgba(0,196,255,0.2)' : 'rgba(0,196,255,0.2)'}` }}>
                             research {researchDone}/{Math.max(researchRuns.length, 6)}{researchFailed > 0 ? ` · ${researchFailed} failed` : ''}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full" style={{ color: executionRun?.status === 'completed' ? '#10b981' : executionRun?.status === 'running' ? '#0070f3' : textSubtle, background: executionRun?.status === 'completed' ? 'rgba(16,185,129,0.08)' : executionRun?.status === 'running' ? 'rgba(0,112,243,0.08)' : 'transparent', border: `1px solid ${executionRun?.status === 'completed' ? 'rgba(16,185,129,0.2)' : executionRun?.status === 'running' ? 'rgba(0,112,243,0.2)' : borderC}` }}>
+                          <span className="px-2 py-0.5 rounded-full" style={{ color: executionRun?.status === 'completed' ? accentInk : executionRun?.status === 'running' ? accentInk : textSubtle, background: executionRun?.status === 'completed' ? 'rgba(0,196,255,0.08)' : executionRun?.status === 'running' ? 'rgba(0,196,255,0.08)' : 'transparent', border: `1px solid ${executionRun?.status === 'completed' ? 'rgba(0,196,255,0.2)' : executionRun?.status === 'running' ? 'rgba(0,196,255,0.2)' : borderC}` }}>
                             execution {executionRun?.status ?? 'idle'}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full" style={{ color: refinement ? '#10b981' : textSubtle, background: refinement ? 'rgba(16,185,129,0.08)' : 'transparent', border: `1px solid ${refinement ? 'rgba(16,185,129,0.2)' : borderC}` }}>
+                          <span className="px-2 py-0.5 rounded-full" style={{ color: refinement ? accentInk : textSubtle, background: refinement ? 'rgba(0,196,255,0.08)' : 'transparent', border: `1px solid ${refinement ? 'rgba(0,196,255,0.2)' : borderC}` }}>
                             refinement {refinement ? 'applied' : 'idle'}
                           </span>
                         </div>
@@ -1865,7 +1895,7 @@ export default function VeracityDashboard() {
                           <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono" style={{ color: textSubtle }}>
                             <span className="uppercase tracking-wider">Source mix</span>
                             {sourceMix.map(({ tool, count }) => (
-                              <span key={tool} className="px-2 py-0.5 rounded-full" style={{ color: '#0070f3', background: 'rgba(0,112,243,0.08)', border: '1px solid rgba(0,112,243,0.2)' }}>
+                              <span key={tool} className="px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>
                                 {tool} × {count}
                               </span>
                             ))}
@@ -1873,19 +1903,19 @@ export default function VeracityDashboard() {
                         )}
 
                         {refinement && refinement.deltas.length > 0 && (
-                          <div className="rounded-md p-3" style={{ background: cardBg, border: `1px solid ${borderC}` }}>
+                          <div className="rounded-md p-3" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                               <div>
                                 <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Before / after refinement</p>
                                 <p className="text-[11px] mt-1" style={{ color: textMuted }}>{refinement.feedbackApplied.variantResults} variant results, {refinement.feedbackApplied.recommendationFeedback} ratings, {refinement.feedbackApplied.recommendationActions} actions</p>
                               </div>
-                              {refinement.focus && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ color: '#0070f3', background: 'rgba(0,112,243,0.08)', border: '1px solid rgba(0,112,243,0.2)' }}>{refinement.focus}</span>}
+                              {refinement.focus && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>{refinement.focus}</span>}
                             </div>
                             <div className="flex flex-col gap-2">
                               {refinement.deltas.slice(0, 3).map(delta => (
-                                <div key={`${delta.domain}-${delta.summary}`} className="rounded-md p-2.5" style={{ background: cardBg2, border: `1px solid ${borderC}` }}>
+                                <div key={`${delta.domain}-${delta.summary}`} className="rounded-md p-2.5" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#0070f3' }}>{delta.domain}</span>
+                                    <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: accentInk }}>{delta.domain}</span>
                                     {delta.beforeConfidence && <ConfidenceBadge level={delta.beforeConfidence} />}
                                     <ArrowUpRight size={10} style={{ color: textSubtle, transform: 'rotate(45deg)' }} />
                                     {delta.afterConfidence && <ConfidenceBadge level={delta.afterConfidence} />}
@@ -1915,13 +1945,13 @@ export default function VeracityDashboard() {
                               <div key={`${o.domain}-${i}`} className="rounded-xl p-4 transition-all"
                                 style={{
                                   background: cardBg2,
-                                  border: `1px solid ${borderC}`,
+                                  border: 'none', boxShadow: neuExtrudedSm,
                                   borderLeft: `3px solid ${domainMeta?.color ?? borderC}`,
                                 }}>
                                 <div className="flex items-center justify-between mb-2.5">
                                   <div className="flex items-center gap-1.5">
                                     {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
-                                    <span className="text-[12px] font-mono font-bold uppercase tracking-wide" style={{ color: domainMeta?.color ?? textSubtle }}>
+                                    <span className="text-[12px] font-mono font-bold uppercase tracking-wide" style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textSubtle }}>
                                       {domainMeta?.short ?? o.domain}
                                     </span>
                                   </div>
@@ -1931,11 +1961,11 @@ export default function VeracityDashboard() {
                                   {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
                                 </p>
                                 {o.sources?.length ? (
-                                  <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5" style={{ borderTop: `1px solid ${borderC}` }}>
+                                  <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5" style={{ borderTop: 'none' }}>
                                     {o.sources.slice(0, 2).map(source => (
                                       <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer"
                                         className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md transition-colors"
-                                        style={{ color: textMuted, background: cardBg, border: `1px solid ${borderC}` }}>
+                                        style={{ color: textMuted, background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
                                         {source.title} <ArrowUpRight size={8} />
                                       </a>
                                     ))}
@@ -1957,12 +1987,12 @@ export default function VeracityDashboard() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {currentResult.recommendations.map((rec: any, i: number) => (
                           <div key={i} className="rounded-lg p-4 flex flex-col gap-2.5"
-                            style={{ background: cardBg2, border: `1px solid ${borderC}` }}>
+                            style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
                             <div className="flex flex-wrap gap-1.5">
                               <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded uppercase" style={{
-                                color:   rec.priority === 'immediate' ? '#ef4444' : rec.priority === 'short-term' ? '#f59e0b' : '#3b82f6',
-                                background: rec.priority === 'immediate' ? 'rgba(239,68,68,0.1)' : rec.priority === 'short-term' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)',
-                                border: `1px solid ${rec.priority === 'immediate' ? 'rgba(239,68,68,0.25)' : rec.priority === 'short-term' ? 'rgba(245,158,11,0.25)' : 'rgba(59,130,246,0.25)'}`,
+                                color:   rec.priority === 'immediate' ? '#0B1A2E' : rec.priority === 'short-term' ? '#3D9EFF' : '#3D9EFF',
+                                background: rec.priority === 'immediate' ? 'rgba(11,26,46,0.1)' : rec.priority === 'short-term' ? 'rgba(61,158,255,0.1)' : 'rgba(61,158,255,0.1)',
+                                border: `1px solid ${rec.priority === 'immediate' ? 'rgba(11,26,46,0.25)' : rec.priority === 'short-term' ? 'rgba(61,158,255,0.25)' : 'rgba(61,158,255,0.25)'}`,
                               }}>{rec.priority ?? 'strategic'}</span>
                               <ConfidenceBadge level={rec.confidence ?? (rec.score >= 80 ? 'high' : rec.score >= 55 ? 'medium' : 'low')} />
                             </div>
@@ -1991,23 +2021,23 @@ export default function VeracityDashboard() {
                                 });
                               };
                               return (
-                                <div className="flex items-center gap-1.5 mt-1 pt-2" style={{ borderTop: `1px solid ${borderC}` }}>
+                                <div className="flex items-center gap-1.5 mt-1 pt-2" style={{ borderTop: 'none' }}>
                                   <button type="button" onClick={() => rate('up')} title="Useful"
                                     className="p-1 rounded transition-colors" style={{
-                                      color: current === 'up' ? '#10b981' : textSubtle,
-                                      background: current === 'up' ? 'rgba(16,185,129,0.12)' : 'transparent',
+                                      color: current === 'up' ? accentInk : textSubtle,
+                                      background: current === 'up' ? 'rgba(0,196,255,0.12)' : 'transparent',
                                     }}>
                                     <ThumbsUp size={12} />
                                   </button>
                                   <button type="button" onClick={() => rate('down')} title="Not useful"
                                     className="p-1 rounded transition-colors" style={{
-                                      color: current === 'down' ? '#ef4444' : textSubtle,
-                                      background: current === 'down' ? 'rgba(239,68,68,0.12)' : 'transparent',
+                                      color: current === 'down' ? '#0B1A2E' : textSubtle,
+                                      background: current === 'down' ? 'rgba(11,26,46,0.12)' : 'transparent',
                                     }}>
                                     <ThumbsDown size={12} />
                                   </button>
                                   {current && (
-                                    <span className="text-[9px] font-mono ml-1" style={{ color: current === 'up' ? '#10b981' : '#ef4444' }}>
+                                    <span className="text-[9px] font-mono ml-1" style={{ color: current === 'up' ? accentInk : '#0B1A2E' }}>
                                       {current === 'up' ? 'Validated' : 'Rejected'}
                                     </span>
                                   )}
@@ -2022,14 +2052,14 @@ export default function VeracityDashboard() {
 
                   {/* Sources */}
                   {currentResult.sources && currentResult.sources.length > 0 && (
-                    <div className="flex items-start gap-3 pt-4" style={{ borderTop: `1px solid ${borderC}` }}>
+                    <div className="flex items-start gap-3 pt-4" style={{ borderTop: 'none' }}>
                       <span className="text-[10px] font-mono font-semibold uppercase tracking-widest shrink-0 mt-1" style={{ color: textSubtle }}>sources</span>
                       <div className="flex flex-wrap gap-1.5">
                         {currentResult.sources.map(source => (
                           <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-md transition-colors"
-                            style={{ background: cardBg2, border: `1px solid ${borderC}`, color: textMuted }}
-                            onMouseEnter={e => { const a = e.currentTarget as HTMLAnchorElement; a.style.color = '#0070f3'; a.style.borderColor = 'rgba(0,112,243,0.3)'; }}
+                            style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}
+                            onMouseEnter={e => { const a = e.currentTarget as HTMLAnchorElement; a.style.color = accentInk; a.style.borderColor = isDark ? 'rgba(0,196,255,0.3)' : 'rgba(0,82,163,0.35)'; }}
                             onMouseLeave={e => { const a = e.currentTarget as HTMLAnchorElement; a.style.color = textMuted; a.style.borderColor = borderC; }}>
                             {source.title} <ArrowUpRight size={9} />
                           </a>
@@ -2040,7 +2070,7 @@ export default function VeracityDashboard() {
 
                   {/* Suggestions */}
                   {currentResult.suggestions && currentResult.suggestions.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 pt-3" style={{ borderTop: `1px solid ${borderC}` }}>
+                    <div className="flex flex-wrap items-center gap-2 pt-3" style={{ borderTop: 'none' }}>
                       <span className="text-[10px] font-mono font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>dig deeper</span>
                       {currentResult.suggestions.map(sug => (
                         <button
@@ -2055,8 +2085,8 @@ export default function VeracityDashboard() {
                             });
                           }}
                           className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all disabled:opacity-45 disabled:pointer-events-none"
-                          style={{ background: cardBg2, border: `1px solid ${borderC}`, color: textMuted }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; if (b.disabled) return; b.style.color = '#0070f3'; b.style.borderColor = 'rgba(0,112,243,0.4)'; b.style.background = 'rgba(0,112,243,0.06)'; }}
+                          style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}
+                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; if (b.disabled) return; b.style.color = accentInk; b.style.borderColor = isDark ? 'rgba(0,196,255,0.4)' : 'rgba(0,82,163,0.4)'; b.style.background = isDark ? 'rgba(0,196,255,0.06)' : 'rgba(0,82,163,0.06)'; }}
                           onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = textMuted; b.style.borderColor = borderC; b.style.background = cardBg2; }}>
                           {sug} <ChevronRight size={11} />
                         </button>
@@ -2072,9 +2102,9 @@ export default function VeracityDashboard() {
               const mindMapOutput = currentResult?.orchestratorOutput?.outputs?.find(o => o.artifactType === 'mind-map') as MindMapOutput | undefined;
               if (!mindMapOutput?.branches?.length) return null;
               return (
-                <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${borderC}`, background: cardBg }}>
-                  <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: `1px solid ${borderC}` }}>
-                    <GitBranch size={14} style={{ color: '#0070f3' }} />
+                <div className="rounded-lg overflow-hidden" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
+                  <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: 'none' }}>
+                    <GitBranch size={14} style={{ color: accentInk }} />
                     <span className="text-[12px] font-mono font-semibold uppercase tracking-widest" style={{ color: textMuted }}>
                       Mind Map
                     </span>
@@ -2089,9 +2119,9 @@ export default function VeracityDashboard() {
             {/* ── Follow-up answers ── */}
             {followUps.map(fu => (
               <div key={fu.id} className="rounded-lg overflow-hidden"
-                style={{ border: `1px solid ${borderC}`, borderLeft: '2px solid #0070f3', background: cardBg }}>
-                <div className="flex items-center gap-2.5 px-4 py-3" style={{ borderBottom: `1px solid ${borderC}` }}>
-                  <MessageSquarePlus size={13} style={{ color: '#0070f3' }} />
+                style={{ border: 'none', boxShadow: neuExtrudedSm, borderLeft: `2px solid ${accentInk}`, background: cardBg }}>
+                <div className="flex items-center gap-2.5 px-4 py-3" style={{ borderBottom: 'none' }}>
+                  <MessageSquarePlus size={13} style={{ color: accentInk }} />
                   <p className="text-[13px] font-mono" style={{ color: textMain }}>{fu.question}</p>
                 </div>
                 <div className="p-4">
@@ -2105,11 +2135,11 @@ export default function VeracityDashboard() {
                     <>
                       <p className="followup-answer whitespace-pre-line">{fu.answer}</p>
                       {fu.sources && fu.sources.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3" style={{ borderTop: `1px solid ${borderC}` }}>
+                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3" style={{ borderTop: 'none' }}>
                           {fu.sources.map(s => (
                             <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer"
                               className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded transition-colors"
-                              style={{ background: cardBg2, border: `1px solid ${borderC}`, color: textMuted }}>
+                              style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}>
                               {s.title} <ArrowUpRight size={8} />
                             </a>
                           ))}
@@ -2124,7 +2154,7 @@ export default function VeracityDashboard() {
             {/* ── Follow-up input ── */}
             {hasResult && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-lg px-4 py-3"
-                style={{ border: `1px solid ${borderC}`, background: cardBg }}
+                style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}
                 ref={followUpEndRef}>
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <MessageSquarePlus size={14} style={{ color: textSubtle, flexShrink: 0 }} />
@@ -2143,9 +2173,9 @@ export default function VeracityDashboard() {
                   onClick={() => handleFollowUp(followUpInput)}
                   disabled={!followUpInput.trim() || isFollowingUp || isLoading}
                   className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all disabled:opacity-40 shrink-0"
-                  style={{ background: '#0070f3', color: '#fff' }}
+                  style={{ background: '#00C4FF', color: '#fff' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#0060df'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#0070f3'; }}>
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00C4FF'; }}>
                   {isFollowingUp
                     ? <><RefreshCw size={11} className="animate-spin" /> thinking…</>
                     : <><Send size={11} /> Follow up</>}
@@ -2159,6 +2189,69 @@ export default function VeracityDashboard() {
 
           </div>
         </div>
+
+        {/* ── Floating bottom query bar ── */}
+        {topTab === 'intelligence' && (
+          <div className="shrink-0 z-20 px-4 md:px-8 pb-6 pt-2 pointer-events-none">
+            <div className="pointer-events-auto max-w-[920px] mx-auto w-full">
+              {attachedImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2 px-1">
+                  {attachedImages.map((img, i) => (
+                    <div key={i} className="relative group">
+                      <img src={img.dataUrl} alt={img.name} className="h-10 w-10 object-cover rounded-lg" style={{ border: 'none', boxShadow: neuExtrudedSm }} />
+                      <button onClick={() => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: isDark ? '#333' : '#666', color: '#fff' }}>
+                        <X size={9} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div
+                className="query-bar-glow query-bar-float relative flex items-end w-full"
+                style={{ background: headerBg }}
+              >
+                <Search size={15} className="absolute left-4 top-4 pointer-events-none" style={{ color: textSubtle }} />
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={e => { setInputValue(e.target.value); autoResizeTextarea(); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend(inputValue);
+                    }
+                  }}
+                  placeholder="Ask a growth intelligence question…"
+                  className="query-textarea w-full pl-11 pr-[96px] py-3.5 bg-transparent outline-none font-sans"
+                  style={{ color: textMain }}
+                  disabled={isLoading}
+                  rows={1}
+                />
+                <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
+                    style={{ color: textSubtle }}
+                    aria-label="Attach image">
+                    <Paperclip size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleSend(inputValue)}
+                    disabled={(!inputValue.trim() && attachedImages.length === 0) || isLoading}
+                    className="bg-gradient-signature flex items-center justify-center w-9 h-9 rounded-lg text-[13px] font-medium disabled:opacity-35"
+                  >
+                    {isLoading
+                      ? <RefreshCw size={14} className="animate-spin" />
+                      : <Send size={14} />}
+                  </button>
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
     </div>

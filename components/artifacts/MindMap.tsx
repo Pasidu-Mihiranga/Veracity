@@ -534,7 +534,7 @@ function LegendPanel({
   return (
     <div
       data-mindmap-ui
-      className="absolute bottom-3 left-3 z-30 rounded-xl border border-border bg-white/96 backdrop-blur-sm shadow-lg p-3 w-52"
+      className="absolute bottom-3 left-3 z-30 rounded-[20px] veracity-card p-3 w-52"
       onPointerDown={e => e.stopPropagation()}
       onPointerMove={e => e.stopPropagation()}
     >
@@ -749,7 +749,7 @@ export function MindMap({ output }: Props) {
       {/* ── Canvas ───────────────────────────────────────────────────────── */}
       <div
         ref={containerRef}
-        className="relative rounded-2xl border border-border bg-[#FAFBFC] overflow-hidden select-none"
+        className="relative rounded-[32px] veracity-card overflow-hidden select-none bg-background"
         style={{ height: 560, cursor: isDragging ? 'grabbing' : 'grab' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -801,7 +801,7 @@ export function MindMap({ output }: Props) {
           <foreignObject x={layoutCx - 112} y={layoutCy - 40} width={224} height={80}>
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{
-                background: 'linear-gradient(135deg, #0052FF, #4D7CFF)',
+                background: 'linear-gradient(135deg, #00C4FF, #3D9EFF)',
                 borderRadius: 16,
                 padding: '11px 20px',
                 textAlign: 'center',
@@ -842,7 +842,7 @@ export function MindMap({ output }: Props) {
 
         {/* Summary pill — hidden while a node is selected so it doesn't clash with side panel */}
         {summary && !selectedId && (
-          <div className="absolute top-3 left-3 text-[11px] text-muted-foreground bg-white/85 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-border max-w-[260px] leading-relaxed pointer-events-none">
+          <div className="absolute top-3 left-3 text-[11px] text-muted-foreground neu-extruded-sm px-3 py-1.5 max-w-[260px] leading-relaxed pointer-events-none">
             {summary}
           </div>
         )}

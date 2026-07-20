@@ -9,16 +9,16 @@ interface Props {
 }
 
 const STRENGTH_CONFIG = {
-  strong:  { label: '●●●', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  medium:  { label: '●●○', color: 'text-amber-600',   bg: 'bg-amber-50'   },
-  weak:    { label: '●○○', color: 'text-red-500',     bg: 'bg-red-50'     },
+  strong:  { label: '●●●', color: 'text-sky-600', bg: 'bg-sky-50' },
+  medium:  { label: '●●○', color: 'text-sky-600',   bg: 'bg-sky-50'   },
+  weak:    { label: '●○○', color: 'text-slate-800',     bg: 'bg-slate-100'     },
   none:    { label: '○○○', color: 'text-muted-foreground', bg: 'bg-muted'  },
 };
 
 const GAP_CONFIG = {
-  advantage:    { label: '▲ Advantage',    class: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  advantage:    { label: '▲ Advantage',    class: 'text-sky-600 bg-sky-50 border-sky-200' },
   parity:       { label: '= Parity',        class: 'text-muted-foreground bg-muted border-border'      },
-  disadvantage: { label: '▼ Gap',           class: 'text-red-500 bg-red-50 border-red-200'             },
+  disadvantage: { label: '▼ Gap',           class: 'text-slate-800 bg-slate-100 border-slate-300'             },
 };
 
 function StrengthDot({ level }: { level: CompetitorFeature['yourProduct'] }) {
@@ -48,10 +48,10 @@ export function CompetitiveMatrix({ output, product }: Props) {
 
       {/* Matrix table */}
       {matrix.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl neu-extruded">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/60 border-b border-border">
+              <tr className="bg-muted/60">
                 <th className="text-left px-4 py-2.5 text-xs font-mono text-muted-foreground uppercase tracking-wider w-[40%]">Feature</th>
                 <th className="text-center px-3 py-2.5 text-xs font-mono text-accent uppercase tracking-wider w-[20%]">{product}</th>
                 <th className="text-center px-3 py-2.5 text-xs font-mono text-muted-foreground uppercase tracking-wider w-[20%]">{competitor}</th>
@@ -62,7 +62,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
               {matrix.map((row, i) => {
                 const gapCfg = GAP_CONFIG[row.gapDirection];
                 return (
-                  <tr key={i} className={`border-b border-border/50 transition-colors hover:bg-muted/30 ${i % 2 === 0 ? '' : 'bg-muted/10'}`}>
+                  <tr key={i} className={`transition-colors hover:bg-muted/30 ${i % 2 === 0 ? '' : 'bg-muted/10'}`}>
                     <td className="px-4 py-2.5 text-foreground font-medium">{row.feature}</td>
                     <td className="px-3 py-2.5 text-center">
                       <StrengthDot level={row.yourProduct} />
@@ -71,7 +71,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
                       <StrengthDot level={row.competitor} />
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${gapCfg.class}`}>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded neu-pill ${gapCfg.class}`}>
                         {gapCfg.label}
                       </span>
                     </td>
@@ -86,17 +86,17 @@ export function CompetitiveMatrix({ output, product }: Props) {
       {/* Hiring + recent moves */}
       <div className="grid grid-cols-2 gap-3">
         {hiringSignals.length > 0 && (
-          <div className="rounded-xl border border-border p-3 flex flex-col gap-1.5">
+          <div className="neu-extruded-sm rounded-xl p-3 flex flex-col gap-1.5">
             <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Hiring Signals</p>
             {hiringSignals.slice(0, 3).map((s, i) => (
               <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                <span className="text-amber-500 shrink-0">↑</span>{s}
+                <span className="text-sky-500 shrink-0">↑</span>{s}
               </p>
             ))}
           </div>
         )}
         {recentMoves.length > 0 && (
-          <div className="rounded-xl border border-border p-3 flex flex-col gap-1.5">
+          <div className="neu-extruded-sm rounded-xl p-3 flex flex-col gap-1.5">
             <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Recent Moves</p>
             {recentMoves.slice(0, 3).map((s, i) => (
               <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">

@@ -27,9 +27,9 @@ function formatTimeHorizonBadge(raw: string): string {
 function ConfidenceBadge({ level }: { level?: string }) {
   if (!level) return null;
   const styles: Record<string, { color: string; bg: string; border: string }> = {
-    high:   { color: '#10b981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)'  },
-    medium: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)'  },
-    low:    { color: '#6b7280', bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.25)' },
+    high:   { color: '#00C4FF', bg: 'rgba(0,196,255,0.12)',  border: 'rgba(0,196,255,0.3)'  },
+    medium: { color: '#3D9EFF', bg: 'rgba(61,158,255,0.12)',  border: 'rgba(61,158,255,0.3)'  },
+    low:    { color: '#6B849C', bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.25)' },
   };
   const s = styles[level] ?? styles.low;
   return (
@@ -44,14 +44,14 @@ function ConfidenceBadge({ level }: { level?: string }) {
 
 // ── Direction icon ────────────────────────────────────────────────────────────
 function DirectionIcon({ direction }: { direction: 'up' | 'down' | 'flat' }) {
-  if (direction === 'up')   return <TrendingUp  size={18} className="text-emerald-500" />;
-  if (direction === 'down') return <TrendingDown size={18} className="text-red-500" />;
+  if (direction === 'up')   return <TrendingUp  size={18} className="text-[color:var(--accent)]" />;
+  if (direction === 'down') return <TrendingDown size={18} className="text-slate-800" />;
   return <Minus size={18} className="text-slate-400" />;
 }
 
 function directionColor(direction: 'up' | 'down' | 'flat'): string {
-  if (direction === 'up')   return '#10b981';
-  if (direction === 'down') return '#ef4444';
+  if (direction === 'up')   return '#00C4FF';
+  if (direction === 'down') return '#0B1A2E';
   return '#94a3b8';
 }
 
@@ -109,11 +109,11 @@ function DistributionHistogram({ buckets }: { buckets: DistributionBucket[] }) {
   const barColor = (label: string): string => {
     const l = label.toLowerCase();
     if (l.includes('strongly positive')) return '#059669';
-    if (l.includes('positive'))          return '#10b981';
+    if (l.includes('positive'))          return '#00C4FF';
     if (l.includes('neutral'))           return '#94a3b8';
     if (l.includes('strongly negative')) return '#dc2626';
-    if (l.includes('negative'))          return '#ef4444';
-    return '#6366f1';
+    if (l.includes('negative'))          return '#0B1A2E';
+    return '#5AB0E8';
   };
 
   return (
@@ -139,8 +139,8 @@ function DistributionHistogram({ buckets }: { buckets: DistributionBucket[] }) {
         ))}
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[9px] font-mono text-emerald-500">+ positive</span>
-        <span className="text-[9px] font-mono text-red-500">negative −</span>
+        <span className="text-[9px] font-mono text-[color:var(--accent)]">+ positive</span>
+        <span className="text-[9px] font-mono text-slate-800">negative −</span>
       </div>
     </div>
   );
@@ -169,7 +169,7 @@ function ContributingSignals({ signals }: { signals: ForecastSignal[] }) {
                 </span>
                 <span
                   className="text-[10px] font-mono font-medium shrink-0"
-                  style={{ color: isPositive ? '#10b981' : '#ef4444' }}
+                  style={{ color: isPositive ? '#00C4FF' : '#0B1A2E' }}
                 >
                   {isPositive ? '+' : ''}{s.weight.toFixed(2)}
                 </span>
@@ -180,7 +180,7 @@ function ContributingSignals({ signals }: { signals: ForecastSignal[] }) {
                   className="h-full rounded-full"
                   style={{
                     width: barWidth,
-                    background: isPositive ? '#10b981' : '#ef4444',
+                    background: isPositive ? '#00C4FF' : '#0B1A2E',
                     opacity: 0.6,
                   }}
                 />
@@ -318,7 +318,7 @@ export function ForecastChart({ output, product }: ForecastChartProps) {
         </div>
         <div className="rounded-xl p-4" style={{ border: `1px solid ${borderC}`, background: cardBg }}>
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles size={14} style={{ color: '#10b981' }} />
+            <Sparkles size={14} style={{ color: '#00C4FF' }} />
             <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: textSubtle }}>Swarm Tilt</span>
           </div>
           <p className="text-[18px] font-semibold" style={{ color: textMain }}>

@@ -38,7 +38,7 @@ export function ApiUsagePanel({
   lastLive?: LiveStreamMetrics;
   sessionTotals: SessionUsage;
 }) {
-  const { isDark, surface, border, text, textMuted, textSubtle } = useTheme();
+  const { text, textMuted, textSubtle } = useTheme();
   const [info, setInfo] = useState<UsageInfo | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -68,17 +68,19 @@ export function ApiUsagePanel({
   return (
     <div className="flex flex-col gap-6 max-w-3xl w-full">
       <div>
-        <h2 className="text-lg font-bold tracking-tight" style={{ color: text }}>API and model usage</h2>
-        <p className="text-[13px] mt-1" style={{ color: textMuted }}>
+        <h2 className="font-display text-xl font-extrabold tracking-tight" style={{ color: text }}>
+          API and model usage
+        </h2>
+        <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: textMuted }}>
           In-app numbers are estimated from the last intelligence run and your session. Provider dashboards are authoritative for billing.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl p-4" style={{ border: `1px solid ${border}`, background: surface }}>
-          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Last run (authoritative when finished)</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="veracity-card p-5">
+          <p className="label-mono mb-3">Last run</p>
           {lastMetrics || lastLive ? (
-            <ul className="mt-2 text-[12px] font-mono space-y-1" style={{ color: textMuted }}>
+            <ul className="text-[13px] font-mono space-y-2" style={{ color: textMuted }}>
               {latencyMs != null && <li>Latency: {(latencyMs / 1000).toFixed(1)}s</li>}
               {cost != null && <li>Est. model cost: ${Number(cost).toFixed(4)}</li>}
               {geminiCalls != null && <li>Model calls (est.): {geminiCalls}</li>}
@@ -86,12 +88,14 @@ export function ApiUsagePanel({
               {agentN != null && <li>Agents: {doneN ?? '—'}/{agentN}</li>}
             </ul>
           ) : (
-            <p className="mt-2 text-[12px]" style={{ color: textMuted }}>Run a query on the Intelligence tab to populate metrics.</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: textMuted }}>
+              Run a query on the Intelligence tab to populate metrics.
+            </p>
           )}
         </div>
-        <div className="rounded-xl p-4" style={{ border: `1px solid ${border}`, background: surface }}>
-          <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Session (this tab session)</p>
-          <ul className="mt-2 text-[12px] font-mono space-y-1" style={{ color: textMuted }}>
+        <div className="veracity-card p-5">
+          <p className="label-mono mb-3">Session</p>
+          <ul className="text-[13px] font-mono space-y-2" style={{ color: textMuted }}>
             <li>Queries with metrics: {sessionTotals.queries}</li>
             <li>Sum est. cost: ${sessionTotals.totalCostUsd.toFixed(4)}</li>
             <li>Sum latency: {(sessionTotals.totalLatencyMs / 1000).toFixed(1)}s</li>
@@ -101,28 +105,36 @@ export function ApiUsagePanel({
         </div>
       </div>
 
-      {err && <p className="text-[12px] text-amber-600">{err}</p>}
+      {err && (
+        <div className="neu-inset rounded-2xl px-4 py-3 flex items-start gap-2">
+          <p className="text-[12px] text-sky-700 dark:text-sky-300">{err}</p>
+        </div>
+      )}
 
       {info && (
         <div className="space-y-4">
-          <div className="rounded-xl p-4" style={{ border: `1px solid ${border}`, background: surface }}>
-            <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: textSubtle }}>Configured models (env)</p>
-            <p className="text-[12px] font-mono" style={{ color: textMuted }}>
-              Text: {info.models.text} · Embeddings: {info.models.embedding} ({info.models.embeddingDimensions}d)
+          <div className="veracity-card p-5">
+            <p className="label-mono mb-3">Configured models</p>
+            <p className="text-[13px] font-mono leading-relaxed" style={{ color: textMuted }}>
+              Text: {info.models.text}
+            </p>
+            <p className="text-[13px] font-mono mt-1.5 leading-relaxed" style={{ color: textMuted }}>
+              Embeddings: {info.models.embedding} ({info.models.embeddingDimensions}d)
             </p>
           </div>
-          <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${border}`, background: surface }}>
-            <div className="px-3 py-2" style={{ borderBottom: `1px solid ${border}` }}>
-              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Integrations</p>
-            </div>
-            <ul className="divide-y" style={{ borderColor: border }}>
+
+          <div className="veracity-card p-5">
+            <p className="label-mono mb-4">Integrations</p>
+            <ul className="flex flex-col gap-3">
               {info.providers.map(p => (
-                <li key={p.id} className="px-3 py-2.5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
-                  <div>
-                    <span className="text-[12px] font-medium" style={{ color: text }}>{p.label}</span>
-                    <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: p.configured ? '#10b981' : textMuted, background: p.configured ? 'rgba(16,185,129,0.1)' : 'rgba(100,100,100,0.1)' }}>{p.configured ? 'configured' : 'not set'}</span>
-                    <p className="text-[11px] mt-0.5" style={{ color: textMuted }}>{p.usageNote}</p>
+                <li key={p.id} className="neu-inset rounded-2xl px-4 py-3.5">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="text-[13px] font-semibold" style={{ color: text }}>{p.label}</span>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 ${p.configured ? 'neu-pill-positive' : 'neu-pill'}`}>
+                      {p.configured ? 'configured' : 'not set'}
+                    </span>
                   </div>
+                  <p className="text-[12px] leading-relaxed" style={{ color: textSubtle }}>{p.usageNote}</p>
                 </li>
               ))}
             </ul>

@@ -8,15 +8,15 @@ interface Props {
 }
 
 const RISK_CONFIG = {
-  high:   { label: 'High Risk',   row: 'border-red-500/30 bg-red-500/10',   badge: 'bg-red-500/10 text-red-400 border-red-500/30',   dot: 'bg-red-500'   },
-  medium: { label: 'Medium Risk', row: 'border-amber-500/30 bg-amber-500/10', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/30', dot: 'bg-amber-400' },
-  low:    { label: 'Low Risk',    row: 'border-border bg-muted/20',           badge: 'bg-muted text-muted-foreground border-border',         dot: 'bg-slate-400' },
+  high:   { label: 'High Risk',   row: 'border-navy/40 bg-navy/10',           badge: 'bg-navy/10 text-navy border-navy/30 dark:text-ice dark:border-ice/30', dot: 'bg-navy dark:bg-ice' },
+  medium: { label: 'Medium Risk', row: 'border-accent-secondary/30 bg-accent-secondary/10', badge: 'bg-accent-secondary/10 text-accent-secondary border-accent-secondary/30', dot: 'bg-accent-secondary' },
+  low:    { label: 'Low Risk',    row: 'border-border bg-muted/20',           badge: 'bg-muted text-muted-foreground border-border',         dot: 'bg-[color:var(--foreground-subtle)]' },
 };
 
 const OVERALL_RISK_CONFIG = {
-  high:   'text-red-600 bg-red-50 border-red-200',
-  medium: 'text-amber-700 bg-amber-50 border-amber-200',
-  low:    'text-emerald-600 bg-emerald-50 border-emerald-200',
+  high:   'text-navy bg-navy/10 border-navy/30 dark:text-ice dark:bg-ice/10 dark:border-ice/30',
+  medium: 'text-accent-secondary bg-accent-secondary/10 border-accent-secondary/30',
+  low:    'text-accent bg-accent/10 border-accent/30',
 };
 
 function ThreatCard({ threat }: { threat: AdjacentThreat }) {
