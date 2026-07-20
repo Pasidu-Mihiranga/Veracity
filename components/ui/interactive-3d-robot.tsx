@@ -14,14 +14,45 @@ interface InteractiveRobotSplineProps {
 function hideSplineLogo(host: HTMLElement | null) {
   if (!host?.shadowRoot) return false;
   const root = host.shadowRoot;
+
+  // Persistent CSS inside shadow DOM — more reliable than one-off style sets
+  if (!root.getElementById('hide-spline-brand')) {
+    const style = document.createElement('style');
+    style.id = 'hide-spline-brand';
+    style.textContent = `
+      #logo,
+      #logo *,
+      a[href*="spline.design"],
+      a[href*="spline.design"] *,
+      [class*="logo"],
+      [part="logo"],
+      .logo,
+      .logo-container {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        max-width: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+      }
+    `;
+    root.appendChild(style);
+  }
+
   const candidates = root.querySelectorAll(
     '#logo, a[href*="spline.design"], [class*="logo"], [part="logo"]',
   );
   candidates.forEach((el) => {
-    (el as HTMLElement).style.setProperty('display', 'none', 'important');
-    (el as HTMLElement).style.setProperty('visibility', 'hidden', 'important');
-    (el as HTMLElement).style.setProperty('opacity', '0', 'important');
-    (el as HTMLElement).style.setProperty('pointer-events', 'none', 'important');
+    const node = el as HTMLElement;
+    node.style.setProperty('display', 'none', 'important');
+    node.style.setProperty('visibility', 'hidden', 'important');
+    node.style.setProperty('opacity', '0', 'important');
+    node.style.setProperty('pointer-events', 'none', 'important');
   });
   return candidates.length > 0;
 }
@@ -90,7 +121,7 @@ export function InteractiveRobotSpline({ scene, className }: InteractiveRobotSpl
           style={{ width: '100%', height: '100%', display: 'block' }}
         />
       ) : (
-        <div className={`w-full h-full bg-[#A5A3A3] ${className ?? ''}`} aria-hidden />
+        <div className={`w-full h-full auth-robot-fallback ${className ?? ''}`} aria-hidden />
       )}
     </>
   );

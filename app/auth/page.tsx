@@ -3,8 +3,9 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
 import { InteractiveRobotSpline } from '@/components/ui/interactive-3d-robot';
+import { useTheme } from '@/lib/theme-provider';
 
 /** Spline Viewer scene (.splinecode) */
 const ROBOT_SCENE =
@@ -14,6 +15,7 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const { isDark, toggle } = useTheme();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -63,14 +65,23 @@ function AuthForm() {
   return (
     <div className="auth-page min-h-screen relative overflow-hidden">
       {/* Full-page Spline background */}
-      <div className="auth-robot-bg absolute inset-0 z-0">
+      <div className="auth-robot-bg absolute inset-0 z-0 overflow-hidden">
         <InteractiveRobotSpline
           scene={ROBOT_SCENE}
           className="auth-robot-viewer"
         />
       </div>
-      {/* Covers “Built with Spline” — above viewer, below UI cards */}
-      <div className="auth-spline-badge-cover" aria-hidden />
+
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={toggle}
+        className="auth-theme-toggle pointer-events-auto absolute top-5 right-5 z-30 w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {isDark ? <Sun size={16} /> : <Moon size={16} />}
+      </button>
 
       <div className="relative z-20 min-h-screen flex pointer-events-none">
         {/* Left branding */}
@@ -87,7 +98,7 @@ function AuthForm() {
                 draggable={false}
               />
             </picture>
-            <p className="text-slate-700 text-sm font-medium tracking-wide mt-2 pl-0.5">
+            <p className="auth-muted text-sm font-medium tracking-wide mt-2 pl-0.5">
               Growth Intelligence Platform
             </p>
           </div>
@@ -105,7 +116,7 @@ function AuthForm() {
               ].map(({ stat, label }) => (
                 <div key={label} className="auth-stat px-3 py-3 text-center">
                   <div className="font-display font-extrabold text-accent text-lg">{stat}</div>
-                  <div className="text-[11px] font-medium text-slate-500 mt-0.5">{label}</div>
+                  <div className="auth-stat-label text-[11px] font-medium mt-0.5">{label}</div>
                 </div>
               ))}
             </div>
@@ -133,7 +144,7 @@ function AuthForm() {
               <h2 className="font-display text-xl font-extrabold tracking-tight mb-1">
                 {mode === 'signin' ? 'Sign in' : 'Create account'}
               </h2>
-              <p className="text-sm mb-6 text-slate-500">
+              <p className="auth-muted text-sm mb-6">
                 {mode === 'signin'
                   ? 'Access your intelligence workspace.'
                   : 'Set up access in under a minute.'}
@@ -146,7 +157,7 @@ function AuthForm() {
                 className="auth-btn-secondary w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-semibold disabled:opacity-60 mb-4 min-h-11"
               >
                 {googleLoading ? (
-                  <span className="w-4 h-4 border-2 border-slate-300 border-t-accent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-current/20 border-t-accent rounded-full animate-spin" />
                 ) : (
                   <GoogleIcon />
                 )}
@@ -154,14 +165,14 @@ function AuthForm() {
               </button>
 
               <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">or</span>
-                <div className="flex-1 h-px bg-slate-200" />
+                <div className="auth-divider flex-1 h-px" />
+                <span className="auth-divider-label text-[10px] font-semibold uppercase tracking-widest">or</span>
+                <div className="auth-divider flex-1 h-px" />
               </div>
 
               <form onSubmit={handleEmailAuth} className="flex flex-col gap-3.5">
                 <div>
-                  <label className="label-mono block mb-1.5 text-slate-500">Email</label>
+                  <label className="label-mono auth-muted block mb-1.5">Email</label>
                   <input
                     type="email"
                     value={email}
@@ -173,7 +184,7 @@ function AuthForm() {
                 </div>
 
                 <div>
-                  <label className="label-mono block mb-1.5 text-slate-500">Password</label>
+                  <label className="label-mono auth-muted block mb-1.5">Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -187,7 +198,7 @@ function AuthForm() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-2"
+                      className="auth-eye absolute right-2 top-1/2 -translate-y-1/2 p-2"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -196,7 +207,7 @@ function AuthForm() {
                 </div>
 
                 {error && (
-                  <div className="flex items-start gap-2 p-3 rounded-xl auth-stat text-sm text-slate-700">
+                  <div className="flex items-start gap-2 p-3 rounded-xl auth-stat text-sm">
                     <AlertCircle size={15} className="mt-0.5 shrink-0 text-accent" />
                     {error}
                   </div>
@@ -218,7 +229,7 @@ function AuthForm() {
                 </button>
               </form>
 
-              <p className="text-center text-sm text-slate-500 mt-5">
+              <p className="auth-muted text-center text-sm mt-5">
                 {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button
                   type="button"
@@ -239,8 +250,8 @@ function AuthForm() {
 export default function AuthPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#A5A3A3] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-slate-400 border-t-accent rounded-full animate-spin" />
+      <div className="auth-suspense min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-current/30 border-t-accent rounded-full animate-spin text-slate-400 dark:text-slate-500" />
       </div>
     }>
       <AuthForm />

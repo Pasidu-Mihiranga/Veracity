@@ -884,14 +884,15 @@ button, a { touch-action: manipulation; }
   -webkit-user-drag: none;
 }
 
-/* Auth page — #A5A3A3 canvas + full-bleed Spline background */
+/* Auth page — light canvas, darker toward bottom + full-bleed Spline */
 .auth-page {
-  background: #A5A3A3;
+  background: linear-gradient(180deg, #C8D8EA 0%, #B5C8DC 42%, #8FA8C2 100%);
   color: #0B1A2E;
 }
 
-.auth-page .auth-robot-bg {
-  background: #A5A3A3;
+.auth-page .auth-robot-bg,
+.auth-page .auth-robot-fallback {
+  background: transparent;
 }
 
 .auth-page .auth-robot-bg .auth-robot-viewer,
@@ -900,7 +901,7 @@ button, a { touch-action: manipulation; }
   position: absolute !important;
   display: block !important;
   border: 0 !important;
-  background: #A5A3A3;
+  background: transparent;
   z-index: 1;
   /* Large fill so the robot dominates the viewport */
   width: 230% !important;
@@ -911,16 +912,9 @@ button, a { touch-action: manipulation; }
   max-width: none !important;
 }
 
-/* Hide “Built with Spline” badge — above Spline (z-0), below cards (z-20) */
-.auth-page .auth-spline-badge-cover {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 240px;
-  height: 80px;
-  background: #A5A3A3;
-  z-index: 15;
-  pointer-events: none;
+/* Spline fills the page; badge is hidden via shadow-DOM CSS in the viewer */
+.auth-page .auth-robot-bg {
+  overflow: hidden;
 }
 
 .auth-page .auth-card {
@@ -936,7 +930,8 @@ button, a { touch-action: manipulation; }
 }
 
 .auth-page .auth-card .label-mono,
-.auth-page .auth-card .text-muted-foreground {
+.auth-page .auth-card .text-muted-foreground,
+.auth-page .auth-muted {
   color: rgba(11, 26, 46, 0.5) !important;
 }
 
@@ -953,6 +948,18 @@ button, a { touch-action: manipulation; }
   box-shadow:
     inset 2px 2px 6px rgba(15, 23, 42, 0.06),
     inset -2px -2px 6px rgba(255, 255, 255, 0.9);
+}
+
+.auth-page .auth-stat-label {
+  color: #64748B;
+}
+
+.auth-page .auth-divider {
+  background: #E2E8F0;
+}
+
+.auth-page .auth-divider-label {
+  color: #94A3B8;
 }
 
 .auth-page .auth-input {
@@ -972,6 +979,18 @@ button, a { touch-action: manipulation; }
     0 0 0 2px rgba(0, 196, 255, 0.45) !important;
 }
 
+.auth-page .auth-input::placeholder {
+  color: #94A3B8;
+}
+
+.auth-page .auth-eye {
+  color: #94A3B8;
+}
+
+.auth-page .auth-eye:hover {
+  color: #334155;
+}
+
 .auth-page .auth-btn-secondary {
   background: #FFFFFF;
   color: #0B1A2E;
@@ -986,6 +1005,145 @@ button, a { touch-action: manipulation; }
   box-shadow:
     4px 4px 12px rgba(15, 23, 42, 0.1),
     -3px -3px 10px rgba(255, 255, 255, 1);
+}
+
+.auth-page .auth-theme-toggle {
+  background: rgba(255, 255, 255, 0.85);
+  color: #1A3554;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    4px 4px 12px rgba(15, 23, 42, 0.08),
+    -2px -2px 8px rgba(255, 255, 255, 0.9);
+}
+
+.auth-page .auth-theme-toggle:hover {
+  background: #FFFFFF;
+}
+
+/* ── Auth dark mode (matches dashboard navy) ─────────────── */
+.dark .auth-page {
+  background: linear-gradient(180deg, #0E1A2A 0%, #070D16 48%, #03060B 100%);
+  color: #E8F4FC;
+}
+
+.dark .auth-page .auth-robot-bg,
+.dark .auth-page .auth-robot-fallback {
+  background: transparent;
+}
+
+.dark .auth-page .auth-robot-bg .auth-robot-viewer,
+.dark .auth-page .auth-robot-bg iframe,
+.dark .auth-page .auth-robot-bg spline-viewer {
+  background: transparent;
+}
+
+.dark .auth-page .auth-card {
+  background: rgba(12, 22, 36, 0.88);
+  border: 1px solid rgba(232, 244, 252, 0.08);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+  color: #E8F4FC;
+}
+
+.dark .auth-page .auth-logo {
+  filter: brightness(0) invert(1);
+}
+
+.dark .auth-page .auth-card .label-mono,
+.dark .auth-page .auth-card .text-muted-foreground,
+.dark .auth-page .auth-muted {
+  color: rgba(168, 192, 216, 0.75) !important;
+}
+
+.dark .auth-page .auth-card .text-foreground,
+.dark .auth-page .auth-card h2,
+.dark .auth-page .auth-card blockquote {
+  color: #E8F4FC !important;
+}
+
+.dark .auth-page .auth-stat {
+  background: #0B1522;
+  box-shadow:
+    inset 2px 2px 6px rgba(0, 0, 0, 0.45),
+    inset -2px -2px 6px rgba(255, 255, 255, 0.04);
+}
+
+.dark .auth-page .auth-stat-label {
+  color: #6B849C;
+}
+
+.dark .auth-page .auth-divider {
+  background: rgba(232, 244, 252, 0.12);
+}
+
+.dark .auth-page .auth-divider-label {
+  color: #6B849C;
+}
+
+.dark .auth-page .auth-input {
+  background: #0B1522 !important;
+  color: #E8F4FC !important;
+  box-shadow:
+    inset 3px 3px 8px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 6px rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .auth-page .auth-input:focus {
+  box-shadow:
+    inset 3px 3px 8px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 6px rgba(255, 255, 255, 0.04),
+    0 0 0 2px rgba(0, 196, 255, 0.45) !important;
+}
+
+.dark .auth-page .auth-input::placeholder {
+  color: #5A7088;
+}
+
+.dark .auth-page .auth-eye {
+  color: #6B849C;
+}
+
+.dark .auth-page .auth-eye:hover {
+  color: #E8F4FC;
+}
+
+.dark .auth-page .auth-btn-secondary {
+  background: #0B1522;
+  color: #E8F4FC;
+  border: 1px solid rgba(232, 244, 252, 0.1);
+  box-shadow:
+    3px 3px 10px rgba(0, 0, 0, 0.4),
+    -2px -2px 8px rgba(255, 255, 255, 0.04);
+}
+
+.dark .auth-page .auth-btn-secondary:hover {
+  box-shadow:
+    4px 4px 12px rgba(0, 0, 0, 0.5),
+    -3px -3px 10px rgba(255, 255, 255, 0.06);
+  border-color: rgba(0, 196, 255, 0.25);
+}
+
+.dark .auth-page .auth-theme-toggle {
+  background: rgba(12, 22, 36, 0.9);
+  color: #A8C0D8;
+  border: 1px solid rgba(232, 244, 252, 0.1);
+  box-shadow:
+    4px 4px 12px rgba(0, 0, 0, 0.4),
+    -2px -2px 8px rgba(255, 255, 255, 0.04);
+}
+
+.dark .auth-page .auth-theme-toggle:hover {
+  background: #0B1522;
+  color: #00C4FF;
+}
+
+.auth-suspense {
+  background: linear-gradient(180deg, #C8D8EA 0%, #B5C8DC 42%, #8FA8C2 100%);
+}
+
+.dark .auth-suspense {
+  background: linear-gradient(180deg, #0E1A2A 0%, #070D16 48%, #03060B 100%);
 }
 
 @media (max-width: 640px) {
