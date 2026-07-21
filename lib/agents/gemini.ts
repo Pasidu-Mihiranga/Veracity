@@ -1,4 +1,6 @@
 import { getConfig } from '@/lib/config';
+import { logger } from '@/lib/logger';
+import { recordGeminiUsage } from '@/lib/gemini-usage';
 
 const DEFAULT_MODEL = 'gemini-3.6-flash';
 const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-001';
@@ -72,25 +74,57 @@ function buildGenerationConfig(
 }
 
 async function fetchWithRetry(url: string, init?: RequestInit, retries = 5, delay = 1000): Promise<Response> {
-  let lastError: any;
+  let lastError: unknown;
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, init);
       if (response.status === 429 || response.status === 503) {
-        console.warn(`[Gemini API] Received HTTP ${response.status}. Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        logger.warn('gemini.retry', {
+          status: response.status,
+          attempt: i + 1,
+          retries,
+          delayMs: delay,
+        });
         await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2.5; // exponential backoff
+        delay *= 2.5;
         continue;
       }
       return response;
-    } catch (err: any) {
+    } catch (err: unknown) {
       lastError = err;
-      console.warn(`[Gemini API] Fetch error: ${err.message}. Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+      logger.warn('gemini.fetch_error', {
+        error: err instanceof Error ? err.message : String(err),
+        attempt: i + 1,
+        retries,
+        delayMs: delay,
+      });
       await new Promise(resolve => setTimeout(resolve, delay));
       delay *= 2.5;
     }
   }
   throw lastError || new Error(`Failed after ${retries} retries`);
+}
+
+function parseGeminiBody(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function noteUsage(parsed: Record<string, unknown> | null, model: string, kind: string): void {
+  if (!parsed) return;
+  const usage = recordGeminiUsage(parsed);
+  if (!usage) return;
+  logger.info('gemini.usage', {
+    kind,
+    model,
+    promptTokens: usage.promptTokenCount,
+    candidatesTokens: usage.candidatesTokenCount,
+    thoughtsTokens: usage.thoughtsTokenCount ?? 0,
+    totalTokens: usage.totalTokenCount,
+  });
 }
 
 export async function generateHuggingFaceText(
@@ -114,14 +148,12 @@ export async function generateHuggingFaceText(
     throw new Error(`Gemini generateContent failed (${response.status}): ${safePreview(raw)}`);
   }
 
-  let parsed: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  try {
-    parsed = JSON.parse(raw) as typeof parsed;
-  } catch {
-    return raw.trim();
-  }
+  const parsed = parseGeminiBody(raw);
+  noteUsage(parsed, model, 'text');
+  if (!parsed) return raw.trim();
 
-  return parsed.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+  const candidates = parsed.candidates as Array<{ content?: { parts?: Array<{ text?: string }> } }> | undefined;
+  return candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
 }
 
 export async function embedTextWithHuggingFace(text: string): Promise<number[] | null> {
@@ -147,14 +179,12 @@ export async function embedTextWithHuggingFace(text: string): Promise<number[] |
     throw new Error(`Gemini embedContent failed (${response.status}): ${safePreview(raw)}`);
   }
 
-  let parsed: { embedding?: { values?: number[] } };
-  try {
-    parsed = JSON.parse(raw) as typeof parsed;
-  } catch {
-    return null;
-  }
+  const parsed = parseGeminiBody(raw);
+  noteUsage(parsed, model, 'embed');
+  if (!parsed) return null;
 
-  const values = parsed.embedding?.values;
+  const embedding = parsed.embedding as { values?: number[] } | undefined;
+  const values = embedding?.values;
   if (!Array.isArray(values)) return null;
 
   if (embeddingDimensions < 3072) {
@@ -193,19 +223,17 @@ export async function generateHuggingFaceJson<T = Record<string, unknown>>(
     throw new Error(`Gemini JSON generateContent failed (${response.status}): ${safePreview(raw)}`);
   }
 
-  let parsed: {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> };
-      finishReason?: string;
-    }>;
-  };
-  try {
-    parsed = JSON.parse(raw) as typeof parsed;
-  } catch {
+  const parsed = parseGeminiBody(raw);
+  noteUsage(parsed, model, 'json');
+  if (!parsed) {
     throw new Error(`Gemini response is not valid JSON: ${safePreview(raw)}`);
   }
 
-  const candidate = parsed.candidates?.[0];
+  const candidates = parsed.candidates as Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
+  }> | undefined;
+  const candidate = candidates?.[0];
   const text = candidate?.content?.parts?.[0]?.text?.trim() ?? '';
   if (!text) {
     const reason = candidate?.finishReason ?? 'unknown';

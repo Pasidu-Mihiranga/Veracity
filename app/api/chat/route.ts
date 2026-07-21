@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { orchestrate, runMirofishAgent, runMirofishLiveAgent } from '../../../lib/agents/orchestrator';
 import { createClient } from '@/lib/supabase-server';
 import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
+import { captureException, getCorrelationId, getGeminiUsageSafe, logger, withCorrelation } from '@/lib/observability';
 import type { ConversationMessage, AgentRun, OrchestratorOutput, ImageAttachment, AgentOutput } from '../../../lib/agents/types';
 
 export const runtime = 'nodejs';
@@ -45,16 +46,23 @@ function jsonError(message: string, status: number): Response {
 }
 
 export async function POST(req: NextRequest) {
-  // ── Auth gate (parity with /api/feedback, /api/refine, /api/recall) ─────────
-  // Orchestration spends real tokens and hits live APIs on every invocation,
-  // so the endpoint must require a signed-in user before any work starts.
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return jsonError('Not authenticated', 401);
   }
 
-  const rate = await enforceSweepRateLimit(user.id);
+  return withCorrelation(
+    {
+      correlationId: req.headers.get('x-correlation-id'),
+      userId: user.id,
+    },
+    () => handleChatPost(req, user.id),
+  );
+}
+
+async function handleChatPost(req: NextRequest, userId: string) {
+  const rate = await enforceSweepRateLimit(userId);
   if (!rate.success) {
     return rateLimitExceededResponse(rate);
   }
@@ -81,6 +89,15 @@ export async function POST(req: NextRequest) {
   if (!query?.trim()) {
     return jsonError('query is required', 400);
   }
+
+  const correlationId = getCorrelationId();
+  logger.info('chat.started', {
+    queryPreview: query.slice(0, 120),
+    selectedAgents,
+    includeMirofish,
+    includeMirofishLive,
+    followUpMode,
+  });
 
   const encoder = new TextEncoder();
   // eslint-disable-next-line prefer-const
@@ -167,8 +184,8 @@ export async function POST(req: NextRequest) {
           if (mirofishOutput) {
             write({ type: 'mirofish_result', output: mirofishOutput });
           }
-        } catch {
-          // non-fatal
+        } catch (err) {
+          captureException(err, { agent: 'mirofish' });
         }
       }
 
@@ -189,11 +206,20 @@ export async function POST(req: NextRequest) {
           if (mirofishLiveOutput) {
             write({ type: 'mirofish_live_result', output: mirofishLiveOutput });
           }
-        } catch {
-          // non-fatal
+        } catch (err) {
+          captureException(err, { agent: 'mirofish-live' });
         }
       }
+
+      const usage = getGeminiUsageSafe();
+      logger.info('chat.completed', {
+        latencyMs: Date.now() - orchestrationStart,
+        geminiCalls: usage?.calls,
+        geminiCostUsd: usage?.estimatedCostUsd,
+        totalTokens: usage?.totalTokens,
+      });
     } catch (err) {
+      captureException(err, { route: 'chat' });
       const message = err instanceof Error ? err.message : 'Internal error';
       write({ type: 'error', message });
     } finally {
@@ -207,6 +233,7 @@ export async function POST(req: NextRequest) {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
+      ...(correlationId ? { 'x-correlation-id': correlationId } : {}),
     },
   });
 }
