@@ -2,42 +2,26 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Send, Plus, Search, ChevronRight, ChevronLeft, RefreshCw, ArrowUpRight,
-  LogOut, User, Layers, X, GitBranch,
-  CheckCircle2, Circle, AlertCircle, MessageSquarePlus, Paperclip,
-  Activity, Zap, Shield, Sun, Moon, Rocket, Fish, Sparkles,
-  ThumbsUp, ThumbsDown, BarChart3, Crosshair,
-} from 'lucide-react';
 import { ApiUsagePanel } from '@/components/ApiUsagePanel';
 import { StealStrategyPanel } from '@/components/StealStrategyPanel';
 import { createClient } from '@/lib/supabase-browser';
-import type { AgentRun, OrchestratorOutput, AgentOutput, MindMapOutput, ExecutionPlanOutput, ForecastOutput, RefinementDelta } from '@/lib/agents/types';
-import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
+import type { AgentRun, OrchestratorOutput, AgentOutput, ExecutionPlanOutput, RefinementDelta } from '@/lib/agents/types';
 import { useTheme } from '@/lib/theme-provider';
 import {
-  createSession, listSessions, saveMessage, loadMessages, deleteSession, type ChatSession, type StoredMessage,
+  createSession, listSessions, saveMessage, loadMessages, deleteSession, type ChatSession,
 } from '@/lib/conversations';
 import {
   getUserMemory, extractAndUpdateMemory, buildMemoryContext, type UserMemory,
 } from '@/lib/memory';
-import {
-  rateRecommendation, recommendationKey, type RecommendationRating,
-} from '@/lib/feedback';
-import { filterDisplaySources } from '@/lib/tools/source-validator';
+import type { RecommendationRating } from '@/lib/feedback';
 import type {
   AttachedImage,
   ChatMessage,
   FollowUp,
-  LiveRunMetrics,
   PipelineStage,
-  SourceLink,
 } from '@/types/chat-ui';
 import {
   ALL_DOMAINS,
-  DEMO_QUERIES,
-  DOMAIN_META,
-  domainAccent,
   type Domain,
 } from '@/lib/domain-meta';
 import {
@@ -47,8 +31,25 @@ import {
   recallContextForSession,
   toImageAttachments,
 } from '@/lib/chat-client';
-import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
+import {
+  accumulateSessionUsage,
+  applyAgentDomainResult,
+  applyAgentUpdate,
+  applyOrchestrationLog,
+  applyResultToAssistant,
+  isMirofishLiveFailed,
+  mergeAgentOutputIntoFinal,
+  recommendationsFromOutput,
+  sourcesFromOutput,
+} from '@/lib/chat-stream';
+import { useChatStream } from '@/hooks/useChatStream';
 import { SessionSidebar } from '@/components/ui/SessionSidebar';
+import { AgentProgressGrid } from '@/components/ui/AgentProgressGrid';
+import { ChatPanel } from '@/components/ui/ChatPanel';
+import { MemoryDrawer } from '@/components/ui/MemoryDrawer';
+import { DashboardHeader } from '@/components/ui/DashboardHeader';
+import { ExpandedDomainPanel } from '@/components/ui/ExpandedDomainPanel';
+import { IntelligenceResults } from '@/components/ui/IntelligenceResults';
 import {
   buildPipelineStages,
   getOutputForDomain as getOutputForDomainFromRuns,
@@ -57,22 +58,11 @@ import {
 
 type Message = ChatMessage;
 
-function buildSourceMix(outputs: AgentOutput[] = []) {
-  const counts = new Map<string, number>();
-  for (const output of outputs) {
-    for (const source of output.sources ?? []) {
-      counts.set(source.tool, (counts.get(source.tool) ?? 0) + 1);
-    }
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([tool, count]) => ({ tool, count }));
-}
-
 /* ─── Main dashboard ─────────────────────────────────────── */
 export default function VeracityDashboard() {
   const router   = useRouter();
   const supabase = createClient();
+  const { streamChat } = useChatStream();
   const { isDark, toggle: toggleTheme, surface, surface2, text, textMuted, textSubtle } = useTheme();
   const [messages, setMessages]           = useState<Message[]>([]);
   const [inputValue, setInputValue]       = useState('');
@@ -91,6 +81,7 @@ export default function VeracityDashboard() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [userMemory, setUserMemory] = useState<UserMemory | null>(null);
   const [mirofishRunning, setMirofishRunning] = useState(false);
+  const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(() =>
     Object.fromEntries(ALL_DOMAINS.map(d => [d, d !== 'mirofish-live'])) as Record<Domain, boolean>
   );
@@ -361,7 +352,7 @@ export default function VeracityDashboard() {
 
     const imagePayloads = toImageAttachments(images);
 
-    let finalOutput: OrchestratorOutput | null = null;
+    const streamState: { finalOutput: OrchestratorOutput | null } = { finalOutput: null };
 
     const recalledContext = currentSessionId
       ? await recallContextForSession(currentSessionId, effectiveText)
@@ -370,10 +361,8 @@ export default function VeracityDashboard() {
     const memoryContext = [userMemoryContext, recalledContext].filter(Boolean).join('\n\n');
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await streamChat(
+        {
           query: effectiveText,
           history,
           images: imagePayloads,
@@ -381,199 +370,99 @@ export default function VeracityDashboard() {
           includeMirofish: selectedAgents.mirofish,
           includeMirofishLive: selectedAgents['mirofish-live'],
           selectedAgents: selectedAgentIds,
-        }),
-      });
-      if (res.status === 429) {
-        const payload = await res.json().catch(() => ({} as { error?: string }));
-        throw new Error(payload.error || 'Rate limit exceeded. Try again later.');
-      }
-      if (!res.ok || !res.body) throw new Error(`API error ${res.status}`);
+        },
+        (chunk) => {
+          if (chunk.type === 'agent_update') {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? applyAgentUpdate(m, chunk.run, chunk.metrics)
+                : m,
+            ));
+            return;
+          }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+          if (chunk.type === 'orchestration_log' && typeof chunk.line === 'string') {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId ? applyOrchestrationLog(m, chunk.line) : m,
+            ));
+            return;
+          }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() ?? '';
+          if (chunk.type === 'result') {
+            const out: OrchestratorOutput = chunk.output;
+            streamState.finalOutput = out;
+            setSessionUsage(prev => accumulateSessionUsage(prev, out.metrics));
+            if (selectedAgents.mirofish) setMirofishRunning(true);
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? applyResultToAssistant(m, out, {
+                  includeMirofish: selectedAgents.mirofish,
+                  includeMirofishLive: selectedAgents['mirofish-live'],
+                })
+                : m,
+            ));
+            return;
+          }
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const chunk = JSON.parse(line.slice(6));
-
-            if (chunk.type === 'agent_update') {
-              setMessages(prev => prev.map(m =>
-                m.id === assistantId ? {
-                  ...m,
-                  agentRuns: [
-                    ...(m.agentRuns ?? []).filter(r => r.agentId !== chunk.run.agentId),
-                    chunk.run,
-                  ],
-                  liveMetrics: (chunk.metrics as LiveRunMetrics | undefined) ?? m.liveMetrics,
-                } : m
-              ));
+          if (chunk.type === 'mirofish_result') {
+            const mirofishOut: AgentOutput = chunk.output;
+            const run = {
+              agentId: 'mirofish',
+              name: 'MiroFish (Forecast)',
+              status: 'completed',
+              confidence: mirofishOut.confidence,
+            } as AgentRun;
+            if (streamState.finalOutput) {
+              streamState.finalOutput = mergeAgentOutputIntoFinal(
+                streamState.finalOutput,
+                mirofishOut,
+                'mirofish',
+                run,
+              );
             }
+            setMirofishRunning(false);
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? applyAgentDomainResult(m, mirofishOut, 'mirofish', run)
+                : m,
+            ));
+            return;
+          }
 
-            if (chunk.type === 'orchestration_log' && typeof chunk.line === 'string') {
-              setMessages(prev => prev.map(m =>
-                m.id === assistantId ? {
-                  ...m,
-                  orchestrationLog: [...(m.orchestrationLog ?? []), chunk.line].slice(-48),
-                } : m
-              ));
+          if (chunk.type === 'mirofish_live_result') {
+            const liveOut: AgentOutput = chunk.output;
+            const liveFailed = isMirofishLiveFailed(liveOut);
+            const run = {
+              agentId: 'mirofish-live',
+              name: 'MiroFish Live (Real VPS)',
+              status: liveFailed ? 'failed' : 'completed',
+              confidence: liveOut.confidence,
+            } as AgentRun;
+            if (streamState.finalOutput) {
+              streamState.finalOutput = mergeAgentOutputIntoFinal(
+                streamState.finalOutput,
+                liveOut,
+                'mirofish-live',
+                run,
+              );
             }
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? applyAgentDomainResult(m, liveOut, 'mirofish-live', run)
+                : m,
+            ));
+            return;
+          }
 
-            if (chunk.type === 'result') {
-              const out: OrchestratorOutput = chunk.output;
-              finalOutput = out;
-              if (out.metrics) {
-                setSessionUsage(prev => ({
-                  queries: prev.queries + 1,
-                  totalCostUsd: prev.totalCostUsd + out.metrics!.estimatedCostUsd,
-                  totalLatencyMs: prev.totalLatencyMs + out.metrics!.totalLatencyMs,
-                  totalGeminiCalls: prev.totalGeminiCalls + out.metrics!.geminiCallCount,
-                  totalToolCalls: prev.totalToolCalls + out.metrics!.toolCallCount,
-                }));
-              } else {
-                setSessionUsage(prev => ({ ...prev, queries: prev.queries + 1 }));
-              }
-              // If mirofish was requested, mark it as running so the sidebar shows it
-              if (selectedAgents.mirofish) {
-                setMirofishRunning(true);
-                setMessages(prev => prev.map(m =>
-                  m.id !== assistantId ? m : {
-                    ...m,
-                    agentRuns: [
-                      ...(m.agentRuns ?? []).filter(r => r.agentId !== 'mirofish'),
-                      { agentId: 'mirofish', name: 'MiroFish (Forecast)', status: 'running', startedAt: new Date().toISOString() } as AgentRun,
-                    ],
-                  }
-                ));
-              }
-              // If mirofish-live was requested, mark it as running too
-              if (selectedAgents['mirofish-live']) {
-                setMessages(prev => prev.map(m =>
-                  m.id !== assistantId ? m : {
-                    ...m,
-                    agentRuns: [
-                      ...(m.agentRuns ?? []).filter(r => r.agentId !== 'mirofish-live'),
-                      { agentId: 'mirofish-live', name: 'MiroFish Live (Real VPS)', status: 'running', startedAt: new Date().toISOString() } as AgentRun,
-                    ],
-                  }
-                ));
-              }
-              setMessages(prev => prev.map(m =>
-                m.id === assistantId ? {
-                  ...m,
-                  content: out.synthesizedAnswer,
-                  type: 'intelligence',
-                  orchestratorOutput: out,
-                  recommendations: out.topRecommendations?.map(r => ({
-                    title: r.title, rationale: r.rationale,
-                    score: r.confidence === 'high' ? 90 : r.confidence === 'medium' ? 65 : 40,
-                    confidence: r.confidence, evidence: r.evidence, priority: r.priority,
-                  })),
-                  sources: filterDisplaySources(
-                    out.outputs?.flatMap(o => o.sources?.map(s => ({ title: s.title, url: s.url })) ?? []) ?? [],
-                    12,
-                  ),
-                  suggestions: out.suggestedFollowUps?.slice(0, 3),
-                } : m
-              ));
-            }
-
-            if (chunk.type === 'mirofish_result') {
-              const mirofishOut: AgentOutput = chunk.output;
-              if (finalOutput) {
-                finalOutput = {
-                  ...finalOutput,
-                  outputs: [
-                    ...(finalOutput.outputs ?? []).filter(o => o.domain !== 'mirofish'),
-                    mirofishOut,
-                  ],
-                  agentRuns: [
-                    ...(finalOutput.agentRuns ?? []).filter(r => r.agentId !== 'mirofish'),
-                    { agentId: 'mirofish', name: 'MiroFish (Forecast)', status: 'completed', confidence: mirofishOut.confidence } as AgentRun,
-                  ],
-                };
-              }
-              setMirofishRunning(false);
-              setMessages(prev => prev.map(m => {
-                if (m.id !== assistantId || !m.orchestratorOutput) return m;
-                const updatedOutputs = [
-                  ...(m.orchestratorOutput.outputs ?? []).filter(o => o.domain !== 'mirofish'),
-                  mirofishOut,
-                ];
-                return {
-                  ...m,
-                  orchestratorOutput: { ...m.orchestratorOutput, outputs: updatedOutputs },
-                  agentRuns: [
-                    ...(m.agentRuns ?? []).filter(r => r.agentId !== 'mirofish'),
-                    { agentId: 'mirofish', name: 'MiroFish (Forecast)', status: 'completed', confidence: mirofishOut.confidence } as AgentRun,
-                  ],
-                };
-              }));
-            }
-
-            if (chunk.type === 'mirofish_live_result') {
-              const liveOut: AgentOutput = chunk.output;
-              const liveFailed =
-                (Array.isArray(liveOut.interpretation) &&
-                  liveOut.interpretation.some(line => /mirofish live unavailable|live swarm unavailable|live swarm interviews failed/i.test(line))) ||
-                ((liveOut as any).swarmSize === 0) ||
-                (/unavailable|failed/i.test((liveOut as any).rationale ?? ''));
-              if (finalOutput) {
-                finalOutput = {
-                  ...finalOutput,
-                  outputs: [
-                    ...(finalOutput.outputs ?? []).filter(o => o.domain !== 'mirofish-live'),
-                    liveOut,
-                  ],
-                  agentRuns: [
-                    ...(finalOutput.agentRuns ?? []).filter(r => r.agentId !== 'mirofish-live'),
-                    {
-                      agentId: 'mirofish-live',
-                      name: 'MiroFish Live (Real VPS)',
-                      status: liveFailed ? 'failed' : 'completed',
-                      confidence: liveOut.confidence,
-                    } as AgentRun,
-                  ],
-                };
-              }
-              setMessages(prev => prev.map(m => {
-                if (m.id !== assistantId || !m.orchestratorOutput) return m;
-                const updatedOutputs = [
-                  ...(m.orchestratorOutput.outputs ?? []).filter(o => o.domain !== 'mirofish-live'),
-                  liveOut,
-                ];
-                return {
-                  ...m,
-                  orchestratorOutput: { ...m.orchestratorOutput, outputs: updatedOutputs },
-                  agentRuns: [
-                    ...(m.agentRuns ?? []).filter(r => r.agentId !== 'mirofish-live'),
-                    {
-                      agentId: 'mirofish-live',
-                      name: 'MiroFish Live (Real VPS)',
-                      status: liveFailed ? 'failed' : 'completed',
-                      confidence: liveOut.confidence,
-                    } as AgentRun,
-                  ],
-                };
-              }));
-            }
-
-            if (chunk.type === 'error') {
-              setMessages(prev => prev.map(m =>
-                m.id === assistantId ? { ...m, content: `Analysis failed: ${chunk.message}`, type: 'text' } : m
-              ));
-            }
-          } catch { /* skip malformed */ }
-        }
-      }
+          if (chunk.type === 'error') {
+            setMessages(prev => prev.map(m =>
+              m.id === assistantId
+                ? { ...m, content: `Analysis failed: ${chunk.message}`, type: 'text' }
+                : m,
+            ));
+          }
+        },
+      );
     } catch (err) {
       const message =
         err instanceof Error && err.message
@@ -589,6 +478,8 @@ export default function VeracityDashboard() {
       setIsLoading(false);
       setMirofishRunning(false);
     }
+
+    const finalOutput = streamState.finalOutput;
 
     let sessionId = currentSessionId;
 
@@ -609,22 +500,12 @@ export default function VeracityDashboard() {
       indexMessageInBackground(sessionId, 'user', effectiveText);
 
       if (finalOutput) {
-        const sources = filterDisplaySources(
-          finalOutput.outputs?.flatMap(o => o.sources?.map(s => ({ title: s.title, url: s.url })) ?? []) ?? [],
-          12,
-        );
+        const sources = sourcesFromOutput(finalOutput, 12);
 
         const persistedAssistantId = await saveMessage(sessionId, 'assistant', finalOutput.synthesizedAnswer, {
           type: 'intelligence',
           orchestratorOutput: finalOutput,
-          recommendations: finalOutput.topRecommendations?.map(r => ({
-            title: r.title,
-            rationale: r.rationale,
-            score: r.confidence === 'high' ? 90 : r.confidence === 'medium' ? 65 : 40,
-            confidence: r.confidence,
-            evidence: r.evidence,
-            priority: r.priority,
-          })),
+          recommendations: recommendationsFromOutput(finalOutput),
           sources,
           suggestions: finalOutput.suggestedFollowUps?.slice(0, 3),
           agentRuns: finalOutput.agentRuns,
@@ -681,78 +562,41 @@ export default function VeracityDashboard() {
         : 'targeted';
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await streamChat(
+        {
           query: text,
           history,
           memoryContext,
           followUpMode,
           includeMirofish: selectedAgents.mirofish,
           selectedAgents: selectedAgentIds,
-        }),
-      });
-      if (res.status === 429) {
-        const payload = await res.json().catch(() => ({} as { error?: string }));
-        throw new Error(payload.error || 'Rate limit exceeded. Try again later.');
-      }
-      if (!res.ok || !res.body) throw new Error();
+        },
+        async (chunk) => {
+          if (chunk.type !== 'result') return;
+          const out: OrchestratorOutput = chunk.output;
+          setSessionUsage(prev => accumulateSessionUsage(prev, out.metrics));
+          const sources = sourcesFromOutput(out, 6);
+          setFollowUps(prev => prev.map(f =>
+            f.id === fuId ? { ...f, answer: out.synthesizedAnswer, sources, loading: false } : f
+          ));
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+          if (currentSessionId) {
+            await saveMessage(currentSessionId, 'user', text, { isFollowUp: true });
+            await saveMessage(currentSessionId, 'assistant', out.synthesizedAnswer, {
+              isFollowUp: true,
+              sources,
+            });
+            indexMessageInBackground(currentSessionId, 'user', text);
+            indexMessageInBackground(currentSessionId, 'assistant', out.synthesizedAnswer);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const chunk = JSON.parse(line.slice(6));
-            if (chunk.type === 'result') {
-              const out: OrchestratorOutput = chunk.output;
-              if (out.metrics) {
-                setSessionUsage(prev => ({
-                  queries: prev.queries + 1,
-                  totalCostUsd: prev.totalCostUsd + out.metrics!.estimatedCostUsd,
-                  totalLatencyMs: prev.totalLatencyMs + out.metrics!.totalLatencyMs,
-                  totalGeminiCalls: prev.totalGeminiCalls + out.metrics!.geminiCallCount,
-                  totalToolCalls: prev.totalToolCalls + out.metrics!.toolCallCount,
-                }));
-              } else {
-                setSessionUsage(prev => ({ ...prev, queries: prev.queries + 1 }));
-              }
-              const sources = filterDisplaySources(
-                out.outputs?.flatMap(o => o.sources?.map(s => ({ title: s.title, url: s.url })) ?? []) ?? [],
-                6,
-              );
-              setFollowUps(prev => prev.map(f =>
-                f.id === fuId ? { ...f, answer: out.synthesizedAnswer, sources, loading: false } : f
-              ));
-              
-              if (currentSessionId) {
-                await saveMessage(currentSessionId, 'user', text, { isFollowUp: true });
-                await saveMessage(currentSessionId, 'assistant', out.synthesizedAnswer, {
-                  isFollowUp: true,
-                  sources
-                });
-                indexMessageInBackground(currentSessionId, 'user', text);
-                indexMessageInBackground(currentSessionId, 'assistant', out.synthesizedAnswer);
-
-                if (userMemory) {
-                  extractAndUpdateMemory(currentSessionId, text, out.synthesizedAnswer, userMemory)
-                    .then(() => refreshUserMemory())
-                    .catch(() => {});
-                }
-              }
+            if (userMemory) {
+              extractAndUpdateMemory(currentSessionId, text, out.synthesizedAnswer, userMemory)
+                .then(() => refreshUserMemory())
+                .catch(() => {});
             }
-          } catch { /* skip */ }
-        }
-      }
+          }
+        },
+      );
     } catch {
       setFollowUps(prev => prev.map(f =>
         f.id === fuId ? { ...f, answer: 'Follow-up failed. Please try again.', loading: false } : f
@@ -796,11 +640,9 @@ export default function VeracityDashboard() {
   const cardBg     = surface;
   const cardBg2    = surface2;
   const neuExtruded = 'var(--shadow-extruded)';
-  const neuInset    = 'var(--shadow-inset)';
   const neuExtrudedSm = 'var(--shadow-extruded-sm)';
   /* Readable accent for text/icons — bright cyan washes out on light surfaces */
   const accentInk = isDark ? '#00C4FF' : '#0052A3';
-  const accentInkSoft = isDark ? '#3D9EFF' : '#1A5A9A';
 
   return (
     <div className={isDark ? 'dark' : 'light'} style={{ display: 'contents' }}>
@@ -848,104 +690,26 @@ export default function VeracityDashboard() {
       {/* ═══════════════════════════════════ MAIN ══ */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
 
-        {/* ── Floating header island ── */}
-        <div
-          className={`shrink-0 z-30 px-3 md:px-5 pt-3 pb-1 ${sidebarCollapsed ? 'pl-12 md:pl-14' : ''}`}
-        >
-          <header
-            ref={headerIslandRef}
-            className={`header-island ${headerCompact ? 'header-island--compact' : ''} ${sidebarCollapsed ? 'header-island--rail' : ''}`}
-            style={{ background: headerBg }}
-          >
-            {/* Brand — only when sidebar is collapsed */}
-            {sidebarCollapsed && (
-              <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
-                <img
-                  src="/logo.avif"
-                  alt="Veracity"
-                  width={140}
-                  height={36}
-                  className="brand-logo h-8 w-auto object-left object-contain"
-                  draggable={false}
-                />
-              </div>
-            )}
-
-            {/* View tabs */}
-            <div className="header-island-tabs flex items-center gap-1.5 shrink-0">
-              {[
-                { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={12} /> },
-                { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={12} /> },
-                { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={12} /> },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setTopTab(tab.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all min-h-9"
-                  style={{
-                    color: topTab === tab.id ? accentInk : textMuted,
-                    background: 'var(--background)',
-                    border: 'none',
-                    boxShadow: topTab === tab.id ? 'var(--shadow-inset-sm)' : 'var(--shadow-extruded-sm)',
-                  }}
-                >
-                  {tab.icon}
-                  <span className="header-island-tab-label">{tab.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Stats + actions */}
-            <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
-              <div className="header-island-stats flex items-center gap-2.5 sm:gap-3 text-[11px] font-medium shrink-0" style={{ color: textMuted }}>
-                <span className="flex items-center gap-1.5"><Activity size={11} style={{ color: textSubtle }} /> &lt;5 min</span>
-                <span className="hidden md:flex items-center gap-1.5"><Shield size={11} style={{ color: textSubtle }} /> sourced</span>
-                <span className="hidden lg:flex items-center gap-1.5"><Zap size={11} style={{ color: textSubtle }} /> 16+ signals</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {selectedAgents.mirofish && (
-                  <span className="neu-pill-accent shrink-0 hidden xl:flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 header-island-chip">
-                    {mirofishRunning ? <RefreshCw size={10} className="animate-spin" /> : <Fish size={10} />} forecast
-                  </span>
-                )}
-                {selectedAgents['mirofish-live'] && (
-                  <span className="neu-pill-positive shrink-0 hidden xl:flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 header-island-chip">
-                    <Fish size={10} /> live VPS
-                  </span>
-                )}
-                <button
-                  onClick={toggleTheme}
-                  className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ color: textMuted }}
-                  title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-                >
-                  {isDark ? <Sun size={14} /> : <Moon size={14} />}
-                </button>
-                <div className="relative shrink-0">
-                  <button onClick={() => setShowUserMenu(v => !v)}
-                    className="header-avatar w-9 h-9 flex items-center justify-center text-[12px] font-bold shrink-0 text-white"
-                    title={userEmail || 'Account'}
-                  >
-                    {userEmail ? userEmail[0].toUpperCase() : <User size={13} />}
-                  </button>
-                  {showUserMenu && (
-                    <div className="veracity-card absolute right-0 top-11 w-52 py-1.5 z-50">
-                      {userEmail && (
-                        <p className="px-3 py-2 text-[12px] font-medium truncate" style={{ color: textMuted }}>{userEmail}</p>
-                      )}
-                      <button onClick={handleSignOut}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
-                        style={{ color: textMuted }}>
-                        <LogOut size={13} style={{ color: textSubtle }} /> Sign out
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </header>
-        </div>
+        <DashboardHeader
+          headerIslandRef={headerIslandRef}
+          headerCompact={headerCompact}
+          sidebarCollapsed={sidebarCollapsed}
+          headerBg={headerBg}
+          topTab={topTab}
+          onTopTabChange={setTopTab}
+          selectedAgents={selectedAgents}
+          mirofishRunning={mirofishRunning}
+          onOpenMemory={() => setMemoryDrawerOpen(true)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+          userEmail={userEmail}
+          showUserMenu={showUserMenu}
+          onToggleUserMenu={() => setShowUserMenu(v => !v)}
+          onSignOut={() => { void handleSignOut(); }}
+          textMuted={textMuted}
+          textSubtle={textSubtle}
+          accentInk={accentInk}
+        />
 
         {/* ── Body ── */}
         <div
@@ -968,666 +732,141 @@ export default function VeracityDashboard() {
 
             {topTab === 'intelligence' && (
             <>
-            {/* Empty state — brand left, suggestions right */}
-            {messages.length === 0 && !isLoading && (
-              <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-10 lg:gap-14 min-h-[58vh] px-2 w-full max-w-5xl mx-auto">
-                {/* Left — non-clickable brand copy */}
-                <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-md">
-                  <img
-                    src="/robot.avif"
-                    alt=""
-                    width={140}
-                    height={148}
-                    className="brand-mascot w-[7.5rem] h-auto mb-5 animate-float drop-shadow-md"
-                    draggable={false}
-                  />
-                  <p className="label-mono mb-3 flex justify-center lg:justify-start">Boardroom brief in minutes</p>
-                  <h2 className="empty-heading mb-3">
-                    Ask a growth question
-                  </h2>
-                  <p className="text-[14px] leading-relaxed" style={{ color: textMuted }}>
-                    Six specialist agents pull live signals, score confidence, and render findings inline — not as chat walls.
-                  </p>
-                </div>
-
-                {/* Right — clickable suggestions */}
-                <div className="flex-1 flex flex-col gap-2.5 w-full max-w-xl">
-                  {DEMO_QUERIES.map(q => (
-                    <button key={q} onClick={() => handleSend(q)} className="suggest-row">
-                      <span className="neu-well w-8 h-8 shrink-0">
-                        <Search size={13} className="text-accent" />
-                      </span>
-                      <span className="flex-1 demo-query-text text-left">{q}</span>
-                      <ChevronRight size={14} style={{ color: textSubtle, flexShrink: 0 }} />
-                    </button>
-                  ))}
-                  <div className="flex flex-col gap-2 mt-2">
-                    <p className="label-mono text-left">Generalize to another product</p>
-                    <button
-                      onClick={() => handleSend('What should Clay build or reposition over the next six months to capture emerging demand?')}
-                      className="suggest-row"
-                    >
-                      <span className="neu-well w-8 h-8 shrink-0">
-                        <Layers size={13} className="text-accent" />
-                      </span>
-                      <span className="flex-1 demo-query-text text-left">What should Clay build or reposition over the next six months to capture emerging demand?</span>
-                      <ChevronRight size={14} style={{ color: textSubtle, flexShrink: 0 }} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <ChatPanel
+              showEmptyState={messages.length === 0 && !isLoading}
+              onDemoQuery={(q) => { void handleSend(q); }}
+              followUps={[]}
+              followUpInput=""
+              onFollowUpInputChange={() => {}}
+              onFollowUp={() => {}}
+              isFollowingUp={false}
+              isLoading={isLoading}
+              hasResult={false}
+              followUpEndRef={followUpEndRef}
+              showComposer={false}
+              inputValue={inputValue}
+              onInputChange={setInputValue}
+              onSend={(text) => { void handleSend(text); }}
+              attachedImages={attachedImages}
+              onRemoveImage={(i) => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
+              onAttachClick={() => fileInputRef.current?.click()}
+              fileInputRef={fileInputRef}
+              onFileChange={handleFileChange}
+              textareaRef={textareaRef}
+              onTextareaInput={autoResizeTextarea}
+              headerBg={headerBg}
+              cardBg={cardBg}
+              cardBg2={cardBg2}
+              textMain={textMain}
+              textMuted={textMuted}
+              textSubtle={textSubtle}
+              accentInk={accentInk}
+              neuExtruded={neuExtruded}
+              neuExtrudedSm={neuExtrudedSm}
+              isDark={isDark}
+            />
 
             {/* ── Agent Tabs ── */}
             {(currentResult || isLoading) && (
-              <div className="veracity-card p-5" style={{ background: cardBg }}>
-                <div className="flex items-center justify-between mb-5 gap-3">
-                  <div className="flex flex-col gap-2 min-w-0 flex-1">
-                    <p className="text-[16px] font-bold tracking-tight" style={{ color: textMain }}>
-                      {recentQueries[recentQueries.length - 1] ?? 'analysing…'}
-                    </p>
-                    {messages.filter(m => m.role === 'user').pop()?.images && (
-                      <div className="flex flex-wrap gap-2">
-                        {messages.filter(m => m.role === 'user').pop()?.images?.map((img, i) => (
-                          <img key={i} src={img.dataUrl} alt={img.name} className="h-10 w-10 object-cover rounded-lg" style={{ border: 'none', boxShadow: neuExtrudedSm }} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1.5">
-                      {ALL_DOMAINS.map(d => {
-                        const s = getRunForDomain(d)?.status ?? 'idle';
-                        const m = DOMAIN_META[d];
-                        const dot = domainAccent(m, isDark);
-                        return (
-                          <div key={d} className="w-2.5 h-2.5 rounded-full transition-all"
-                            style={{
-                              background: s === 'completed' ? dot : s === 'running' ? dot : (isDark ? '#2a2a2a' : '#ddd'),
-                              opacity: s === 'running' ? 1 : s === 'completed' ? 1 : 0.4,
-                              boxShadow: s === 'running' ? `0 0 6px ${dot}55` : 'none',
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                    {totalCount > 0 && (
-                      <span className="text-[11px] font-mono font-semibold" style={{ color: textSubtle }}>
-                        {completedCount}/{Math.max(totalCount, 6)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {isLoading && orchLogLen > 0 && (
-                  <div className="mb-4 neu-inset rounded-[16px] px-3 py-3" style={{ background: cardBg2 }}>
-                    <div className="flex items-center gap-1.5 mb-2 text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>
-                      <Activity size={11} className="shrink-0 animate-pulse" />
-                      <span>Pipeline</span>
-                    </div>
-                    <div className="overflow-x-auto pb-1">
-                      <div className="min-w-[620px] flex items-center gap-2.5">
-                        {pipelineStages.map((stage, i) => {
-                          const stateColor = stage.state === 'failed'
-                            ? '#0B1A2E'
-                            : stage.state === 'completed'
-                              ? accentInk
-                              : stage.state === 'running'
-                                ? accentInk
-                                : textSubtle;
-                          const fill = stage.state === 'completed' ? '100%' : stage.state === 'running' ? '62%' : '0%';
-                          return (
-                            <React.Fragment key={stage.id}>
-                              <div className="flex flex-col items-center gap-1.5 min-w-[108px]">
-                                <div
-                                  className="relative w-8 h-8 rounded-full overflow-hidden"
-                                  style={{
-                                    border: `1.5px solid ${stage.state === 'pending' ? borderC : stateColor}`,
-                                    background: stage.state === 'pending' ? 'transparent' : `${stateColor}22`,
-                                    boxShadow: stage.state === 'running' ? `0 0 0 1px ${stateColor}33, 0 0 10px ${stateColor}44` : 'none',
-                                  }}
-                                >
-                                  <div
-                                    className={stage.state === 'running' ? 'animate-pulse' : ''}
-                                    style={{
-                                      position: 'absolute',
-                                      left: 0,
-                                      bottom: 0,
-                                      width: '100%',
-                                      height: fill,
-                                      background: `linear-gradient(180deg, ${stateColor}88 0%, ${stateColor}cc 100%)`,
-                                      transition: 'height 500ms ease',
-                                    }}
-                                  />
-                                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-mono font-bold" style={{ color: stage.state === 'pending' ? textSubtle : '#fff' }}>
-                                    {i + 1}
-                                  </span>
-                                </div>
-                                <span className="text-[10px] font-mono uppercase tracking-wide text-center leading-tight" style={{ color: stage.state === 'pending' ? textSubtle : textMain }}>
-                                  {stage.label}
-                                </span>
-                              </div>
-                              {i < pipelineStages.length - 1 && (
-                                <div className="relative h-2.5 w-12 rounded-full overflow-hidden" style={{ border: 'none', boxShadow: neuExtrudedSm, background: isDark ? '#151515' : '#f4f4f5' }}>
-                                  <div
-                                    className={stage.state === 'running' ? 'animate-pulse' : ''}
-                                    style={{
-                                      height: '100%',
-                                      width: stage.state === 'pending' ? '0%' : stage.state === 'running' ? '55%' : '100%',
-                                      background: `linear-gradient(90deg, ${stateColor}99 0%, ${stateColor}dd 100%)`,
-                                      transition: 'width 450ms ease',
-                                    }}
-                                  />
-                                </div>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2.5">
-                  {visibleTabDomains.map(domain => {
-                    const run = getRunForDomain(domain);
-                    const output = getOutputForDomain(domain);
-                    const isActive = expandedDomain === domain;
-                    const status = run?.status ?? (output ? 'completed' : 'idle');
-                    const meta = DOMAIN_META[domain];
-                    const dAccent = domainAccent(meta, isDark);
-                    return (
-                      <button
-                        key={domain}
-                        onClick={() => setExpandedDomain(domain)}
-                        className="px-3.5 py-2.5 rounded-2xl text-left transition-all min-w-[140px]"
-                        style={{
-                          background: isActive ? (isDark ? meta.bg : meta.bgLight) : 'var(--background)',
-                          boxShadow: isActive
-                            ? `var(--shadow-inset-sm), 0 0 0 2px ${dAccent}44`
-                            : 'var(--shadow-extruded-sm)',
-                          border: 'none',
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <span style={{ color: isActive ? dAccent : textSubtle }}>{meta.icon}</span>
-                            <span className="text-[11px] font-mono font-bold uppercase tracking-wide" style={{ color: isActive ? dAccent : textMuted }}>
-                              {meta.short}
-                            </span>
-                          </div>
-                          {status === 'running' && <RefreshCw size={11} className="animate-spin" style={{ color: dAccent }} />}
-                          {status === 'completed' && <CheckCircle2 size={12} style={{ color: accentInk }} />}
-                          {status === 'failed' && <AlertCircle size={11} style={{ color: '#0B1A2E' }} />}
-                        </div>
-                        <p className="text-[10px] font-mono mt-1.5 uppercase tracking-wider font-medium" style={{
-                          color: status === 'completed' ? accentInk : status === 'running' ? dAccent : textSubtle,
-                        }}>
-                          {status}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <AgentProgressGrid
+                queryLabel={recentQueries[recentQueries.length - 1] ?? 'analysing…'}
+                userImages={messages.filter(m => m.role === 'user').pop()?.images}
+                isLoading={isLoading}
+                pipelineStages={pipelineStages}
+                orchLogLen={orchLogLen}
+                visibleTabDomains={visibleTabDomains}
+                expandedDomain={expandedDomain}
+                onSelectDomain={setExpandedDomain}
+                getRunForDomain={getRunForDomain}
+                getOutputForDomain={getOutputForDomain}
+                completedCount={completedCount}
+                totalCount={totalCount}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBg2={cardBg2}
+                textMain={textMain}
+                textMuted={textMuted}
+                textSubtle={textSubtle}
+                accentInk={accentInk}
+                borderC={borderC}
+                neuExtrudedSm={neuExtrudedSm}
+              />
             )}
 
-            {/* ── Expanded domain ── */}
             {expandedDomain && (
-              <div className="veracity-card overflow-hidden" style={{
-                background: cardBg,
-                boxShadow: `var(--shadow-extruded), 0 0 0 2px ${domainAccent(DOMAIN_META[expandedDomain], isDark)}33`,
-              }}>
-                <div className="flex items-center justify-between px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="neu-well w-9 h-9">
-                      <span style={{ color: domainAccent(DOMAIN_META[expandedDomain], isDark) }}>{DOMAIN_META[expandedDomain].icon}</span>
-                    </div>
-                    <span className="text-[15px] font-display font-extrabold tracking-tight" style={{ color: textMain }}>
-                      {DOMAIN_META[expandedDomain].label}
-                    </span>
-                    {expandedOutput && <ConfidenceBadge level={expandedOutput.confidence} />}
-                    <span className="neu-pill-accent text-[9px] font-mono font-semibold uppercase tracking-widest px-2.5 py-0.5"
-                      style={{ color: domainAccent(DOMAIN_META[expandedDomain], isDark) }}>
-                      live
-                    </span>
-                  </div>
-                  <button onClick={() => setExpandedDomain(null)}
-                    className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ color: textMuted }}
-                    aria-label="Close">
-                    <X size={15} />
-                  </button>
-                </div>
-
-                <div className="p-6 lg:p-8 flex flex-col gap-5">
-                  {expandedOutput ? (
-                    <ArtifactRenderer
-                      output={expandedOutput}
-                      product={currentResult?.orchestratorOutput?.product ?? ''}
-                      sessionId={currentSessionId}
-                      messageId={currentResult?.persistedId ?? null}
-                      onRefined={handleExecutionPlanRefined}
-                    />
-                  ) : (
-                    <div className="neu-inset rounded-3xl p-6">
-                      <p className="text-sm font-bold mb-2" style={{ color: textMain }}>
-                        {DOMAIN_META[expandedDomain].short} details are loading
-                      </p>
-                      <p className="text-[13px] leading-relaxed" style={{ color: textMuted }}>
-                        This agent is still running or returned no structured artifact yet. Try rerunning with MiroFish enabled and a forecast-style prompt.
-                      </p>
-                    </div>
-                  )}
-
-                  {expandedOutput && expandedOutput.facts.filter(f => !f.startsWith('[')).length > 0 && (
-                    <div className="neu-extruded rounded-3xl p-5">
-                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#2C7A7B' }}>
-                        <span className="neu-well w-7 h-7">
-                          <CheckCircle2 size={13} style={{ color: accentInk }} />
-                        </span>
-                        Key Facts
-                      </p>
-                      <ul className="flex flex-col gap-3">
-                        {expandedOutput.facts.filter(f => !f.startsWith('[')).map((f, i) => (
-                          <li key={i} className="neu-inset rounded-2xl px-3.5 py-2.5 flex items-start gap-3 text-[13.5px] leading-relaxed" style={{ color: textMuted, boxShadow: 'var(--shadow-inset-sm)' }}>
-                            <span className="font-mono mt-0.5 shrink-0 font-bold" style={{ color: accentInk }}>✓</span>
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {expandedOutput && expandedOutput.interpretation.length > 0 && (
-                    <div className="neu-extruded rounded-3xl p-5">
-                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: accentInk }}>
-                        <span className="neu-well w-7 h-7">
-                          <Activity size={13} className="text-accent" />
-                        </span>
-                        Analysis
-                      </p>
-                      <ul className="flex flex-col gap-3">
-                        {expandedOutput.interpretation.map((interp, i) => (
-                          <li key={i} className="neu-inset rounded-2xl px-3.5 py-2.5 flex items-start gap-3 text-[13.5px] leading-relaxed" style={{ color: textMuted, boxShadow: 'var(--shadow-inset-sm)' }}>
-                            <span className="font-mono mt-0.5 shrink-0 font-bold text-accent">›</span>
-                            <span>{interp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ExpandedDomainPanel
+                domain={expandedDomain}
+                output={expandedOutput}
+                product={currentResult?.orchestratorOutput?.product ?? ''}
+                sessionId={currentSessionId}
+                messageId={currentResult?.persistedId ?? null}
+                onClose={() => setExpandedDomain(null)}
+                onRefined={handleExecutionPlanRefined}
+                isDark={isDark}
+                cardBg={cardBg}
+                textMain={textMain}
+                textMuted={textMuted}
+                accentInk={accentInk}
+              />
             )}
 
-            {/* ── Summary card ── */}
-            {currentResult?.content && (
-              <div className="rounded-lg overflow-hidden" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: 'none' }}>
-                  <div className="flex items-center gap-2">
-                    <Layers size={14} style={{ color: accentInk }} />
-                    <span className="text-[12px] font-mono font-semibold uppercase tracking-widest" style={{ color: textMuted }}>
-                      Intelligence Summary
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Cost + latency + agent count metrics.
-                        Prefers the authoritative RunMetrics on the final result;
-                        falls back to live streamed metrics while agents are still
-                        running so the demo judge always sees numbers moving. */}
-                    {(() => {
-                      const final = currentResult.orchestratorOutput?.metrics;
-                      const live = currentResult.liveMetrics;
-                      if (!final && !live) return null;
-                      const latencyMs = final?.totalLatencyMs ?? live?.elapsedMs ?? 0;
-                      const cost = final?.estimatedCostUsd ?? live?.estimatedCostUsd ?? 0;
-                      const agentTotal = final?.agentCount ?? live?.agentCount ?? 0;
-                      const agentDone = final?.completedAgentCount ?? live?.completedAgentCount ?? 0;
-                      const geminiCalls = final?.geminiCallCount ?? live?.geminiCallCount ?? 0;
-                      const toolCalls = final?.toolCallCount ?? live?.toolCallCount ?? 0;
-                      const isLive = !final && !!live;
-                      return (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-2"
-                          style={{ color: textSubtle, background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                          {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: '#3D9EFF' }} />}
-                          <span title="Wall-clock latency">{(latencyMs / 1000).toFixed(1)}s</span>
-                          <span style={{ opacity: 0.3 }}>|</span>
-                          <span title="Estimated cost">${cost.toFixed(4)}</span>
-                          <span style={{ opacity: 0.3 }}>|</span>
-                          <span title="Agents completed / dispatched">{agentDone}/{agentTotal} agents</span>
-                          <span style={{ opacity: 0.3 }}>|</span>
-                          <span title="Model calls">{isLive ? `~${geminiCalls}` : geminiCalls} calls</span>
-                          <span style={{ opacity: 0.3 }}>|</span>
-                          <span title="External tool invocations">{isLive ? `~${toolCalls}` : toolCalls} tools</span>
-                        </span>
-                      );
-                    })()}
-                    {currentResult.orchestratorOutput?.product && (
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded"
-                        style={{ color: accentInk, background: 'rgba(0,196,255,0.1)', border: '1px solid rgba(0,196,255,0.2)' }}>
-                        {currentResult.orchestratorOutput.product}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-6 lg:p-8 flex flex-col gap-8">
-                  <p className="prose-answer">{currentResult.content}</p>
-
-                  {(() => {
-                    const refinement = currentResult.orchestratorOutput?.refinement;
-                    const sourceMix = buildSourceMix(currentResult.orchestratorOutput?.outputs ?? []);
-                    const researchRuns = (currentResult.agentRuns ?? []).filter(r => ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'].includes(r.agentId));
-                    const executionRun = (currentResult.agentRuns ?? []).find(r => r.agentId === 'execution-engine');
-                    const researchDone = researchRuns.filter(r => r.status === 'completed').length;
-                    const researchFailed = researchRuns.filter(r => r.status === 'failed').length;
-                    return (
-                      <div className="flex flex-col gap-3 rounded-lg p-4" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider" style={{ color: textSubtle }}>
-                          <span>Phases</span>
-                          <span className="px-2 py-0.5 rounded-full" style={{ color: researchDone + researchFailed >= 6 ? accentInk : accentInk, background: researchDone + researchFailed >= 6 ? 'rgba(0,196,255,0.08)' : 'rgba(0,196,255,0.08)', border: `1px solid ${researchDone + researchFailed >= 6 ? 'rgba(0,196,255,0.2)' : 'rgba(0,196,255,0.2)'}` }}>
-                            research {researchDone}/{Math.max(researchRuns.length, 6)}{researchFailed > 0 ? ` · ${researchFailed} failed` : ''}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full" style={{ color: executionRun?.status === 'completed' ? accentInk : executionRun?.status === 'running' ? accentInk : textSubtle, background: executionRun?.status === 'completed' ? 'rgba(0,196,255,0.08)' : executionRun?.status === 'running' ? 'rgba(0,196,255,0.08)' : 'transparent', border: `1px solid ${executionRun?.status === 'completed' ? 'rgba(0,196,255,0.2)' : executionRun?.status === 'running' ? 'rgba(0,196,255,0.2)' : borderC}` }}>
-                            execution {executionRun?.status ?? 'idle'}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full" style={{ color: refinement ? accentInk : textSubtle, background: refinement ? 'rgba(0,196,255,0.08)' : 'transparent', border: `1px solid ${refinement ? 'rgba(0,196,255,0.2)' : borderC}` }}>
-                            refinement {refinement ? 'applied' : 'idle'}
-                          </span>
-                        </div>
-
-                        {sourceMix.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono" style={{ color: textSubtle }}>
-                            <span className="uppercase tracking-wider">Source mix</span>
-                            {sourceMix.map(({ tool, count }) => (
-                              <span key={tool} className="px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>
-                                {tool} × {count}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {refinement && refinement.deltas.length > 0 && (
-                          <div className="rounded-md p-3" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                              <div>
-                                <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Before / after refinement</p>
-                                <p className="text-[11px] mt-1" style={{ color: textMuted }}>{refinement.feedbackApplied.variantResults} variant results, {refinement.feedbackApplied.recommendationFeedback} ratings, {refinement.feedbackApplied.recommendationActions} actions</p>
-                              </div>
-                              {refinement.focus && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>{refinement.focus}</span>}
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              {refinement.deltas.slice(0, 3).map(delta => (
-                                <div key={`${delta.domain}-${delta.summary}`} className="rounded-md p-2.5" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: accentInk }}>{delta.domain}</span>
-                                    {delta.beforeConfidence && <ConfidenceBadge level={delta.beforeConfidence} />}
-                                    <ArrowUpRight size={10} style={{ color: textSubtle, transform: 'rotate(45deg)' }} />
-                                    {delta.afterConfidence && <ConfidenceBadge level={delta.afterConfidence} />}
-                                  </div>
-                                  <p className="text-[11px] mt-1" style={{ color: textMuted }}>{delta.summary}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {currentResult.orchestratorOutput?.outputs?.length ? (
-                    <div>
-                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: textSubtle }}>
-                        <Layers size={13} /> Domain Highlights
-                      </p>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {currentResult.orchestratorOutput.outputs
-                          .filter(o => o.artifactType !== 'mind-map')
-                          .slice(0, 6)
-                          .map((o, i) => {
-                            const domainMeta = DOMAIN_META[o.domain as Domain];
-                            return (
-                              <div key={`${o.domain}-${i}`} className="rounded-xl p-4 transition-all"
-                                style={{
-                                  background: cardBg2,
-                                  border: 'none', boxShadow: neuExtrudedSm,
-                                  borderLeft: `3px solid ${domainMeta?.color ?? borderC}`,
-                                }}>
-                                <div className="flex items-center justify-between mb-2.5">
-                                  <div className="flex items-center gap-1.5">
-                                    {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
-                                    <span className="text-[12px] font-mono font-bold uppercase tracking-wide" style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textSubtle }}>
-                                      {domainMeta?.short ?? o.domain}
-                                    </span>
-                                  </div>
-                                  <ConfidenceBadge level={o.confidence} />
-                                </div>
-                                <p className="text-[13px] leading-relaxed font-medium" style={{ color: isDark ? '#d4d4d4' : '#333' }}>
-                                  {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
-                                </p>
-                                {o.sources?.length ? (
-                                  <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5" style={{ borderTop: 'none' }}>
-                                    {o.sources.slice(0, 2).map(source => (
-                                      <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md transition-colors"
-                                        style={{ color: textMuted, background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-                                        {source.title} <ArrowUpRight size={8} />
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Recommendations */}
-                  {currentResult.recommendations && currentResult.recommendations.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: textSubtle }}>
-                        <Rocket size={13} /> Strategic Recommendations
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {currentResult.recommendations.map((rec: any, i: number) => (
-                          <div key={i} className="rounded-lg p-4 flex flex-col gap-2.5"
-                            style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                            <div className="flex flex-wrap gap-1.5">
-                              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded uppercase" style={{
-                                color:   rec.priority === 'immediate' ? '#0B1A2E' : rec.priority === 'short-term' ? '#3D9EFF' : '#3D9EFF',
-                                background: rec.priority === 'immediate' ? 'rgba(11,26,46,0.1)' : rec.priority === 'short-term' ? 'rgba(61,158,255,0.1)' : 'rgba(61,158,255,0.1)',
-                                border: `1px solid ${rec.priority === 'immediate' ? 'rgba(11,26,46,0.25)' : rec.priority === 'short-term' ? 'rgba(61,158,255,0.25)' : 'rgba(61,158,255,0.25)'}`,
-                              }}>{rec.priority ?? 'strategic'}</span>
-                              <ConfidenceBadge level={rec.confidence ?? (rec.score >= 80 ? 'high' : rec.score >= 55 ? 'medium' : 'low')} />
-                            </div>
-                            <h4 className="rec-title">{rec.title}</h4>
-                            <p className="rec-body">{rec.rationale}</p>
-                            {rec.evidence?.length > 0 && (
-                              <ul className="flex flex-col gap-1 mt-1">
-                                {rec.evidence.map((e: string, ei: number) => (
-                                  <li key={ei} className="text-[11px] flex items-start gap-1.5" style={{ color: textSubtle }}>
-                                    <span className="font-mono mt-0.5 shrink-0" style={{ color: isDark ? '#333' : '#ccc' }}>›</span>{e}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                            {/* Feedback thumbs — fire-and-forget to /api/feedback */}
-                            {currentSessionId && (() => {
-                              const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
-                              const current = ratedRecs[rk];
-                              const rate = (rating: RecommendationRating) => {
-                                setRatedRecs(prev => ({ ...prev, [rk]: rating }));
-                                rateRecommendation({
-                                  sessionId: currentSessionId,
-                                  title: rec.title,
-                                  rationale: rec.rationale,
-                                  rating,
-                                });
-                              };
-                              return (
-                                <div className="flex items-center gap-1.5 mt-1 pt-2" style={{ borderTop: 'none' }}>
-                                  <button type="button" onClick={() => rate('up')} title="Useful"
-                                    className="p-1 rounded transition-colors" style={{
-                                      color: current === 'up' ? accentInk : textSubtle,
-                                      background: current === 'up' ? 'rgba(0,196,255,0.12)' : 'transparent',
-                                    }}>
-                                    <ThumbsUp size={12} />
-                                  </button>
-                                  <button type="button" onClick={() => rate('down')} title="Not useful"
-                                    className="p-1 rounded transition-colors" style={{
-                                      color: current === 'down' ? '#0B1A2E' : textSubtle,
-                                      background: current === 'down' ? 'rgba(11,26,46,0.12)' : 'transparent',
-                                    }}>
-                                    <ThumbsDown size={12} />
-                                  </button>
-                                  {current && (
-                                    <span className="text-[9px] font-mono ml-1" style={{ color: current === 'up' ? accentInk : '#0B1A2E' }}>
-                                      {current === 'up' ? 'Validated' : 'Rejected'}
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sources */}
-                  {currentResult.sources && currentResult.sources.length > 0 && (
-                    <div className="flex items-start gap-3 pt-4" style={{ borderTop: 'none' }}>
-                      <span className="text-[10px] font-mono font-semibold uppercase tracking-widest shrink-0 mt-1" style={{ color: textSubtle }}>sources</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {currentResult.sources.map(source => (
-                          <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-md transition-colors"
-                            style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}
-                            onMouseEnter={e => { const a = e.currentTarget as HTMLAnchorElement; a.style.color = accentInk; a.style.borderColor = isDark ? 'rgba(0,196,255,0.3)' : 'rgba(0,82,163,0.35)'; }}
-                            onMouseLeave={e => { const a = e.currentTarget as HTMLAnchorElement; a.style.color = textMuted; a.style.borderColor = borderC; }}>
-                            {source.title} <ArrowUpRight size={9} />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Suggestions */}
-                  {currentResult.suggestions && currentResult.suggestions.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 pt-3" style={{ borderTop: 'none' }}>
-                      <span className="text-[10px] font-mono font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>dig deeper</span>
-                      {currentResult.suggestions.map(sug => (
-                        <button
-                          key={sug}
-                          type="button"
-                          disabled={isFollowingUp || isLoading}
-                          onClick={() => {
-                            followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            // Let the scroll start before kicking off the streamed request so the composer stays in view.
-                            requestAnimationFrame(() => {
-                              void handleFollowUp(sug);
-                            });
-                          }}
-                          className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all disabled:opacity-45 disabled:pointer-events-none"
-                          style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}
-                          onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; if (b.disabled) return; b.style.color = accentInk; b.style.borderColor = isDark ? 'rgba(0,196,255,0.4)' : 'rgba(0,82,163,0.4)'; b.style.background = isDark ? 'rgba(0,196,255,0.06)' : 'rgba(0,82,163,0.06)'; }}
-                          onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.color = textMuted; b.style.borderColor = borderC; b.style.background = cardBg2; }}>
-                          {sug} <ChevronRight size={11} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+            {currentResult && (
+              <IntelligenceResults
+                currentResult={currentResult}
+                currentSessionId={currentSessionId}
+                ratedRecs={ratedRecs}
+                onRate={(key, rating) => setRatedRecs(prev => ({ ...prev, [key]: rating }))}
+                isFollowingUp={isFollowingUp}
+                isLoading={isLoading}
+                onFollowUpSuggestion={(sug) => { void handleFollowUp(sug); }}
+                followUpEndRef={followUpEndRef}
+                isDark={isDark}
+                cardBg={cardBg}
+                cardBg2={cardBg2}
+                textMain={textMain}
+                textMuted={textMuted}
+                textSubtle={textSubtle}
+                accentInk={accentInk}
+                borderC={borderC}
+                neuExtruded={neuExtruded}
+                neuExtrudedSm={neuExtrudedSm}
+              />
             )}
 
-            {/* ── Inline Mind Map ── */}
-            {(() => {
-              const mindMapOutput = currentResult?.orchestratorOutput?.outputs?.find(o => o.artifactType === 'mind-map') as MindMapOutput | undefined;
-              if (!mindMapOutput?.branches?.length) return null;
-              return (
-                <div className="rounded-lg overflow-hidden" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-                  <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: 'none' }}>
-                    <GitBranch size={14} style={{ color: accentInk }} />
-                    <span className="text-[12px] font-mono font-semibold uppercase tracking-widest" style={{ color: textMuted }}>
-                      Mind Map
-                    </span>
-                  </div>
-                  <div className="p-4">
-                    <ArtifactRenderer output={mindMapOutput} product={currentResult?.orchestratorOutput?.product ?? ''} />
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* ── Follow-up answers ── */}
-            {followUps.map(fu => (
-              <div key={fu.id} className="rounded-lg overflow-hidden"
-                style={{ border: 'none', boxShadow: neuExtrudedSm, borderLeft: `2px solid ${accentInk}`, background: cardBg }}>
-                <div className="flex items-center gap-2.5 px-4 py-3" style={{ borderBottom: 'none' }}>
-                  <MessageSquarePlus size={13} style={{ color: accentInk }} />
-                  <p className="text-[13px] font-mono" style={{ color: textMain }}>{fu.question}</p>
-                </div>
-                <div className="p-4">
-                  {fu.loading ? (
-                    <div className="flex flex-col gap-2">
-                      <div className="h-3 rounded skeleton w-3/4" />
-                      <div className="h-3 rounded skeleton w-full" style={{ animationDelay: '0.2s' }} />
-                      <div className="h-3 rounded skeleton w-5/6" style={{ animationDelay: '0.4s' }} />
-                    </div>
-                  ) : (
-                    <>
-                      <p className="followup-answer whitespace-pre-line">{fu.answer}</p>
-                      {fu.sources && fu.sources.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3" style={{ borderTop: 'none' }}>
-                          {fu.sources.map(s => (
-                            <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded transition-colors"
-                              style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}>
-                              {s.title} <ArrowUpRight size={8} />
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {/* ── Follow-up input ── */}
-            {hasResult && (
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-lg px-4 py-3"
-                style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}
-                ref={followUpEndRef}>
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <MessageSquarePlus size={14} style={{ color: textSubtle, flexShrink: 0 }} />
-                  <input
-                    type="text"
-                    value={followUpInput}
-                    onChange={e => setFollowUpInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleFollowUp(followUpInput)}
-                    placeholder="Ask a follow-up…"
-                    className="flex-1 text-[13px] bg-transparent outline-none min-w-0"
-                    style={{ color: textMain }}
-                    disabled={isFollowingUp || isLoading}
-                  />
-                </div>
-                <button
-                  onClick={() => handleFollowUp(followUpInput)}
-                  disabled={!followUpInput.trim() || isFollowingUp || isLoading}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all disabled:opacity-40 shrink-0"
-                  style={{ background: '#00C4FF', color: '#fff' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#0060df'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00C4FF'; }}>
-                  {isFollowingUp
-                    ? <><RefreshCw size={11} className="animate-spin" /> thinking…</>
-                    : <><Send size={11} /> Follow up</>}
-                </button>
-              </div>
-            )}
+            {/* ── Follow-ups + composer affordances ── */}
+            <ChatPanel
+              showEmptyState={false}
+              onDemoQuery={(q) => { void handleSend(q); }}
+              followUps={followUps}
+              followUpInput={followUpInput}
+              onFollowUpInputChange={setFollowUpInput}
+              onFollowUp={(text) => { void handleFollowUp(text); }}
+              isFollowingUp={isFollowingUp}
+              isLoading={isLoading}
+              hasResult={hasResult}
+              followUpEndRef={followUpEndRef}
+              showComposer={false}
+              inputValue={inputValue}
+              onInputChange={setInputValue}
+              onSend={(text) => { void handleSend(text); }}
+              attachedImages={attachedImages}
+              onRemoveImage={(i) => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
+              onAttachClick={() => fileInputRef.current?.click()}
+              fileInputRef={fileInputRef}
+              onFileChange={handleFileChange}
+              textareaRef={textareaRef}
+              onTextareaInput={autoResizeTextarea}
+              headerBg={headerBg}
+              cardBg={cardBg}
+              cardBg2={cardBg2}
+              textMain={textMain}
+              textMuted={textMuted}
+              textSubtle={textSubtle}
+              accentInk={accentInk}
+              neuExtruded={neuExtruded}
+              neuExtrudedSm={neuExtrudedSm}
+              isDark={isDark}
+            />
 
             <div className="h-4" />
             </>
@@ -1638,68 +877,56 @@ export default function VeracityDashboard() {
 
         {/* ── Floating bottom query bar ── */}
         {topTab === 'intelligence' && (
-          <div className="shrink-0 z-20 px-4 md:px-8 pb-6 pt-2 pointer-events-none">
-            <div className="pointer-events-auto max-w-[920px] mx-auto w-full">
-              {attachedImages.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-2 px-1">
-                  {attachedImages.map((img, i) => (
-                    <div key={i} className="relative group">
-                      <img src={img.dataUrl} alt={img.name} className="h-10 w-10 object-cover rounded-lg" style={{ border: 'none', boxShadow: neuExtrudedSm }} />
-                      <button onClick={() => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ background: isDark ? '#333' : '#666', color: '#fff' }}>
-                        <X size={9} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div
-                className="query-bar-glow query-bar-float relative flex items-end w-full"
-                style={{ background: headerBg }}
-              >
-                <Search size={15} className="absolute left-4 top-4 pointer-events-none" style={{ color: textSubtle }} />
-                <textarea
-                  ref={textareaRef}
-                  value={inputValue}
-                  onChange={e => { setInputValue(e.target.value); autoResizeTextarea(); }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend(inputValue);
-                    }
-                  }}
-                  placeholder="Ask a growth intelligence question…"
-                  className="query-textarea w-full pl-11 pr-[96px] py-3.5 bg-transparent outline-none font-sans"
-                  style={{ color: textMain }}
-                  disabled={isLoading}
-                  rows={1}
-                />
-                <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
-                  <button onClick={() => fileInputRef.current?.click()}
-                    className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
-                    style={{ color: textSubtle }}
-                    aria-label="Attach image">
-                    <Paperclip size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleSend(inputValue)}
-                    disabled={(!inputValue.trim() && attachedImages.length === 0) || isLoading}
-                    className="bg-gradient-signature flex items-center justify-center w-9 h-9 rounded-lg text-[13px] font-medium disabled:opacity-35"
-                  >
-                    {isLoading
-                      ? <RefreshCw size={14} className="animate-spin" />
-                      : <Send size={14} />}
-                  </button>
-                </div>
-                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
-              </div>
-            </div>
-          </div>
+          <ChatPanel
+            showEmptyState={false}
+            onDemoQuery={(q) => { void handleSend(q); }}
+            followUps={[]}
+            followUpInput=""
+            onFollowUpInputChange={() => {}}
+            onFollowUp={() => {}}
+            isFollowingUp={isFollowingUp}
+            isLoading={isLoading}
+            hasResult={false}
+            followUpEndRef={followUpEndRef}
+            showComposer
+            inputValue={inputValue}
+            onInputChange={setInputValue}
+            onSend={(text) => { void handleSend(text); }}
+            attachedImages={attachedImages}
+            onRemoveImage={(i) => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
+            onAttachClick={() => fileInputRef.current?.click()}
+            fileInputRef={fileInputRef}
+            onFileChange={handleFileChange}
+            textareaRef={textareaRef}
+            onTextareaInput={autoResizeTextarea}
+            headerBg={headerBg}
+            cardBg={cardBg}
+            cardBg2={cardBg2}
+            textMain={textMain}
+            textMuted={textMuted}
+            textSubtle={textSubtle}
+            accentInk={accentInk}
+            neuExtruded={neuExtruded}
+            neuExtrudedSm={neuExtrudedSm}
+            isDark={isDark}
+          />
         )}
       </div>
     </div>
+
+    <MemoryDrawer
+      open={memoryDrawerOpen}
+      onClose={() => setMemoryDrawerOpen(false)}
+      memory={userMemory}
+      textMain={textMain}
+      textMuted={textMuted}
+      textSubtle={textSubtle}
+      cardBg={cardBg}
+      cardBg2={cardBg2}
+      neuExtruded={neuExtruded}
+      neuExtrudedSm={neuExtrudedSm}
+      accentInk={accentInk}
+    />
     </div>
   );
 }
