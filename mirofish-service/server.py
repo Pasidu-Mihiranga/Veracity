@@ -39,15 +39,19 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 # ── Config ────────────────────────────────────────────────────────────────────
-
-load_dotenv()
+# Load env from service dir first, then parent Veracity/.env (shared Gemini key).
+_SERVICE_DIR = Path(__file__).resolve().parent
+load_dotenv(_SERVICE_DIR / ".env")
+load_dotenv(_SERVICE_DIR.parent / ".env", override=False)
 
 GEMINI_API_KEY  = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
 GEMINI_BASE_URL = os.getenv("LLM_BASE_URL",
                              "https://generativelanguage.googleapis.com/v1beta/openai/")
-GEMINI_MODEL    = os.getenv("LLM_MODEL_NAME") or os.getenv("GEMINI_MODEL") or "gemini-3.6-flash"
-DATA_DIR        = Path(os.getenv("DATA_DIR", "./data"))
+GEMINI_MODEL    = os.getenv("LLM_MODEL_NAME") or os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+DATA_DIR        = Path(os.getenv("DATA_DIR", str(_SERVICE_DIR / "data")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+if not GEMINI_API_KEY:
+    print("[MiroFish] WARNING: GEMINI_API_KEY / LLM_API_KEY not set — interview/prepare will fail")
 
 # Use OpenAI-compat client pointing at Gemini
 ai = OpenAI(api_key=GEMINI_API_KEY, base_url=GEMINI_BASE_URL)
@@ -147,15 +151,15 @@ For each persona output a JSON object with:
 
 Reply with ONLY a JSON array of {num_personas} persona objects.  No markdown, no explanation."""
 
-    raw = gemini(prompt)
     try:
+        raw = gemini(prompt)
         personas = json.loads(strip_code_fences(raw))
-        if isinstance(personas, list):
+        if isinstance(personas, list) and personas:
             return personas[:num_personas]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[MiroFish] persona Gemini failed, using template personas: {e}")
 
-    # Fallback: minimal persona set
+    # Fallback: minimal persona set (works offline / when free-tier quota is exhausted)
     stances = ["positive", "neutral", "negative", "sceptical"]
     return [
         {
@@ -236,8 +240,16 @@ Text: {seed_text[:500]}"""
             except Exception:
                 pass
 
-            # Build ontology summary
-            ontology_prompt = f"""You are building a knowledge graph ontology for a market simulation.
+            # Build ontology summary (fall back if Gemini quota is exhausted)
+            ontology = {
+                "product": product_name,
+                "market": "technology",
+                "entities": [],
+                "competitors": [],
+                "key_themes": [],
+            }
+            try:
+                ontology_prompt = f"""You are building a knowledge graph ontology for a market simulation.
 
 Seed material about {product_name}:
 \"\"\"
@@ -257,11 +269,20 @@ Reply with JSON:
   "competitors": ["comp1", "comp2", ...],
   "key_themes": ["theme1", "theme2", ...]
 }}"""
-            ontology_raw = gemini(ontology_prompt, json_mode=True)
-            try:
-                ontology = json.loads(strip_code_fences(ontology_raw))
-            except Exception:
-                ontology = {"product": product_name, "market": "technology", "entities": [], "competitors": [], "key_themes": []}
+                ontology_raw = gemini(ontology_prompt, json_mode=True)
+                try:
+                    parsed = json.loads(strip_code_fences(ontology_raw))
+                    if isinstance(parsed, dict):
+                        ontology = parsed
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"[MiroFish] ontology Gemini failed, using seed fallback: {e}")
+                # crude product guess from first line of seed
+                first = (seed_text.strip().splitlines() or ["the product"])[0].strip()
+                if first and product_name == "the product":
+                    product_name = first[:80]
+                    ontology["product"] = product_name
 
             # Save ontology + update project
             save_json(p_dir / "ontology.json", ontology)
@@ -439,6 +460,71 @@ def run_status(simulation_id: str):
             "persona_count": meta.get("persona_count", 0),
             "started_at": meta.get("started_at"),
             "updated_at": meta.get("updated_at"),
+        },
+    })
+
+
+@app.route("/api/simulation/<simulation_id>/config", methods=["GET"])
+def simulation_config(simulation_id: str):
+    """Compat endpoint for Veracity live/per-agent clients."""
+    s_dir_path = sim_dir(simulation_id)
+    meta = load_json(s_dir_path / "meta.json")
+    if not meta:
+        return jsonify({"success": False, "error": f"Simulation {simulation_id} not found"}), 404
+    personas = load_json(s_dir_path / "personas.json").get("personas", [])
+    agent_configs = [
+        {"agent_id": int(p.get("id", i)), "name": p.get("name"), "role": p.get("role")}
+        for i, p in enumerate(personas)
+    ]
+    return jsonify({
+        "success": True,
+        "data": {
+            "simulation_id": simulation_id,
+            "product_name": meta.get("product_name"),
+            "persona_count": len(agent_configs),
+            "agent_configs": agent_configs,
+        },
+    })
+
+
+@app.route("/api/simulation/interview", methods=["POST"])
+def interview_one():
+    """Single-agent interview (compat with Veracity live client)."""
+    data = request.get_json() or {}
+    simulation_id = data.get("simulation_id", "")
+    agent_id = data.get("agent_id")
+    prompt = data.get("prompt", "")
+    if not simulation_id or agent_id is None or not prompt:
+        return jsonify({"success": False, "error": "simulation_id, agent_id, and prompt required"}), 400
+
+    s_dir_path = sim_dir(simulation_id)
+    meta = load_json(s_dir_path / "meta.json")
+    personas = load_json(s_dir_path / "personas.json").get("personas", [])
+    persona = next((p for p in personas if int(p.get("id", -1)) == int(agent_id)), None)
+    if not persona:
+        return jsonify({"success": False, "error": f"agent_id {agent_id} not found"}), 404
+
+    product_name = meta.get("product_name", "the product")
+    batch_prompt = f"""You are {persona.get('name','Persona')} — {persona.get('role','professional')}.
+Background: {persona.get('background','')}
+Stance: {persona.get('stance','neutral')}
+Product context: {product_name}
+
+Answer in first person (2-4 sentences) to:
+"{prompt}"
+"""
+    try:
+        response_text = gemini(batch_prompt).strip()
+    except Exception:
+        response_text = f"As a {persona.get('role','professional')}, I see this as {persona.get('stance','neutral')}."
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "agent_id": int(agent_id),
+            "response": response_text,
+            "result": response_text,
+            "platform": persona.get("platform_preference", "reddit"),
         },
     })
 

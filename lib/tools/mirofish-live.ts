@@ -279,6 +279,62 @@ export async function interviewLiveSwarm(
     ? 1
     : (options.maxAgents ?? 5);
 
+  // Prefer /interview/all when available (local mirofish-service + modern hosts)
+  try {
+    const allRes = await fetch(`${getLiveBaseUrl()}/api/simulation/interview/all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        simulation_id: simulationId,
+        prompt: trimInterviewPrompt(prompt, 700),
+        platform,
+        timeout: Math.min(perAgentTimeoutSec, 180),
+      }),
+      signal: AbortSignal.timeout((Math.min(perAgentTimeoutSec, 180) + 20) * 1_000),
+    });
+    if (allRes.ok) {
+      const json = await allRes.json() as {
+        success?: boolean;
+        data?: { result?: { results?: Record<string, { agent_id?: number; response?: string; platform?: string }> } };
+      };
+      const resultsMap = json?.data?.result?.results ?? {};
+      const fromAll: SwarmInterviewResponse[] = Object.values(resultsMap)
+        .map((r, idx) => {
+          const response = (r.response ?? '').trim();
+          if (!response) return null;
+          return {
+            agent_id: typeof r.agent_id === 'number' ? r.agent_id : idx,
+            response,
+            platform: (r.platform === 'twitter' ? 'twitter' : 'reddit') as 'twitter' | 'reddit',
+          };
+        })
+        .filter((x): x is SwarmInterviewResponse => Boolean(x))
+        .slice(0, desiredMaxAgents);
+
+      if (fromAll.length > 0) {
+        const bundle: SwarmInterviewBundle = {
+          simulationId,
+          prompt,
+          responses: fromAll,
+          totalCount: fromAll.length,
+        };
+        const confidence = Math.min(0.9, fromAll.length >= 4 ? 0.78 : fromAll.length >= 2 ? 0.58 : 0.38);
+        const result: ToolResult<SwarmInterviewBundle> = {
+          data: bundle,
+          source: 'MiroFish Live',
+          sourceUrl: `${getLiveBaseUrl()}/api/simulation/interview/all`,
+          timestamp: new Date().toISOString(),
+          confidence,
+          cached: false,
+        };
+        try { await setCache('mirofish_interview', cacheKey, result); } catch { /* non-fatal */ }
+        return result;
+      }
+    }
+  } catch {
+    // Fall through to per-agent live path
+  }
+
   const allAgentIds = await fetchLiveAgentIds(simulationId, Math.max(10, desiredMaxAgents));
   if (allAgentIds.length === 0) throw new Error('No agents found in live simulation config');
 

@@ -4,14 +4,13 @@
  * MiroFish (https://github.com/666ghj/MiroFish) is a self-hosted swarm
  * intelligence prediction engine.  It runs a Flask backend on port 5001.
  *
- * This adapter only calls the *fast* `/api/simulation/interview/all` endpoint
- * against a **pre-prepared** simulation.  The slow multi-step setup pipeline
- * (graph build → simulation create/prepare/start) is handled once out-of-band
- * by scripts/mirofish-bootstrap.ts — not at query time.
+ * Preferred hot path: POST /api/simulation/interview/all against a
+ * **pre-prepared** simulation (local `mirofish-service` and full MiroFish).
+ * Per-agent /config + /interview is used only as a fallback for older hosts.
  *
  * Configuration (add to .env.local):
- *   MIROFISH_BASE_URL=http://localhost:5001          # where your MiroFish backend is
- *   MIROFISH_SIMULATIONS={"vector agents":"sim_xxx"} # JSON map product→simulation_id
+ *   MIROFISH_BASE_URL=http://localhost:5001
+ *   MIROFISH_SIMULATIONS={"vector agents":"sim_xxx"}
  */
 
 import { getCached, setCache } from '../supabase';
@@ -28,7 +27,8 @@ try {
 }
 
 // Cache swarm interview responses for 1 hour (forecasts are stable short-term)
-const CACHE_TTL_MS = 60 * 60 * 1000;
+// (TTL is enforced by the shared cache layer.)
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,6 +77,8 @@ export function getSimulationIdForProduct(product: string): string | undefined {
   if (fuzzy) return SIMULATIONS_MAP[fuzzy];
 
   // 3. Single-sim fallback — if there's only one bootstrapped sim, use it
+  const uniqueIds = [...new Set(Object.values(SIMULATIONS_MAP))];
+  if (uniqueIds.length === 1) return uniqueIds[0];
   if (keys.length === 1) return SIMULATIONS_MAP[keys[0]];
 
   return undefined;
@@ -102,10 +104,91 @@ export async function isSimulationReady(simulationId: string): Promise<boolean> 
   }
 }
 
+function normalizeInterviewEntries(
+  raw: unknown,
+  preferredPlatform: 'twitter' | 'reddit',
+): SwarmInterviewResponse[] {
+  const out: SwarmInterviewResponse[] = [];
+
+  const pushOne = (item: Record<string, unknown>, fallbackId: number) => {
+    const response = String(item.response ?? item.result ?? item.content ?? '').trim();
+    if (!response) return;
+    const platformRaw = String(item.platform ?? preferredPlatform);
+    const platform: 'twitter' | 'reddit' = platformRaw === 'twitter' ? 'twitter' : 'reddit';
+    const agentId = typeof item.agent_id === 'number'
+      ? item.agent_id
+      : Number(item.agent_id ?? fallbackId);
+    out.push({
+      agent_id: Number.isFinite(agentId) ? agentId : fallbackId,
+      response,
+      platform,
+      persona: typeof item.persona === 'object' && item.persona
+        ? { name: String((item.persona as { name?: string }).name ?? item.persona) }
+        : typeof item.persona === 'string'
+          ? { name: item.persona, role: String(item.role ?? '') }
+          : undefined,
+    });
+  };
+
+  if (Array.isArray(raw)) {
+    raw.forEach((item, idx) => {
+      if (item && typeof item === 'object') pushOne(item as Record<string, unknown>, idx);
+    });
+    return out;
+  }
+
+  if (raw && typeof raw === 'object') {
+    Object.values(raw as Record<string, unknown>).forEach((item, idx) => {
+      if (item && typeof item === 'object') pushOne(item as Record<string, unknown>, idx);
+    });
+  }
+
+  return out;
+}
+
 /**
- * Fetch agent IDs from simulation config on the MiroFish backend.
- * Returns up to maxAgents IDs, shuffled for diversity.
+ * Preferred path for local mirofish-service and modern MiroFish hosts.
  */
+async function interviewAllAgents(
+  simulationId: string,
+  prompt: string,
+  platform: 'twitter' | 'reddit',
+  timeoutSec: number,
+): Promise<SwarmInterviewResponse[]> {
+  const res = await fetch(`${BASE_URL}/api/simulation/interview/all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      simulation_id: simulationId,
+      prompt,
+      platform,
+      timeout: timeoutSec,
+    }),
+    signal: AbortSignal.timeout((timeoutSec + 15) * 1_000),
+  });
+  if (!res.ok) throw new Error(`interview/all failed: HTTP ${res.status}`);
+
+  const json = await res.json() as {
+    success?: boolean;
+    error?: string;
+    data?: {
+      responses?: unknown;
+      result?: { results?: unknown; responses?: unknown };
+      results?: unknown;
+    };
+  };
+  if (json.success === false) throw new Error(json.error ?? 'interview/all failed');
+
+  const payload =
+    json.data?.responses
+    ?? json.data?.result?.results
+    ?? json.data?.result?.responses
+    ?? json.data?.results
+    ?? [];
+
+  return normalizeInterviewEntries(payload, platform);
+}
+
 async function fetchAgentIds(simulationId: string, maxAgents = 6): Promise<number[]> {
   const res = await fetch(
     `${BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/config`,
@@ -114,7 +197,6 @@ async function fetchAgentIds(simulationId: string, maxAgents = 6): Promise<numbe
   if (!res.ok) throw new Error(`Could not fetch sim config: ${res.status}`);
   const json = await res.json() as { data?: { agent_configs?: { agent_id: number }[] } };
   const all = (json.data?.agent_configs ?? []).map(a => a.agent_id);
-  // Shuffle and take first maxAgents for diversity
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [all[i], all[j]] = [all[j], all[i]];
@@ -122,9 +204,6 @@ async function fetchAgentIds(simulationId: string, maxAgents = 6): Promise<numbe
   return all.slice(0, maxAgents);
 }
 
-/**
- * Interview a single agent via the per-agent endpoint.
- */
 async function interviewSingleAgent(
   simulationId: string,
   agentId: number,
@@ -150,14 +229,29 @@ async function interviewSingleAgent(
   }
 }
 
+async function interviewPerAgentFallback(
+  simulationId: string,
+  prompt: string,
+  platform: 'twitter' | 'reddit',
+  timeoutSec: number,
+): Promise<SwarmInterviewResponse[]> {
+  const agentIds = await fetchAgentIds(simulationId, 5);
+  if (agentIds.length === 0) return [];
+
+  const responses: SwarmInterviewResponse[] = [];
+  for (const agentId of agentIds) {
+    const resp = await interviewSingleAgent(simulationId, agentId, prompt, platform, timeoutSec);
+    if (resp) responses.push(resp);
+    if (agentId !== agentIds[agentIds.length - 1]) {
+      await new Promise(r => setTimeout(r, 4_500));
+    }
+  }
+  return responses;
+}
+
 /**
- * Poll a sample of simulated personas with *prompt* and return their aggregated
- * responses. Interviews agents sequentially (5 per call) to stay within
- * free-tier Gemini rate limits (15 RPM).
- *
- * @param simulationId - ID from MIROFISH_SIMULATIONS map
- * @param prompt       - Forward-looking question (LLM-generated from user query)
- * @param options      - platform: restrict to 'reddit' (default); timeoutSec per agent
+ * Poll simulated personas with *prompt* and return aggregated responses.
+ * Uses /interview/all first (local Gemini MiroFish), then per-agent fallback.
  */
 export async function interviewSwarm(
   simulationId: string,
@@ -166,7 +260,6 @@ export async function interviewSwarm(
 ): Promise<ToolResult<SwarmInterviewBundle>> {
   const cacheKey = `mirofish:interview:${simulationId}:${prompt}`;
 
-  // Check cache first
   try {
     const cached = await getCached('mirofish_interview', cacheKey);
     if (cached) {
@@ -176,50 +269,49 @@ export async function interviewSwarm(
     // cache miss is fine — continue
   }
 
-  // Default to 'reddit' — our production sim is Reddit-only
   const platform = options.platform ?? 'reddit';
-  // Per-agent timeout — generous to allow Gemini retries
-  const perAgentTimeoutSec = options.timeoutSec ?? 45;
+  const timeoutSec = options.timeoutSec ?? 120;
 
-  // Fetch a sample of agent IDs (max 5 to stay within 15 RPM)
-  const agentIds = await fetchAgentIds(simulationId, 5);
-  if (agentIds.length === 0) throw new Error('No agents found in simulation config');
-
-  const responses: SwarmInterviewResponse[] = [];
-
-  // Interview sequentially with a 5-second gap to avoid rate-limit bursts
-  for (const agentId of agentIds) {
-    const resp = await interviewSingleAgent(simulationId, agentId, prompt, platform, perAgentTimeoutSec);
-    if (resp) responses.push(resp);
-    // Brief pause between calls — keeps burst rate well below 15 RPM
-    if (agentId !== agentIds[agentIds.length - 1]) {
-      await new Promise(r => setTimeout(r, 4_500));
-    }
+  let responses: SwarmInterviewResponse[] = [];
+  let usedAll = false;
+  try {
+    responses = await interviewAllAgents(simulationId, prompt, platform, timeoutSec);
+    usedAll = responses.length > 0;
+  } catch {
+    responses = [];
   }
 
   if (responses.length === 0) {
-    throw new Error('All agent interviews failed — check MiroFish logs for rate limit errors');
+    responses = await interviewPerAgentFallback(simulationId, prompt, platform, options.timeoutSec ?? 45);
   }
+
+  if (responses.length === 0) {
+    throw new Error('All agent interviews failed — check MiroFish logs / Gemini quota');
+  }
+
+  // Cap for synthesis cost on free tier
+  const capped = responses.slice(0, 12);
 
   const bundle: SwarmInterviewBundle = {
     simulationId,
     prompt,
-    responses,
-    totalCount: responses.length,
+    responses: capped,
+    totalCount: capped.length,
   };
 
-  const confidence = Math.min(0.9, responses.length >= 4 ? 0.72 : responses.length >= 2 ? 0.55 : 0.35);
+  const confidence = Math.min(0.9, capped.length >= 4 ? 0.72 : capped.length >= 2 ? 0.55 : 0.35);
 
   const result: ToolResult<SwarmInterviewBundle> = {
     data: bundle,
     source: 'MiroFish Swarm',
-    sourceUrl: `${BASE_URL}/api/simulation/interview`,
+    sourceUrl: usedAll
+      ? `${BASE_URL}/api/simulation/interview/all`
+      : `${BASE_URL}/api/simulation/interview`,
     timestamp: new Date().toISOString(),
     confidence,
     cached: false,
   };
 
-  // Cache result
   try {
     await setCache('mirofish_interview', cacheKey, result);
   } catch {

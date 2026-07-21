@@ -6,6 +6,7 @@
     "dev": "next dev",
     "db:setup": "psql -U postgres -h localhost -c \"CREATE DATABASE veracity;\" || true && psql -U postgres -h localhost -d veracity -f db/schema.sql",
     "mirofish": "cd mirofish-service && .venv/bin/python server.py",
+    "mirofish:bootstrap": "npx tsx scripts/mirofish-bootstrap-local.ts \"Vector Agents\" scripts/seeds/vector-agents.txt",
     "dev:full": "concurrently \"npm run dev\" \"npm run mirofish\"",
     "build": "next build",
     "start": "next start",

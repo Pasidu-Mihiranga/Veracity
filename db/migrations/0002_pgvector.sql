@@ -4,6 +4,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Convert jsonb embedding arrays → vector(768) when needed.
+-- Note: ALTER ... USING cannot contain a subquery; jsonb array text casts to vector.
 DO $$
 BEGIN
   IF EXISTS (
@@ -15,12 +16,7 @@ BEGIN
   ) THEN
     ALTER TABLE chat_embeddings
       ALTER COLUMN embedding TYPE vector(768)
-      USING (
-        (
-          SELECT array_agg(value::real ORDER BY ordinality)::vector(768)
-          FROM jsonb_array_elements_text(embedding) WITH ORDINALITY AS t(value, ordinality)
-        )
-      );
+      USING (embedding::text::vector(768));
   ELSIF EXISTS (
     SELECT 1
     FROM information_schema.columns
