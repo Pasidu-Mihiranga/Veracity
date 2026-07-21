@@ -42,10 +42,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GEMINI_API_KEY  = os.getenv("LLM_API_KEY", "")
+GEMINI_API_KEY  = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
 GEMINI_BASE_URL = os.getenv("LLM_BASE_URL",
                              "https://generativelanguage.googleapis.com/v1beta/openai/")
-GEMINI_MODEL    = os.getenv("LLM_MODEL_NAME", "gemini-2.5-flash")
+GEMINI_MODEL    = os.getenv("LLM_MODEL_NAME") or os.getenv("GEMINI_MODEL") or "gemini-3.6-flash"
 DATA_DIR        = Path(os.getenv("DATA_DIR", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 

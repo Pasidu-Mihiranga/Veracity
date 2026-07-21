@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { NextResponse } from 'next/server';
+import { getConfig } from '@/lib/config';
 
 export const AUTH_COOKIE = 'veracity_session';
 
@@ -9,8 +10,8 @@ export type AuthUser = {
 };
 
 export function getAuthSecret() {
-  const secret = process.env.AUTH_SECRET || process.env.DATABASE_URL || 'dev-veracity-secret-change-me';
-  return new TextEncoder().encode(secret);
+  // No plaintext fallback — AUTH_SECRET is required by lib/config.ts (ADR-0001).
+  return new TextEncoder().encode(getConfig().AUTH_SECRET);
 }
 
 export async function createSessionToken(user: AuthUser): Promise<string> {
@@ -38,7 +39,7 @@ export function setAuthCookie(res: NextResponse, token: string) {
   res.cookies.set(AUTH_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: getConfig().NODE_ENV === 'production',
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
@@ -48,7 +49,7 @@ export function clearAuthCookie(res: NextResponse) {
   res.cookies.set(AUTH_COOKIE, '', {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: getConfig().NODE_ENV === 'production',
     path: '/',
     maxAge: 0,
   });

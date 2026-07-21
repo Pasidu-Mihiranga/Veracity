@@ -1,16 +1,14 @@
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+import { getConfig } from '@/lib/config';
+
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-001';
 // DB column is `vector(768)`. gemini-embedding-001 default is 3072 dims, so
 // we explicitly request 768 via outputDimensionality and re-normalize the
 // returned vector (Gemini docs: normalization is required for <3072 dims).
-const EMBEDDING_DIMENSIONS = Number(process.env.GEMINI_EMBEDDING_DIMENSIONS ?? 768);
-
+//
 // Gemini 2.5 models have built-in "thinking" that consumes output tokens
-// before emitting the actual response. For our agents (data synthesis,
-// classification, structured extraction) thinking is unnecessary and causes
-// JSON truncation on long prompts. We disable it by default, but callers can
-// opt back in via `thinkingBudget`.
-const DEFAULT_THINKING_BUDGET = Number(process.env.GEMINI_THINKING_BUDGET ?? 0);
+// before emitting the actual response. Thinking budget defaults come from
+// lib/config.ts (`GEMINI_THINKING_BUDGET`, default 0 = disabled).
 
 // Raised defaults: the previous 1024/1400 limits were too low for complex
 // agent outputs (matrices, distributions, contributingSignals) once thinking
@@ -30,9 +28,16 @@ function safePreview(value: string, maxLength = 300): string {
 }
 
 function getApiKey(): string {
-  const key = process.env.GEMINI_API_KEY?.trim();
-  if (!key) throw new Error('GEMINI_API_KEY is required');
-  return key;
+  return getConfig().GEMINI_API_KEY;
+}
+
+function resolveModel(override?: string): string {
+  return override?.trim() || getConfig().GEMINI_MODEL || DEFAULT_MODEL;
+}
+
+function resolveEmbeddingModel(): string {
+  const cfg = getConfig();
+  return cfg.GEMINI_EMBEDDING_MODEL || cfg.HUGGING_FACE_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 }
 
 function generationUrl(model: string, apiKey: string): string {
@@ -44,14 +49,36 @@ function buildGenerationConfig(
   defaultMax: number,
   responseMimeType?: string,
 ): Record<string, unknown> {
-  const budget = options.thinkingBudget ?? DEFAULT_THINKING_BUDGET;
-  const config: Record<string, unknown> = {
+  const budget = options.thinkingBudget ?? getConfig().GEMINI_THINKING_BUDGET;
+  const generationConfig: Record<string, unknown> = {
     temperature: options.temperature ?? 0.2,
     maxOutputTokens: options.maxNewTokens ?? defaultMax,
     thinkingConfig: { thinkingBudget: budget },
   };
-  if (responseMimeType) config.responseMimeType = responseMimeType;
-  return config;
+  if (responseMimeType) generationConfig.responseMimeType = responseMimeType;
+  return generationConfig;
+}
+
+async function fetchWithRetry(url: string, init?: RequestInit, retries = 5, delay = 1000): Promise<Response> {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.status === 429 || response.status === 503) {
+        console.warn(`[Gemini API] Received HTTP ${response.status}. Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2.5; // exponential backoff
+        continue;
+      }
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[Gemini API] Fetch error: ${err.message}. Retrying in ${delay}ms... (Attempt ${i + 1}/${retries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2.5;
+    }
+  }
+  throw lastError || new Error(`Failed after ${retries} retries`);
 }
 
 export async function generateHuggingFaceText(
@@ -59,9 +86,9 @@ export async function generateHuggingFaceText(
   options: GeminiOptions = {},
 ): Promise<string> {
   const apiKey = getApiKey();
-  const model = options.model?.trim() || process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  const model = resolveModel(options.model);
 
-  const response = await fetch(generationUrl(model, apiKey), {
+  const response = await fetchWithRetry(generationUrl(model, apiKey), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -90,12 +117,10 @@ export async function embedTextWithHuggingFace(text: string): Promise<number[] |
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  const model =
-    process.env.GEMINI_EMBEDDING_MODEL?.trim() ||
-    process.env.HUGGING_FACE_EMBEDDING_MODEL?.trim() ||
-    DEFAULT_EMBEDDING_MODEL;
+  const model = resolveEmbeddingModel();
+  const embeddingDimensions = getConfig().GEMINI_EMBEDDING_DIMENSIONS;
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
     {
       method: 'POST',
@@ -103,7 +128,7 @@ export async function embedTextWithHuggingFace(text: string): Promise<number[] |
       body: JSON.stringify({
         content: { parts: [{ text: trimmed.slice(0, 8000) }] },
         taskType: 'RETRIEVAL_DOCUMENT',
-        outputDimensionality: EMBEDDING_DIMENSIONS,
+        outputDimensionality: embeddingDimensions,
       }),
     },
   );
@@ -123,7 +148,7 @@ export async function embedTextWithHuggingFace(text: string): Promise<number[] |
   const values = parsed.embedding?.values;
   if (!Array.isArray(values)) return null;
 
-  if (EMBEDDING_DIMENSIONS < 3072) {
+  if (embeddingDimensions < 3072) {
     const norm = Math.sqrt(values.reduce((s, v) => s + v * v, 0));
     if (norm > 0) {
       return values.map(v => v / norm);
@@ -141,11 +166,11 @@ export async function generateHuggingFaceJson<T = Record<string, unknown>>(
   options: GeminiOptions = {},
 ): Promise<T> {
   const apiKey = getApiKey();
-  const model = options.model?.trim() || process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  const model = resolveModel(options.model);
 
   const combined = `${systemPrompt.trim()}\n\n${userPrompt.trim()}`;
 
-  const response = await fetch(generationUrl(model, apiKey), {
+  const response = await fetchWithRetry(generationUrl(model, apiKey), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

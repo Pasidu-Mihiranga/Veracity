@@ -1,8 +1,7 @@
 import { Pool, type QueryResultRow } from 'pg';
+import { getConfig } from '@/lib/config';
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres:postgres@localhost:5432/veracity';
+const { DATABASE_URL: connectionString, NODE_ENV } = getConfig();
 
 const globalForPg = globalThis as unknown as { pgPool?: Pool };
 
@@ -13,7 +12,7 @@ export const pool =
     max: 10,
   });
 
-if (process.env.NODE_ENV !== 'production') {
+if (NODE_ENV !== 'production') {
   globalForPg.pgPool = pool;
 }
 
