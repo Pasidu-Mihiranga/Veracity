@@ -1,30 +1,56 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import type { AgentOutput, MarketTrendsOutput, CompetitiveOutput, WinLossOutput, PricingOutput, PositioningOutput, AdjacentOutput, MindMapOutput, ExecutionPlanOutput, ForecastOutput, OrchestratorOutput, RefinementDelta } from '@/lib/agents/types';
-import { TrendChart } from './TrendChart';
-import { CompetitiveMatrix } from './CompetitiveMatrix';
-import { WinLossScorecard } from './WinLossScorecard';
-import { PricingTable } from './PricingTable';
-import { PositioningGap } from './PositioningGap';
-import { ThreatHeatmap } from './ThreatHeatmap';
-import { MindMap } from './MindMap';
-import { ExecutionPlan } from './ExecutionPlan';
-import { ForecastChart } from './ForecastChart';
 import { EmptyArtifact } from './EmptyArtifact';
+import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
+
+const TrendChart = dynamic(() => import('./TrendChart').then((m) => m.TrendChart), {
+  loading: () => <PanelSkeleton label="Loading trend chart" rows={4} height={200} />,
+  ssr: false,
+});
+const CompetitiveMatrix = dynamic(() => import('./CompetitiveMatrix').then((m) => m.CompetitiveMatrix), {
+  loading: () => <PanelSkeleton label="Loading matrix" rows={4} height={200} />,
+  ssr: false,
+});
+const WinLossScorecard = dynamic(() => import('./WinLossScorecard').then((m) => m.WinLossScorecard), {
+  loading: () => <PanelSkeleton label="Loading scorecard" rows={3} height={180} />,
+  ssr: false,
+});
+const PricingTable = dynamic(() => import('./PricingTable').then((m) => m.PricingTable), {
+  loading: () => <PanelSkeleton label="Loading pricing" rows={3} height={180} />,
+  ssr: false,
+});
+const PositioningGap = dynamic(() => import('./PositioningGap').then((m) => m.PositioningGap), {
+  loading: () => <PanelSkeleton label="Loading positioning" rows={3} height={180} />,
+  ssr: false,
+});
+const ThreatHeatmap = dynamic(() => import('./ThreatHeatmap').then((m) => m.ThreatHeatmap), {
+  loading: () => <PanelSkeleton label="Loading heatmap" rows={3} height={180} />,
+  ssr: false,
+});
+const MindMap = dynamic(() => import('./MindMap').then((m) => m.MindMap), {
+  loading: () => <PanelSkeleton label="Loading mind map" rows={4} height={220} />,
+  ssr: false,
+});
+const ExecutionPlan = dynamic(() => import('./ExecutionPlan').then((m) => m.ExecutionPlan), {
+  loading: () => <PanelSkeleton label="Loading execution plan" rows={5} height={240} />,
+  ssr: false,
+});
+const ForecastChart = dynamic(() => import('./ForecastChart').then((m) => m.ForecastChart), {
+  loading: () => <PanelSkeleton label="Loading forecast" rows={4} height={200} />,
+  ssr: false,
+});
 
 interface Props {
   output: AgentOutput;
   product: string;
-  // Feedback loop — only needed for ExecutionPlan; ignored by other artifacts.
   sessionId?: string | null;
   messageId?: string | null;
   onRefined?: (result: { plan: ExecutionPlanOutput; orchestratorOutput?: OrchestratorOutput; changes?: RefinementDelta[] }) => void;
 }
 
-// Defensively normalise an output's arrays so child components can iterate
-// without optional-chaining everywhere. Returns the same object reference
-// when no patches were needed (cheap fast-path).
 function withArrayDefaults<T extends Record<string, any>>(output: T, fields: (keyof T)[]): T {
   let patched: T | null = null;
   for (const f of fields) {
@@ -36,7 +62,7 @@ function withArrayDefaults<T extends Record<string, any>>(output: T, fields: (ke
   return patched ?? output;
 }
 
-export function ArtifactRenderer({ output, product, sessionId, messageId, onRefined }: Props) {
+function ArtifactRendererInner({ output, product, sessionId, messageId, onRefined }: Props) {
   if (!output) return <EmptyArtifact label="Artifact" reason="No agent output to render." />;
 
   switch (output.artifactType) {
@@ -98,7 +124,6 @@ export function ArtifactRenderer({ output, product, sessionId, messageId, onRefi
     }
     case 'forecast-chart': {
       const o = output as ForecastOutput;
-      // Empty-state guard — hide card when swarm is unavailable
       if (!o.question || !o.swarmSize) {
         return <EmptyArtifact label="Swarm Forecast" reason="MiroFish simulation unavailable or not yet bootstrapped for this product." />;
       }
@@ -108,3 +133,5 @@ export function ArtifactRenderer({ output, product, sessionId, messageId, onRefi
       return <EmptyArtifact label="Artifact" reason="Unknown artifact type." />;
   }
 }
+
+export const ArtifactRenderer = React.memo(ArtifactRendererInner);

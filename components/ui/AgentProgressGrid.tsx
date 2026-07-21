@@ -32,7 +32,7 @@ export type AgentProgressGridProps = {
   neuExtrudedSm: string;
 };
 
-export function AgentProgressGrid({
+function AgentProgressGridInner({
   queryLabel,
   userImages,
   isLoading,
@@ -102,6 +102,28 @@ export function AgentProgressGrid({
           )}
         </div>
       </div>
+
+      {isLoading && orchLogLen === 0 && (
+        <div className="mb-4 neu-inset rounded-[16px] px-3 py-4" style={{ background: cardBg2 }} aria-busy="true">
+          <div className="flex items-center gap-1.5 mb-3 text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>
+            <Activity size={11} className="shrink-0 animate-pulse" />
+            <span>Starting agents…</span>
+          </div>
+          <div className="flex gap-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-16 flex-1 rounded-2xl animate-pulse"
+                style={{
+                  background: isDark ? '#1a1a1a' : '#ececee',
+                  opacity: 1 - i * 0.12,
+                  animationDelay: `${i * 80}ms`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {isLoading && orchLogLen > 0 && (
         <div className="mb-4 neu-inset rounded-[16px] px-3 py-3" style={{ background: cardBg2 }}>
@@ -234,3 +256,5 @@ export function AgentProgressGrid({
     </div>
   );
 }
+
+export const AgentProgressGrid = React.memo(AgentProgressGridInner);

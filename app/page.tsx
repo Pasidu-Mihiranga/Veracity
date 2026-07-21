@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ApiUsagePanel } from '@/components/ApiUsagePanel';
-import { StealStrategyPanel } from '@/components/StealStrategyPanel';
 import { createClient } from '@/lib/supabase-browser';
 import type { AgentRun, OrchestratorOutput, AgentOutput, ExecutionPlanOutput, RefinementDelta } from '@/lib/agents/types';
 import { useTheme } from '@/lib/theme-provider';
@@ -46,15 +45,34 @@ import { useChatStream } from '@/hooks/useChatStream';
 import { SessionSidebar } from '@/components/ui/SessionSidebar';
 import { AgentProgressGrid } from '@/components/ui/AgentProgressGrid';
 import { ChatPanel } from '@/components/ui/ChatPanel';
-import { MemoryDrawer } from '@/components/ui/MemoryDrawer';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
-import { ExpandedDomainPanel } from '@/components/ui/ExpandedDomainPanel';
-import { IntelligenceResults } from '@/components/ui/IntelligenceResults';
+import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import {
   buildPipelineStages,
   getOutputForDomain as getOutputForDomainFromRuns,
   getRunForDomain as getRunForDomainFromRuns,
 } from '@/lib/agent-progress';
+
+const ApiUsagePanel = dynamic(
+  () => import('@/components/ApiUsagePanel').then((m) => m.ApiUsagePanel),
+  { loading: () => <PanelSkeleton label="Loading usage" height={280} />, ssr: false },
+);
+const StealStrategyPanel = dynamic(
+  () => import('@/components/StealStrategyPanel').then((m) => m.StealStrategyPanel),
+  { loading: () => <PanelSkeleton label="Loading steal strategy" height={320} />, ssr: false },
+);
+const MemoryDrawer = dynamic(
+  () => import('@/components/ui/MemoryDrawer').then((m) => m.MemoryDrawer),
+  { ssr: false },
+);
+const ExpandedDomainPanel = dynamic(
+  () => import('@/components/ui/ExpandedDomainPanel').then((m) => m.ExpandedDomainPanel),
+  { loading: () => <PanelSkeleton label="Loading domain" height={240} />, ssr: false },
+);
+const IntelligenceResults = dynamic(
+  () => import('@/components/ui/IntelligenceResults').then((m) => m.IntelligenceResults),
+  { loading: () => <PanelSkeleton label="Loading results" rows={5} height={360} />, ssr: false },
+);
 
 type Message = ChatMessage;
 
@@ -614,9 +632,14 @@ export default function VeracityDashboard() {
     setAttachedImages([]);
     setSessionUsage({ queries: 0, totalCostUsd: 0, totalLatencyMs: 0, totalGeminiCalls: 0, totalToolCalls: 0 });
   };
-  const getRunForDomain = (d: Domain) => getRunForDomainFromRuns(currentResult?.agentRuns, d);
-  const getOutputForDomain = (d: Domain) =>
-    getOutputForDomainFromRuns(currentResult?.orchestratorOutput, d);
+  const getRunForDomain = useCallback(
+    (d: Domain) => getRunForDomainFromRuns(currentResult?.agentRuns, d),
+    [currentResult?.agentRuns],
+  );
+  const getOutputForDomain = useCallback(
+    (d: Domain) => getOutputForDomainFromRuns(currentResult?.orchestratorOutput, d),
+    [currentResult?.orchestratorOutput],
+  );
   const pipelineStages: PipelineStage[] = buildPipelineStages({
     orchestrationLines,
     agentRuns: currentResult?.agentRuns,

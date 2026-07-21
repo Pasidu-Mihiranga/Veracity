@@ -1,15 +1,20 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
 import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
-import { InteractiveRobotSpline } from '@/components/ui/interactive-3d-robot';
 import { useTheme } from '@/lib/theme-provider';
 
 /** Spline Viewer scene (.splinecode) */
 const ROBOT_SCENE =
   'https://prod.spline.design/jvo0ld6GvAywAP1G/scene.splinecode';
+
+const InteractiveRobotSpline = dynamic(
+  () => import('@/components/ui/interactive-3d-robot').then((m) => m.InteractiveRobotSpline),
+  { ssr: false, loading: () => <div className="absolute inset-0" aria-hidden /> },
+);
 
 function AuthForm() {
   const router = useRouter();
