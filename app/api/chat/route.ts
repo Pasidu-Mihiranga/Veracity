@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { orchestrate, runMirofishAgent, runMirofishLiveAgent } from '../../../lib/agents/orchestrator';
 import { createClient } from '@/lib/supabase-server';
+import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
 import type { ConversationMessage, AgentRun, OrchestratorOutput, ImageAttachment, AgentOutput } from '../../../lib/agents/types';
 
 export const runtime = 'nodejs';
@@ -51,6 +52,11 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return jsonError('Not authenticated', 401);
+  }
+
+  const rate = await enforceSweepRateLimit(user.id);
+  if (!rate.success) {
+    return rateLimitExceededResponse(rate);
   }
 
   let body: {

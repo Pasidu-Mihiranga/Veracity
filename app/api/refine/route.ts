@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { orchestrate } from '@/lib/agents/orchestrator';
 import { buildFeedbackSummary, buildRefinementDeltas } from '@/lib/agents/refine-utils';
+import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
 import type {
   ConversationMessage,
   ExecutionPlanOutput,
@@ -36,6 +37,11 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: 'Not signed in' }, { status: 401 });
+  }
+
+  const rate = await enforceSweepRateLimit(user.id);
+  if (!rate.success) {
+    return rateLimitExceededResponse(rate);
   }
 
   const { rows: msgRows } = await query<{

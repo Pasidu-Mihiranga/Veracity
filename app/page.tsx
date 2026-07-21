@@ -734,6 +734,10 @@ export default function VeracityDashboard() {
           selectedAgents: selectedAgentIds,
         }),
       });
+      if (res.status === 429) {
+        const payload = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(payload.error || 'Rate limit exceeded. Try again later.');
+      }
       if (!res.ok || !res.body) throw new Error(`API error ${res.status}`);
 
       const reader = res.body.getReader();
@@ -921,9 +925,13 @@ export default function VeracityDashboard() {
           } catch { /* skip malformed */ }
         }
       }
-    } catch {
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to connect. Please try again.';
       setMessages(prev => prev.map(m =>
-        m.id === assistantId ? { ...m, content: 'Failed to connect. Please try again.' } : m
+        m.id === assistantId ? { ...m, content: message } : m
       ));
     } finally {
       setMessages(prev => prev.map(m =>
@@ -1035,6 +1043,10 @@ export default function VeracityDashboard() {
           selectedAgents: selectedAgentIds,
         }),
       });
+      if (res.status === 429) {
+        const payload = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(payload.error || 'Rate limit exceeded. Try again later.');
+      }
       if (!res.ok || !res.body) throw new Error();
 
       const reader = res.body.getReader();

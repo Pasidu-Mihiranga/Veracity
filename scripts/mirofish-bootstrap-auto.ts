@@ -2,7 +2,7 @@
 /**
  * Non-interactive MiroFish bootstrap.
  * Usage:
- *   MIROFISH_BASE_URL=http://168.144.36.78:5001 \
+ *   MIROFISH_BASE_URL=<your-mirofish-host>:5001 \
  *   npx tsx scripts/mirofish-bootstrap-auto.ts "Vector Agents" scripts/seeds/vector-agents.txt
  */
 

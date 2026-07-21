@@ -40,8 +40,20 @@ function resolveEmbeddingModel(): string {
   return cfg.GEMINI_EMBEDDING_MODEL || cfg.HUGGING_FACE_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL;
 }
 
-function generationUrl(model: string, apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+/** URL without secrets — API key is sent via `x-goog-api-key` (TASK-1.1). */
+export function geminiGenerateContentUrl(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+
+export function geminiEmbedContentUrl(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent`;
+}
+
+export function geminiAuthHeaders(apiKey: string): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    'x-goog-api-key': apiKey,
+  };
 }
 
 function buildGenerationConfig(
@@ -88,9 +100,9 @@ export async function generateHuggingFaceText(
   const apiKey = getApiKey();
   const model = resolveModel(options.model);
 
-  const response = await fetchWithRetry(generationUrl(model, apiKey), {
+  const response = await fetchWithRetry(geminiGenerateContentUrl(model), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: geminiAuthHeaders(apiKey),
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: buildGenerationConfig(options, DEFAULT_TEXT_MAX_OUTPUT),
@@ -120,18 +132,15 @@ export async function embedTextWithHuggingFace(text: string): Promise<number[] |
   const model = resolveEmbeddingModel();
   const embeddingDimensions = getConfig().GEMINI_EMBEDDING_DIMENSIONS;
 
-  const response = await fetchWithRetry(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: { parts: [{ text: trimmed.slice(0, 8000) }] },
-        taskType: 'RETRIEVAL_DOCUMENT',
-        outputDimensionality: embeddingDimensions,
-      }),
-    },
-  );
+  const response = await fetchWithRetry(geminiEmbedContentUrl(model), {
+    method: 'POST',
+    headers: geminiAuthHeaders(apiKey),
+    body: JSON.stringify({
+      content: { parts: [{ text: trimmed.slice(0, 8000) }] },
+      taskType: 'RETRIEVAL_DOCUMENT',
+      outputDimensionality: embeddingDimensions,
+    }),
+  });
 
   const raw = await response.text();
   if (!response.ok) {
@@ -170,9 +179,9 @@ export async function generateHuggingFaceJson<T = Record<string, unknown>>(
 
   const combined = `${systemPrompt.trim()}\n\n${userPrompt.trim()}`;
 
-  const response = await fetchWithRetry(generationUrl(model, apiKey), {
+  const response = await fetchWithRetry(geminiGenerateContentUrl(model), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: geminiAuthHeaders(apiKey),
     body: JSON.stringify({
       contents: [{ parts: [{ text: combined }] }],
       generationConfig: buildGenerationConfig(options, DEFAULT_JSON_MAX_OUTPUT, 'application/json'),

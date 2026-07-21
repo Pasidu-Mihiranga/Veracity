@@ -79,6 +79,10 @@ const envSchema = z.object({
   MIROFISH_LIVE_MAX_AGENTS: optionalInt(5, 1, 6),
   MIROFISH_LIVE_INTERVIEW_TIMEOUT_SEC: optionalInt(240, 30, 360),
   MIROFISH_LIVE_STRICT_SERIAL_MODE: optionalString,
+
+  // ── Rate limiting (optional locally; enable in production) ─
+  UPSTASH_REDIS_REST_URL: optionalUrl,
+  UPSTASH_REDIS_REST_TOKEN: optionalString,
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

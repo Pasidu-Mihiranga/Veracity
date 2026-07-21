@@ -649,7 +649,7 @@ export async function runMirofishLiveAgent(
     );
   };
 
-  onOrchestrationLog?.('MiroFish Live: connecting to real VPS (168.144.36.78)…');
+  onOrchestrationLog?.('MiroFish Live: connecting via MIROFISH_LIVE_BASE_URL…');
   const classification = await classifyQuery(query, history, images, memoryContext);
   const { product, competitor, productUrl, competitorUrl, intent } = classification;
 

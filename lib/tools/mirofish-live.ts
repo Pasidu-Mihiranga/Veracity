@@ -1,24 +1,42 @@
 /**
  * MiroFish Live tool adapter
  *
- * Connects ONLY to the real MiroFish VPS at MIROFISH_LIVE_BASE_URL
- * (default: http://168.144.36.78:5001). No synthetic fallback — if the
+ * Connects ONLY to the real MiroFish backend at MIROFISH_LIVE_BASE_URL.
+ * No hardcoded VPS IP fallback (TASK-1.1). No synthetic fallback — if the
  * backend is unreachable this throws so the caller can surface a clear
  * "MiroFish Live unavailable" message.
  *
- * Configuration (.env.local):
- *   MIROFISH_LIVE_BASE_URL=http://168.144.36.78:5001
+ * Configuration (.env):
+ *   MIROFISH_LIVE_BASE_URL=http://localhost:5001
  *   MIROFISH_LIVE_SIMULATIONS={"vector agents":"sim_xxx"}
  */
 
 import { getCached, setCache } from '../supabase';
+import { getConfig } from '../config';
 import type { ToolResult } from './types';
 import type { SwarmInterviewBundle, SwarmInterviewResponse } from './mirofish';
 
 // ── Config ─────────────────────────────────────────────────────────────────────
-const LIVE_BASE_URL = (
-  process.env.MIROFISH_LIVE_BASE_URL ?? 'http://168.144.36.78:5001'
-).replace(/\/$/, '');
+
+/** Resolves MiroFish Live base URL from env — throws if unset (no IP default). */
+export function getLiveBaseUrl(): string {
+  const url = getConfig().MIROFISH_LIVE_BASE_URL?.replace(/\/$/, '');
+  if (!url) {
+    throw new Error(
+      'MIROFISH_LIVE_BASE_URL is required for MiroFish Live. Set it in .env (no hardcoded VPS default).',
+    );
+  }
+  return url;
+}
+
+/** Display helper when URL may be unset. */
+export function getLiveBaseUrlOrLabel(): string {
+  try {
+    return getLiveBaseUrl();
+  } catch {
+    return '(MIROFISH_LIVE_BASE_URL not set)';
+  }
+}
 
 function parseLiveSimulations(raw: string | undefined): Record<string, string> {
   if (!raw) return {};
@@ -50,11 +68,17 @@ function parseLiveSimulations(raw: string | undefined): Record<string, string> {
   return {};
 }
 
-const LIVE_SIMULATIONS_MAP: Record<string, string> = parseLiveSimulations(
-  process.env.MIROFISH_LIVE_SIMULATIONS
-);
-const LIVE_DEFAULT_SIM_ID = process.env.MIROFISH_LIVE_DEFAULT_SIMULATION_ID?.trim();
-const LIVE_STRICT_SERIAL_MODE = (process.env.MIROFISH_LIVE_STRICT_SERIAL_MODE ?? '0') !== '0';
+function getLiveSimulationsMap(): Record<string, string> {
+  return parseLiveSimulations(getConfig().MIROFISH_LIVE_SIMULATIONS);
+}
+
+function getLiveDefaultSimId(): string | undefined {
+  return getConfig().MIROFISH_LIVE_DEFAULT_SIMULATION_ID;
+}
+
+function isLiveStrictSerialMode(): boolean {
+  return (getConfig().MIROFISH_isLiveStrictSerialMode() ?? '0') !== '0';
+}
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -65,6 +89,8 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
  * Resolution order: exact → fuzzy substring → single-sim catch-all.
  */
 export function getLiveSimulationIdForProduct(product: string): string | undefined {
+  const LIVE_SIMULATIONS_MAP = getLiveSimulationsMap();
+  const LIVE_DEFAULT_SIM_ID = getLiveDefaultSimId();
   const keys = Object.keys(LIVE_SIMULATIONS_MAP);
   if (keys.length === 0) return LIVE_DEFAULT_SIM_ID;
 
@@ -91,7 +117,7 @@ export function getLiveSimulationIdForProduct(product: string): string | undefin
 export async function isLiveSimulationReady(simulationId: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `${LIVE_BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/run-status`,
+      `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/run-status`,
       { signal: AbortSignal.timeout(5_000) },
     );
     if (!res.ok) return false;
@@ -108,7 +134,7 @@ export async function isLiveSimulationReady(simulationId: string): Promise<boole
  */
 async function fetchLiveAgentIds(simulationId: string, maxAgents = 6): Promise<number[]> {
   const res = await fetch(
-    `${LIVE_BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/config`,
+    `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/config`,
     { signal: AbortSignal.timeout(8_000) },
   );
   if (!res.ok) throw new Error(`Live VPS config fetch failed: HTTP ${res.status}`);
@@ -128,7 +154,7 @@ async function fetchLivePostResponses(
 ): Promise<SwarmInterviewResponse[]> {
   try {
     const res = await fetch(
-      `${LIVE_BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/posts?limit=${limit}&offset=0&platform=${platform}`,
+      `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/posts?limit=${limit}&offset=0&platform=${platform}`,
       { signal: AbortSignal.timeout(8_000) },
     );
     if (!res.ok) return [];
@@ -196,7 +222,7 @@ async function interviewLiveAgent(
 ): Promise<{ response: SwarmInterviewResponse | null; error?: string }> {
   try {
     const safePrompt = trimInterviewPrompt(prompt, 240);
-    const res = await fetch(`${LIVE_BASE_URL}/api/simulation/interview`, {
+    const res = await fetch(`${getLiveBaseUrl()}/api/simulation/interview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -249,14 +275,14 @@ export async function interviewLiveSwarm(
 
   const platform = options.platform ?? 'reddit';
   const perAgentTimeoutSec = options.timeoutSec ?? 180;
-  const desiredMaxAgents = LIVE_STRICT_SERIAL_MODE
+  const desiredMaxAgents = isLiveStrictSerialMode()
     ? 1
     : (options.maxAgents ?? 5);
 
   const allAgentIds = await fetchLiveAgentIds(simulationId, Math.max(10, desiredMaxAgents));
   if (allAgentIds.length === 0) throw new Error('No agents found in live simulation config');
 
-  const retryPlan = LIVE_STRICT_SERIAL_MODE
+  const retryPlan = isLiveStrictSerialMode()
     ? [
         { maxPromptChars: 240, maxAgents: 1 },
         { maxPromptChars: 180, maxAgents: 1 },
@@ -299,7 +325,7 @@ export async function interviewLiveSwarm(
       const result: ToolResult<SwarmInterviewBundle> = {
         data: bundle,
         source: 'MiroFish Live VPS',
-        sourceUrl: `${LIVE_BASE_URL}/api/simulation/interview`,
+        sourceUrl: `${getLiveBaseUrl()}/api/simulation/interview`,
         timestamp: new Date().toISOString(),
         confidence,
         cached: false,
@@ -330,7 +356,7 @@ export async function interviewLiveSwarm(
     return {
       data: bundle,
       source: 'MiroFish Live VPS',
-      sourceUrl: `${LIVE_BASE_URL}/api/simulation/interview`,
+      sourceUrl: `${getLiveBaseUrl()}/api/simulation/interview`,
       timestamp: new Date().toISOString(),
       confidence: 0.38,
       cached: false,
@@ -351,7 +377,7 @@ export async function interviewLiveSwarm(
           totalCount: postResponses.length,
         },
         source: 'MiroFish Live VPS (posts fallback)',
-        sourceUrl: `${LIVE_BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/posts`,
+        sourceUrl: `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/posts`,
         timestamp: new Date().toISOString(),
         confidence: 0.24,
         cached: false,
@@ -364,4 +390,4 @@ export async function interviewLiveSwarm(
   );
 }
 
-export { LIVE_BASE_URL };
+export { getLiveBaseUrl as LIVE_BASE_URL };

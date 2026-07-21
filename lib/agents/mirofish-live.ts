@@ -15,10 +15,11 @@ import {
   interviewLiveSwarm,
   isLiveSimulationReady,
   getLiveSimulationIdForProduct,
-  LIVE_BASE_URL,
+  getLiveBaseUrlOrLabel,
 } from '../tools/mirofish-live';
 import { searchTrends } from '../tools/serpapi';
 import { generateHuggingFaceText, generateHuggingFaceJson } from './gemini';
+import { getConfig } from '../config';
 import type {
   AgentConfig,
   AgentContext,
@@ -56,15 +57,11 @@ function makeEmptyForecast(query: string, reason: string): ForecastOutput {
 }
 
 function getLiveMaxAgents(): number {
-  const raw = parseInt(process.env.MIROFISH_LIVE_MAX_AGENTS ?? '5', 10);
-  if (!Number.isFinite(raw)) return 5;
-  return Math.max(1, Math.min(12, raw));
+  return getConfig().MIROFISH_LIVE_MAX_AGENTS;
 }
 
 function getLiveInterviewTimeoutSec(): number {
-  const raw = parseInt(process.env.MIROFISH_LIVE_INTERVIEW_TIMEOUT_SEC ?? '240', 10);
-  if (!Number.isFinite(raw)) return 240;
-  return Math.max(30, Math.min(360, raw));
+  return getConfig().MIROFISH_LIVE_INTERVIEW_TIMEOUT_SEC;
 }
 
 function hasNonAscii(text: string | undefined): boolean {
@@ -236,7 +233,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   if (!simulationId) {
     return makeEmptyForecast(
       query,
-      'No simulation configured — add MIROFISH_LIVE_SIMULATIONS to your env and run the bootstrap script against http://168.144.36.78:5001.',
+      'No simulation configured — add MIROFISH_LIVE_SIMULATIONS to your env and run the bootstrap script against MIROFISH_LIVE_BASE_URL.',
     );
   }
 
@@ -245,7 +242,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   if (!ready) {
     return makeEmptyForecast(
       query,
-      `VPS at ${LIVE_BASE_URL} is unreachable or simulation not ready. SSH in and run: docker compose logs -f`,
+      `MiroFish Live at ${getLiveBaseUrlOrLabel()} is unreachable or simulation not ready. Check MIROFISH_LIVE_BASE_URL and service health.`,
     );
   }
 
@@ -352,6 +349,6 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
 export const mirofishLiveAgent: AgentConfig = {
   id: 'mirofish-live',
   name: 'MiroFish Live (Real VPS)',
-  description: 'Live swarm forecasting — interviews real MiroFish personas on the VPS at 168.144.36.78. No synthetic fallback.',
+  description: 'Live swarm forecasting — interviews real MiroFish personas via MIROFISH_LIVE_BASE_URL. No synthetic fallback.',
   run,
 };
