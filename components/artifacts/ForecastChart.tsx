@@ -148,8 +148,8 @@ function DistributionHistogram({ buckets }: { buckets: DistributionBucket[] }) {
 
 // ── Contributing signals list ─────────────────────────────────────────────────
 function ContributingSignals({ signals }: { signals: ForecastSignal[] }) {
-  if (!signals?.length) return null;
   const [expanded, setExpanded] = useState(false);
+  if (!signals?.length) return null;
   const visible = expanded ? signals : signals.slice(0, 3);
 
   return (

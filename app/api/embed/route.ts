@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { embedText } from '@/lib/embeddings';
+import { toPgVectorLiteral } from '@/lib/pgvector';
 
 export const runtime = 'nodejs';
 
@@ -43,11 +44,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true });
   }
 
+  let vectorLiteral: string;
+  try {
+    vectorLiteral = toPgVectorLiteral(embedding);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'invalid embedding';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+
   try {
     await query(
       `INSERT INTO chat_embeddings (session_id, message_id, role, content, embedding)
-       VALUES ($1, $2, $3, $4, $5::jsonb)`,
-      [sessionId, messageId ?? null, role, content.slice(0, 8000), JSON.stringify(embedding)],
+       VALUES ($1, $2, $3, $4, $5::vector)`,
+      [sessionId, messageId ?? null, role, content.slice(0, 8000), vectorLiteral],
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'embed insert failed';

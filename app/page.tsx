@@ -5,15 +5,14 @@ import { useRouter } from 'next/navigation';
 import {
   Send, Plus, Search, ChevronRight, ChevronLeft, RefreshCw, ArrowUpRight,
   LogOut, User, Layers, X, History, GitBranch, PanelLeftClose, PanelLeft,
-  TrendingUp, Swords, Trophy, DollarSign, Megaphone, Telescope,
-  CheckCircle2, Check, Circle, AlertCircle, MessageSquarePlus, Paperclip, Trash2,
+  CheckCircle2, Circle, AlertCircle, MessageSquarePlus, Paperclip, Trash2,
   Activity, Zap, Shield, Sun, Moon, Rocket, Fish, CheckCheck, Sparkles,
   ThumbsUp, ThumbsDown, BarChart3, Crosshair,
 } from 'lucide-react';
 import { ApiUsagePanel } from '@/components/ApiUsagePanel';
 import { StealStrategyPanel } from '@/components/StealStrategyPanel';
 import { createClient } from '@/lib/supabase-browser';
-import type { AgentRun, OrchestratorOutput, AgentOutput, ImageAttachment, MindMapOutput, ExecutionPlanOutput, ForecastOutput, RefinementDelta } from '@/lib/agents/types';
+import type { AgentRun, OrchestratorOutput, AgentOutput, MindMapOutput, ExecutionPlanOutput, ForecastOutput, RefinementDelta } from '@/lib/agents/types';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
 import { useTheme } from '@/lib/theme-provider';
 import {
@@ -26,205 +25,32 @@ import {
   rateRecommendation, recommendationKey, type RecommendationRating,
 } from '@/lib/feedback';
 import { filterDisplaySources } from '@/lib/tools/source-validator';
+import type {
+  AttachedImage,
+  ChatMessage,
+  FollowUp,
+  LiveRunMetrics,
+  PipelineStage,
+  SourceLink,
+} from '@/types/chat-ui';
+import {
+  ALL_DOMAINS,
+  DEMO_QUERIES,
+  DOMAIN_META,
+  domainAccent,
+  type Domain,
+} from '@/lib/domain-meta';
+import {
+  hydrateMessage,
+  indexMessageInBackground,
+  readFileAsBase64,
+  recallContextForSession,
+  toImageAttachments,
+} from '@/lib/chat-client';
+import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
+import { SidebarAgentRow } from '@/components/ui/SidebarAgentRow';
 
-// Per-session pgvector recall (semantic search over earlier turns in this chat)
-async function recallContextForSession(sessionId: string, query: string): Promise<string> {
-  try {
-    const res = await fetch('/api/recall', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, query }),
-    });
-    if (!res.ok) return '';
-    const data = await res.json();
-    return (data?.context as string) ?? '';
-  } catch { return ''; }
-}
-
-function indexMessageInBackground(sessionId: string, role: 'user' | 'assistant', content: string) {
-  if (!content?.trim()) return;
-  fetch('/api/embed', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, role, content }),
-  }).catch(() => {});
-}
-
-/* ─── Types ─────────────────────────────────────────────── */
-type SourceLink   = { title: string; url: string };
-type AttachedImage = { dataUrl: string; data: string; mimeType: string; name: string };
-type LiveRunMetrics = {
-  elapsedMs: number;
-  agentCount: number;
-  completedAgentCount: number;
-  failedAgentCount: number;
-  runningAgentCount: number;
-  estimatedCostUsd: number;
-  geminiCallCount: number;
-  toolCallCount: number;
-};
-type Message = {
-  id: number;
-  // Supabase row id of the persisted chat_messages row. Required for the
-  // feedback/refine loop: /api/refine needs the authoritative messageId to
-  // look up the prior orchestratorOutput and re-run full orchestration.
-  persistedId?: string | null;
-  role: 'user' | 'assistant';
-  type?: 'text' | 'intelligence';
-  content: string;
-  images?: AttachedImage[];
-  sources?: SourceLink[];
-  suggestions?: string[];
-  recommendations?: any[];
-  agentRuns?: AgentRun[];
-  orchestratorOutput?: OrchestratorOutput;
-  liveMetrics?: LiveRunMetrics;
-  /** Live backend status lines while the chat stream is open (not persisted). */
-  orchestrationLog?: string[];
-};
-type FollowUp = {
-  id: number;
-  question: string;
-  answer: string;
-  sources?: SourceLink[];
-  loading?: boolean;
-};
-
-type PipelineStageState = 'pending' | 'running' | 'completed' | 'failed';
-type PipelineStage = {
-  id: string;
-  label: string;
-  state: PipelineStageState;
-};
-
-/* ─── Constants ─────────────────────────────────────────── */
-const DEMO_QUERIES = [
-  'Is Lilian competitive in the AI SDR market right now?',
-  'Is the digital workers category accelerating or consolidating?',
-  'What should Vector Agents build to capture emerging demand?',
-];
-
-const ALL_DOMAINS = ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent', 'execution-engine', 'mirofish', 'mirofish-live'] as const;
-type Domain = typeof ALL_DOMAINS[number];
-
-const DOMAIN_META: Record<Domain, {
-  label: string; short: string;
-  icon: React.ReactNode;
-  color: string;       // dark-mode text/icon
-  colorLight: string;  // light-mode text/icon (higher contrast)
-  bg: string;
-  bgLight: string;
-  border: string;
-}> = {
-  'market-trends': {
-    label: 'Market & Trend Sensing',   short: 'Market Trends',
-    icon: <TrendingUp size={14} />,
-    color: '#00C4FF', colorLight: '#0052A3',
-    bg: 'rgba(0,196,255,0.12)', bgLight: 'rgba(0,82,163,0.1)', border: 'rgba(0,82,163,0.35)',
-  },
-  'competitive': {
-    label: 'Competitive Landscape',    short: 'Competitive',
-    icon: <Swords size={14} />,
-    color: '#3D9EFF', colorLight: '#1A5A9A',
-    bg: 'rgba(61,158,255,0.12)', bgLight: 'rgba(26,90,154,0.1)', border: 'rgba(26,90,154,0.35)',
-  },
-  'win-loss': {
-    label: 'Win / Loss Intelligence',  short: 'Win / Loss',
-    icon: <Trophy size={14} />,
-    color: '#7EC8FF', colorLight: '#0B4F8C',
-    bg: 'rgba(126,200,255,0.12)', bgLight: 'rgba(11,79,140,0.1)', border: 'rgba(11,79,140,0.35)',
-  },
-  'pricing': {
-    label: 'Pricing & Packaging',      short: 'Pricing',
-    icon: <DollarSign size={14} />,
-    color: '#2A7FD4', colorLight: '#0B4F8C',
-    bg: 'rgba(42,127,212,0.12)', bgLight: 'rgba(11,79,140,0.1)', border: 'rgba(11,79,140,0.35)',
-  },
-  'positioning': {
-    label: 'Positioning & Messaging',  short: 'Positioning',
-    icon: <Megaphone size={14} />,
-    color: '#1A5A9A', colorLight: '#063A6B',
-    bg: 'rgba(26,90,154,0.12)', bgLight: 'rgba(6,58,107,0.1)', border: 'rgba(6,58,107,0.35)',
-  },
-  'adjacent': {
-    label: 'Adjacent Market Collision', short: 'Adjacent',
-    icon: <Telescope size={14} />,
-    color: '#5AB0E8', colorLight: '#1A5A9A',
-    bg: 'rgba(90,176,232,0.12)', bgLight: 'rgba(26,90,154,0.1)', border: 'rgba(26,90,154,0.35)',
-  },
-  'execution-engine': {
-    label: 'Execution Engine',          short: 'Execution',
-    icon: <Rocket size={14} />,
-    color: '#00C4FF', colorLight: '#0052A3',
-    bg: 'rgba(0,196,255,0.12)', bgLight: 'rgba(0,82,163,0.1)', border: 'rgba(0,82,163,0.35)',
-  },
-  'mirofish': {
-    label: 'MiroFish (Forecast)',        short: 'MiroFish',
-    icon: <Fish size={14} />,
-    color: '#9ED8FF', colorLight: '#0B4F8C',
-    bg: 'rgba(158,216,255,0.14)', bgLight: 'rgba(11,79,140,0.1)', border: 'rgba(11,79,140,0.4)',
-  },
-  'mirofish-live': {
-    label: 'MiroFish Live (Real VPS)',   short: 'MiroFish Live',
-    icon: <Fish size={14} />,
-    color: '#1A5A9A', colorLight: '#063A6B',
-    bg: 'rgba(0,196,255,0.1)', bgLight: 'rgba(6,58,107,0.1)', border: 'rgba(6,58,107,0.3)',
-  },
-};
-
-function domainAccent(meta: { color: string; colorLight: string }, isDark: boolean) {
-  return isDark ? meta.color : meta.colorLight;
-}
-
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function hydrateMessage(m: StoredMessage, idx: number): Message {
-  const meta = m.metadata ?? {};
-  return {
-    id: idx,
-    persistedId: m.id,
-    role: m.role,
-    type: (meta.type as Message['type']) ?? (m.role === 'assistant' ? 'intelligence' : undefined),
-    content: m.content,
-    images: meta.images as AttachedImage[] | undefined,
-    sources: meta.sources as SourceLink[] | undefined,
-    suggestions: meta.suggestions as string[] | undefined,
-    recommendations: meta.recommendations as any[] | undefined,
-    agentRuns: meta.agentRuns as AgentRun[] | undefined,
-    orchestratorOutput: meta.orchestratorOutput as OrchestratorOutput | undefined,
-  };
-}
-
-/* ─── Confidence badge ───────────────────────────────────── */
-function ConfidenceBadge({ level }: { level?: string }) {
-  const { isDark } = useTheme();
-  if (!level) return null;
-  const styles: Record<string, { color: string; bg: string; border: string }> = isDark
-    ? {
-        high:   { color: '#00C4FF', bg: 'rgba(0,196,255,0.12)',  border: 'rgba(0,196,255,0.3)'  },
-        medium: { color: '#3D9EFF', bg: 'rgba(61,158,255,0.12)',  border: 'rgba(61,158,255,0.3)'  },
-        low:    { color: '#6B849C', bg: 'rgba(107,132,156,0.12)', border: 'rgba(107,132,156,0.25)' },
-      }
-    : {
-        high:   { color: '#0052A3', bg: 'rgba(0,82,163,0.1)',  border: 'rgba(0,82,163,0.28)'  },
-        medium: { color: '#1A5A9A', bg: 'rgba(26,90,154,0.1)',  border: 'rgba(26,90,154,0.28)'  },
-        low:    { color: '#2E4F72', bg: 'rgba(46,79,114,0.1)', border: 'rgba(46,79,114,0.25)' },
-      };
-  const s = styles[level] ?? styles.low;
-  return (
-    <span className="neu-pill text-[10px] font-mono font-medium uppercase tracking-wide px-2.5 py-0.5"
-      style={{ color: s.color, background: s.bg }}>
-      {level}
-    </span>
-  );
-}
+type Message = ChatMessage;
 
 function buildSourceMix(outputs: AgentOutput[] = []) {
   const counts = new Map<string, number>();
@@ -236,188 +62,6 @@ function buildSourceMix(outputs: AgentOutput[] = []) {
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([tool, count]) => ({ tool, count }));
-}
-
-/* ─── Sidebar agent row ──────────────────────────────────── */
-function SidebarAgentRow({
-  domain,
-  run,
-  selected,
-  onToggle,
-}: {
-  domain: Domain;
-  run?: AgentRun;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const { isDark, textMuted, textSubtle } = useTheme();
-  const meta   = DOMAIN_META[domain];
-  const accent = domainAccent(meta, isDark);
-  const status = run?.status ?? 'idle';
-
-  return (
-    <div className="agent-row-enhanced flex items-center gap-2.5"
-      style={{ background: selected ? (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(15,23,42,0.03)') : 'transparent' }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={`${selected ? 'Disable' : 'Enable'} ${meta.short}`}
-        className="w-4 h-4 rounded shrink-0 flex items-center justify-center transition-all"
-        style={{
-          background: selected ? accent : 'var(--background)',
-          boxShadow: selected
-            ? `inset 2px 2px 4px rgba(0,0,0,0.2), 0 0 6px ${accent}44`
-            : 'var(--shadow-extruded-sm)',
-          border: 'none',
-        }}
-      >
-        {selected && <Check size={10} color="#fff" strokeWidth={3} />}
-      </button>
-      <div className="w-4 shrink-0 flex justify-center">
-        {status === 'running'   && <RefreshCw size={12} style={{ color: accent }} className="animate-spin" />}
-        {status === 'completed' && <CheckCircle2 size={12} style={{ color: 'var(--status-ok)' }} />}
-        {status === 'failed'    && <AlertCircle size={12} style={{ color: 'var(--status-fail)' }} />}
-        {(status === 'idle' || status === 'pending') && <Circle size={12} style={{ color: 'var(--foreground-subtle)' }} />}
-      </div>
-      <span className="text-[13px] flex-1 truncate" style={{
-        textDecoration: selected ? 'none' : 'line-through',
-        color: status === 'running'   ? accent :
-               status === 'completed' ? undefined :
-               status === 'failed'    ? 'var(--status-fail)' : textSubtle,
-        fontWeight: status === 'running' ? 600 : selected ? 500 : 400,
-        letterSpacing: '-0.01em',
-      }}>
-        {meta.short}
-        {domain === 'mirofish-live' && status === 'idle' && (
-          <span className="ml-1.5 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 neu-pill-positive">
-            VPS
-          </span>
-        )}
-      </span>
-      {status === 'running' && (
-        <span className="neu-pill-accent text-[9px] font-mono font-semibold px-1.5 py-0.5"
-          style={{ color: accent }}>
-          live
-        </span>
-      )}
-      {status === 'completed' && (run as any)?.confidence && (
-        <ConfidenceBadge level={(run as any).confidence} />
-      )}
-    </div>
-  );
-}
-
-/* ─── Agent card ─────────────────────────────────────────── */
-function AgentCard({
-  domain, run, output, isExpanded, onClick,
-}: {
-  domain: Domain; run?: AgentRun; output?: AgentOutput;
-  isExpanded: boolean; onClick: () => void;
-}) {
-  const { isDark, surface, textMuted, textSubtle } = useTheme();
-  const meta      = DOMAIN_META[domain];
-  const accent    = domainAccent(meta, isDark);
-  const status    = run?.status ?? 'idle';
-  const snippet   = output?.facts?.[0] ?? output?.interpretation?.[0];
-  const clickable = !!output;
-
-  const bgTint = (status === 'running' || status === 'completed')
-    ? (isDark ? meta.bg : meta.bgLight)
-    : 'transparent';
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={!clickable && status !== 'running'}
-      className="relative flex flex-col gap-3 p-4 rounded-[20px] text-left transition-all duration-300"
-      style={{
-        background: 'var(--background)',
-        border: 'none',
-        boxShadow: isExpanded
-          ? `var(--shadow-inset), 0 0 0 2px ${accent}44`
-          : status === 'running'
-            ? `var(--shadow-extruded-sm), 0 0 0 1px ${accent}33`
-            : 'var(--shadow-extruded)',
-        cursor: clickable ? 'pointer' : 'default',
-        opacity: status === 'idle' ? 0.65 : 1,
-      }}
-    >
-      {/* Colour wash */}
-      {(status === 'running' || (status === 'completed' && isExpanded)) && (
-        <div className="absolute inset-0 rounded-[20px] pointer-events-none" style={{ background: bgTint }} />
-      )}
-
-      {/* Header */}
-      <div className="relative flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span style={{ color: status === 'idle' ? 'var(--foreground-subtle)' : accent }}>{meta.icon}</span>
-          <span className="text-[11px] font-mono font-semibold uppercase tracking-widest truncate"
-            style={{ color: status === 'idle' ? 'var(--foreground-subtle)' : accent }}>
-            {meta.short}
-          </span>
-        </div>
-
-        {status === 'idle' && (
-          <span className="neu-pill text-[9px] font-mono px-2 py-0.5" style={{ color: 'var(--foreground-subtle)' }}>idle</span>
-        )}
-        {status === 'pending' && (
-          <span className="neu-pill text-[9px] font-mono px-2 py-0.5 flex items-center gap-1"
-            style={{ color: 'var(--muted-foreground)' }}>
-            queued <RefreshCw size={7} className="animate-spin" />
-          </span>
-        )}
-        {status === 'running' && (
-          <span className="neu-pill-accent text-[9px] font-mono px-2 py-0.5 flex items-center gap-1 font-medium"
-            style={{ color: accent }}>
-            live <RefreshCw size={7} className="animate-spin" />
-          </span>
-        )}
-        {status === 'completed' && output?.confidence && (
-          <ConfidenceBadge level={output.confidence} />
-        )}
-        {status === 'failed' && (
-          <span className="neu-pill-negative text-[9px] font-mono px-2 py-0.5">failed</span>
-        )}
-      </div>
-
-      {/* Body */}
-      <div className="relative flex-1 min-h-[52px]">
-        {status === 'idle' && (
-          <p className="text-xs font-mono" style={{ color: 'var(--foreground-subtle)' }}>awaiting query…</p>
-        )}
-        {status === 'pending' && (
-          <div className="flex flex-col gap-2 opacity-50">
-            <div className="h-2.5 rounded skeleton w-4/5" />
-            <div className="h-2.5 rounded skeleton w-3/5" />
-          </div>
-        )}
-        {status === 'running' && (
-          <div className="flex flex-col gap-2">
-            <div className="h-2.5 rounded skeleton w-full" />
-            <div className="h-2.5 rounded skeleton w-4/5" style={{ animationDelay: '0.2s' }} />
-            <div className="h-2.5 rounded skeleton w-3/5" style={{ animationDelay: '0.4s' }} />
-          </div>
-        )}
-        {status === 'completed' && snippet && (
-          <p className="agent-snippet line-clamp-3">{snippet}</p>
-        )}
-        {status === 'failed' && (
-          <p className="text-xs" style={{ color: '#0B1A2E' }}>Agent failed — partial data only.</p>
-        )}
-      </div>
-
-      {/* Footer */}
-      {output?.sources && output.sources.length > 0 && (
-        <div className="relative flex items-center gap-1.5 pt-2.5">
-          <span className="text-[10px] font-mono" style={{ color: 'var(--foreground-subtle)' }}>
-            {output.sources.length} sources
-          </span>
-          <ChevronRight size={10} className="ml-auto transition-transform duration-150"
-            style={{ color: accent, transform: isExpanded ? 'rotate(90deg)' : 'none' }} />
-        </div>
-      )}
-    </button>
-  );
 }
 
 /* ─── Main dashboard ─────────────────────────────────────── */
@@ -710,7 +354,7 @@ export default function VeracityDashboard() {
     const assistantId = Date.now() + 1;
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', type: 'intelligence', content: '', agentRuns: [], orchestrationLog: [] }]);
 
-    const imagePayloads: ImageAttachment[] = images.map(img => ({ data: img.data, mimeType: img.mimeType }));
+    const imagePayloads = toImageAttachments(images);
 
     let finalOutput: OrchestratorOutput | null = null;
 

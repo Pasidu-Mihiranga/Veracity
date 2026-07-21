@@ -70,18 +70,23 @@ CREATE TABLE IF NOT EXISTS user_memory (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- ── Embeddings (jsonb array — no pgvector required) ──────────────────────────
+-- ── Embeddings (pgvector) ────────────────────────────────────────────────────
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE IF NOT EXISTS chat_embeddings (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
   message_id uuid REFERENCES chat_messages(id) ON DELETE CASCADE,
   role       text NOT NULL CHECK (role IN ('user', 'assistant')),
   content    text NOT NULL,
-  embedding  jsonb NOT NULL,
+  embedding  vector(768) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS chat_embeddings_session_id_idx ON chat_embeddings(session_id);
+CREATE INDEX IF NOT EXISTS chat_embeddings_embedding_hnsw_idx
+  ON chat_embeddings
+  USING hnsw (embedding vector_cosine_ops);
 
 -- ── Feedback loop ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS recommendation_feedback (

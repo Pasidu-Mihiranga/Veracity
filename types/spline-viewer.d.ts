@@ -1,10 +1,11 @@
-declare global {
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
-      'spline-viewer': React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
+      'spline-viewer': DetailedHTMLProps<
+        HTMLAttributes<HTMLElement> & {
           url?: string;
-          ref?: React.Ref<HTMLElement>;
         },
         HTMLElement
       >;

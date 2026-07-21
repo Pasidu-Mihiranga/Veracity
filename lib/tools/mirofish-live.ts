@@ -77,7 +77,7 @@ function getLiveDefaultSimId(): string | undefined {
 }
 
 function isLiveStrictSerialMode(): boolean {
-  return (getConfig().MIROFISH_isLiveStrictSerialMode() ?? '0') !== '0';
+  return (getConfig().MIROFISH_LIVE_STRICT_SERIAL_MODE ?? '0') !== '0';
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour

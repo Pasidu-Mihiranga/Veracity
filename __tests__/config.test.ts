@@ -60,7 +60,7 @@ describe('parseEnv / lib/config', () => {
     process.env.DATABASE_URL = VALID_ENV.DATABASE_URL;
     process.env.AUTH_SECRET = VALID_ENV.AUTH_SECRET;
     process.env.GEMINI_API_KEY = VALID_ENV.GEMINI_API_KEY;
-    process.env.NODE_ENV = 'test';
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'test';
 
     resetConfigCache();
     const a = getConfig();

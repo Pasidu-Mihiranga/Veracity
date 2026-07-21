@@ -60,7 +60,7 @@ describe('TASK-1.2 rate limiting', () => {
     process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/veracity';
     process.env.AUTH_SECRET = 'test-auth-secret-16chars';
     process.env.GEMINI_API_KEY = 'test-gemini-key';
-    process.env.NODE_ENV = 'test';
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'test';
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
     resetConfigCache();

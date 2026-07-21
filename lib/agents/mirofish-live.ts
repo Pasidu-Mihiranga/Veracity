@@ -274,7 +274,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   swarmBundle = interviewResult.value.data;
 
   sources.push({
-    url: interviewResult.value.sourceUrl ?? `${LIVE_BASE_URL}/api/simulation/interview`,
+    url: interviewResult.value.sourceUrl ?? `${getLiveBaseUrlOrLabel()}/api/simulation/interview`,
     title: `MiroFish Live VPS — ${swarmBundle.totalCount} real personas polled`,
     timestamp: new Date().toISOString(),
     tool: 'mirofish-live',

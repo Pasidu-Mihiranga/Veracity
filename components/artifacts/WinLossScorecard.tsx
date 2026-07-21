@@ -36,7 +36,7 @@ function ReasonRow({ reason, type }: { reason: WinReason; type: 'win' | 'loss' }
         />
       </div>
       {reason.evidence && (
-        <p className="text-xs text-muted-foreground italic leading-relaxed">"{reason.evidence}"</p>
+        <p className="text-xs text-muted-foreground italic leading-relaxed">&ldquo;{reason.evidence}&rdquo;</p>
       )}
     </div>
   );

@@ -113,7 +113,7 @@ export function InteractiveRobotSpline({ scene, className }: InteractiveRobotSpl
       />
       {ready ? (
         <spline-viewer
-          ref={(el) => {
+          ref={(el: HTMLElement | null) => {
             viewerRef.current = el;
           }}
           url={scene}
