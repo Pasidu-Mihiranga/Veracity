@@ -1257,7 +1257,7 @@ button, a { touch-action: manipulation; }
 .dark .auth-page .auth-card .label-mono,
 .dark .auth-page .auth-card .text-muted-foreground,
 .dark .auth-page .auth-muted {
-  color: rgba(168, 192, 216, 0.75) !important;
+  color: rgba(210, 225, 240, 0.88) !important;
 }
 
 .dark .auth-page .auth-card .text-foreground,
