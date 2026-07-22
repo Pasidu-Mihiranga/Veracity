@@ -90,7 +90,6 @@ export default function VeracityDashboard() {
   const [expandedDomain, setExpandedDomain] = useState<Domain | null>(null);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [followUps, setFollowUps]         = useState<FollowUp[]>([]);
-  const [followUpInput, setFollowUpInput] = useState('');
   const [isFollowingUp, setIsFollowingUp] = useState(false);
   // Track which recommendations the user has rated (key → rating)
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
@@ -549,7 +548,8 @@ export default function VeracityDashboard() {
     if (!text.trim() || isFollowingUp || isLoading) return;
     const fuId = Date.now();
     setFollowUps(prev => [...prev, { id: fuId, question: text, answer: '', loading: true }]);
-    setFollowUpInput('');
+    setInputValue('');
+    setAttachedImages([]);
     setIsFollowingUp(true);
 
     const history = messages
@@ -616,6 +616,14 @@ export default function VeracityDashboard() {
     } finally {
       setIsFollowingUp(false);
     }
+  };
+
+  const handleComposerSend = (text: string) => {
+    if (hasResult) {
+      void handleFollowUp(text);
+      return;
+    }
+    void handleSend(text);
   };
 
   const handleNewQuery  = () => {
@@ -736,17 +744,12 @@ export default function VeracityDashboard() {
               showEmptyState={messages.length === 0 && !isLoading}
               onDemoQuery={(q) => { void handleSend(q); }}
               followUps={[]}
-              followUpInput=""
-              onFollowUpInputChange={() => {}}
-              onFollowUp={() => {}}
               isFollowingUp={false}
               isLoading={isLoading}
-              hasResult={false}
-              followUpEndRef={followUpEndRef}
               showComposer={false}
               inputValue={inputValue}
               onInputChange={setInputValue}
-              onSend={(text) => { void handleSend(text); }}
+              onSend={handleComposerSend}
               attachedImages={attachedImages}
               onRemoveImage={(i) => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
               onAttachClick={() => fileInputRef.current?.click()}
@@ -819,7 +822,6 @@ export default function VeracityDashboard() {
                 isFollowingUp={isFollowingUp}
                 isLoading={isLoading}
                 onFollowUpSuggestion={(sug) => { void handleFollowUp(sug); }}
-                followUpEndRef={followUpEndRef}
                 isDark={isDark}
                 cardBg={cardBg}
                 cardBg2={cardBg2}
@@ -833,22 +835,18 @@ export default function VeracityDashboard() {
               />
             )}
 
-            {/* ── Follow-ups + composer affordances ── */}
+            {/* ── Follow-up answers (composer is the shared input below) ── */}
             <ChatPanel
               showEmptyState={false}
               onDemoQuery={(q) => { void handleSend(q); }}
               followUps={followUps}
-              followUpInput={followUpInput}
-              onFollowUpInputChange={setFollowUpInput}
-              onFollowUp={(text) => { void handleFollowUp(text); }}
               isFollowingUp={isFollowingUp}
               isLoading={isLoading}
-              hasResult={hasResult}
               followUpEndRef={followUpEndRef}
               showComposer={false}
               inputValue={inputValue}
               onInputChange={setInputValue}
-              onSend={(text) => { void handleSend(text); }}
+              onSend={handleComposerSend}
               attachedImages={attachedImages}
               onRemoveImage={(i) => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
               onAttachClick={() => fileInputRef.current?.click()}
@@ -881,17 +879,17 @@ export default function VeracityDashboard() {
             showEmptyState={false}
             onDemoQuery={(q) => { void handleSend(q); }}
             followUps={[]}
-            followUpInput=""
-            onFollowUpInputChange={() => {}}
-            onFollowUp={() => {}}
             isFollowingUp={isFollowingUp}
             isLoading={isLoading}
-            hasResult={false}
-            followUpEndRef={followUpEndRef}
             showComposer
             inputValue={inputValue}
             onInputChange={setInputValue}
-            onSend={(text) => { void handleSend(text); }}
+            onSend={handleComposerSend}
+            composerPlaceholder={
+              hasResult
+                ? 'Ask a follow-up about this analysis…'
+                : 'Ask a growth intelligence question…'
+            }
             attachedImages={attachedImages}
             onRemoveImage={(i) => setAttachedImages(prev => prev.filter((_, j) => j !== i))}
             onAttachClick={() => fileInputRef.current?.click()}

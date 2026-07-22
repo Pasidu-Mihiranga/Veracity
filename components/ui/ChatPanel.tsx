@@ -14,18 +14,15 @@ export type ChatPanelProps = {
   onDemoQuery: (query: string) => void;
   /** Follow-up thread under results. */
   followUps: FollowUp[];
-  followUpInput: string;
-  onFollowUpInputChange: (value: string) => void;
-  onFollowUp: (text: string) => void;
   isFollowingUp: boolean;
   isLoading: boolean;
-  hasResult: boolean;
-  followUpEndRef: RefObject<HTMLDivElement | null>;
+  followUpEndRef?: RefObject<HTMLDivElement | null>;
   /** Floating composer. */
   showComposer: boolean;
   inputValue: string;
   onInputChange: (value: string) => void;
   onSend: (text: string) => void;
+  composerPlaceholder?: string;
   attachedImages: AttachedImage[];
   onRemoveImage: (index: number) => void;
   onAttachClick: () => void;
@@ -49,17 +46,14 @@ export function ChatPanel({
   showEmptyState,
   onDemoQuery,
   followUps,
-  followUpInput,
-  onFollowUpInputChange,
-  onFollowUp,
   isFollowingUp,
   isLoading,
-  hasResult,
   followUpEndRef,
   showComposer,
   inputValue,
   onInputChange,
   onSend,
+  composerPlaceholder = 'Ask a growth intelligence question…',
   attachedImages,
   onRemoveImage,
   onAttachClick,
@@ -78,6 +72,8 @@ export function ChatPanel({
   neuExtrudedSm,
   isDark,
 }: ChatPanelProps) {
+  const composerBusy = isLoading || isFollowingUp;
+
   return (
     <>
       {showEmptyState && (
@@ -172,41 +168,7 @@ export function ChatPanel({
           </div>
         </div>
       ))}
-
-      {hasResult && (
-        <div
-          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-lg px-4 py-3"
-          style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}
-          ref={followUpEndRef}
-        >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <MessageSquarePlus size={14} style={{ color: textSubtle, flexShrink: 0 }} />
-            <input
-              type="text"
-              value={followUpInput}
-              onChange={e => onFollowUpInputChange(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && onFollowUp(followUpInput)}
-              placeholder="Ask a follow-up…"
-              className="flex-1 text-[13px] bg-transparent outline-none min-w-0"
-              style={{ color: textMain }}
-              disabled={isFollowingUp || isLoading}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => onFollowUp(followUpInput)}
-            disabled={!followUpInput.trim() || isFollowingUp || isLoading}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all disabled:opacity-40 shrink-0"
-            style={{ background: '#00C4FF', color: '#fff' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#0060df'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#00C4FF'; }}
-          >
-            {isFollowingUp
-              ? <><RefreshCw size={11} className="animate-spin" /> thinking…</>
-              : <><Send size={11} /> Follow up</>}
-          </button>
-        </div>
-      )}
+      {followUps.length > 0 && <div ref={followUpEndRef} />}
 
       {showComposer && (
         <div className="shrink-0 z-20 px-4 md:px-8 pb-6 pt-2 pointer-events-none">
@@ -246,13 +208,13 @@ export function ChatPanel({
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    onSend(inputValue);
+                    if (!composerBusy) onSend(inputValue);
                   }
                 }}
-                placeholder="Ask a growth intelligence question…"
+                placeholder={composerPlaceholder}
                 className="query-textarea w-full pl-11 pr-[96px] py-3.5 bg-transparent outline-none font-sans"
                 style={{ color: textMain }}
-                disabled={isLoading}
+                disabled={composerBusy}
                 rows={1}
               />
               <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
@@ -262,16 +224,17 @@ export function ChatPanel({
                   className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
                   style={{ color: textSubtle }}
                   aria-label="Attach image"
+                  disabled={composerBusy}
                 >
                   <Paperclip size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={() => onSend(inputValue)}
-                  disabled={(!inputValue.trim() && attachedImages.length === 0) || isLoading}
+                  disabled={(!inputValue.trim() && attachedImages.length === 0) || composerBusy}
                   className="bg-gradient-signature flex items-center justify-center w-9 h-9 rounded-lg text-[13px] font-medium disabled:opacity-35"
                 >
-                  {isLoading
+                  {composerBusy
                     ? <RefreshCw size={14} className="animate-spin" />
                     : <Send size={14} />}
                 </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode, type RefObject } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp,
 } from 'lucide-react';
@@ -107,7 +107,6 @@ export type IntelligenceResultsProps = {
   isFollowingUp: boolean;
   isLoading: boolean;
   onFollowUpSuggestion: (suggestion: string) => void;
-  followUpEndRef: RefObject<HTMLDivElement | null>;
   isDark: boolean;
   cardBg: string;
   cardBg2: string;
@@ -128,7 +127,6 @@ export function IntelligenceResults({
   isFollowingUp,
   isLoading,
   onFollowUpSuggestion,
-  followUpEndRef,
   isDark,
   cardBg,
   cardBg2,
@@ -409,10 +407,7 @@ export function IntelligenceResults({
               key={sug}
               type="button"
               disabled={isFollowingUp || isLoading}
-              onClick={() => {
-                followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                requestAnimationFrame(() => onFollowUpSuggestion(sug));
-              }}
+              onClick={() => { onFollowUpSuggestion(sug); }}
               className="ui-body-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all disabled:opacity-45"
               style={{
                 background: cardBg2,
