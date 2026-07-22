@@ -1,88 +1,89 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  getThemeTokens,
+  tokensToCssVars,
+  type ThemeMode,
+  type ThemeTokens,
+} from '@/lib/theme-tokens';
 
-type Theme = 'dark' | 'light';
-
-interface ThemeContextValue {
-  theme: Theme;
+type ThemeContextValue = ThemeTokens & {
+  theme: ThemeMode;
   isDark: boolean;
   toggle: () => void;
+  /** Compat aliases used across existing UI */
   bg: string;
-  surface: string;
   surface2: string;
-  border: string;
-  borderStrong: string;
   text: string;
   textMuted: string;
   textSubtle: string;
+  borderStrong: string;
+};
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+function applyCssVars(mode: ThemeMode) {
+  const root = document.documentElement;
+  const tokens = getThemeTokens(mode);
+  const vars = tokensToCssVars(tokens);
+  for (const [key, value] of Object.entries(vars)) {
+    root.style.setProperty(key, value);
+  }
+  root.classList.toggle('light', mode === 'light');
+  root.classList.toggle('dark', mode === 'dark');
+  root.style.colorScheme = mode;
 }
 
-/** Brand: ice / cyan / navy / black / white only */
-const DARK: Omit<ThemeContextValue, 'theme' | 'isDark' | 'toggle'> = {
-  bg: '#070D16',
-  surface: '#070D16',
-  surface2: '#070D16',
-  border: 'transparent',
-  borderStrong: 'transparent',
-  text: '#E8F4FC',
-  textMuted: '#A8C0D8',
-  textSubtle: '#6B849C',
-};
-
-const LIGHT: Omit<ThemeContextValue, 'theme' | 'isDark' | 'toggle'> = {
-  bg: '#D6E4F0',
-  surface: '#D6E4F0',
-  surface2: '#D6E4F0',
-  border: 'transparent',
-  borderStrong: 'transparent',
-  text: '#061424',
-  textMuted: '#1A3554',
-  textSubtle: '#2E4F72',
-};
-
-const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'light',
-  isDark: false,
-  toggle: () => {},
-  ...LIGHT,
-});
+function buildContext(theme: ThemeMode, toggle: () => void): ThemeContextValue {
+  const tokens = getThemeTokens(theme);
+  return {
+    theme,
+    isDark: theme === 'dark',
+    toggle,
+    ...tokens,
+    bg: tokens.background,
+    surface2: tokens.surfaceRaised,
+    text: tokens.foreground,
+    textMuted: tokens.foregroundMuted,
+    textSubtle: tokens.foregroundSubtle,
+    borderStrong: tokens.borderStrong,
+  };
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<ThemeMode>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('veracity-theme') as Theme | null;
+    const saved = localStorage.getItem('veracity-theme') as ThemeMode | null;
     if (saved === 'dark' || saved === 'light') setTheme(saved);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    const root = document.documentElement;
-    root.classList.toggle('light', theme === 'light');
-    root.classList.toggle('dark', theme === 'dark');
+    applyCssVars(theme);
   }, [theme, mounted]);
 
   const toggle = () => {
-    setTheme(prev => {
+    setTheme((prev) => {
       const next = prev === 'dark' ? 'light' : 'dark';
       localStorage.setItem('veracity-theme', next);
       return next;
     });
   };
 
-  const isDark = theme === 'dark';
-  const tokens = isDark ? DARK : LIGHT;
+  const value = useMemo(() => buildContext(theme, toggle), [theme]);
 
-  return (
-    <ThemeContext.Provider value={{ theme, isDark, toggle, ...tokens }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-export function useTheme() {
-  return useContext(ThemeContext);
+export function useTheme(): ThemeContextValue {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) {
+    // SSR / missing provider fallback
+    return buildContext('light', () => {});
+  }
+  return ctx;
 }

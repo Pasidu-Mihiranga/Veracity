@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildExecutiveReport, reportFilename } from '@/lib/export/build-report-data';
 import type { ChatMessage } from '@/types/chat-ui';
-import type { CompetitiveOutput, MindMapOutput, OrchestratorOutput } from '@/lib/agents/types';
+import type {
+  CompetitiveOutput,
+  MarketTrendsOutput,
+  MindMapOutput,
+  OrchestratorOutput,
+} from '@/lib/agents/types';
 
 function baseMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   const competitive: CompetitiveOutput = {
@@ -35,6 +40,30 @@ function baseMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     recentMoves: [],
   };
 
+  const trends: MarketTrendsOutput = {
+    agentId: 'market-trends',
+    domain: 'market-trends',
+    confidence: 'medium',
+    confidenceScore: 0.7,
+    facts: [],
+    interpretation: [],
+    sources: [],
+    generatedAt: '2026-07-21T12:00:00.000Z',
+    artifactType: 'trend-chart',
+    trends: [
+      {
+        keyword: 'AI analytics',
+        direction: 'up',
+        changePercent: 42,
+        signal: 'Search interest rising',
+        source: 'serpapi',
+      },
+    ],
+    categoryOutlook: 'accelerating',
+    keySignals: ['Enterprise spend up'],
+    timeHorizon: '6-12 months',
+  };
+
   const mindMap: MindMapOutput = {
     agentId: 'orchestrator',
     domain: 'market-trends',
@@ -61,7 +90,7 @@ function baseMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     product: 'Veracity',
     competitor: 'Acme',
     agentRuns: [],
-    outputs: [competitive, mindMap],
+    outputs: [competitive, trends, mindMap],
     synthesizedAnswer: 'Lean into SSO and ICP clarity.',
     topRecommendations: [
       {
@@ -89,10 +118,13 @@ function baseMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 }
 
 describe('buildExecutiveReport', () => {
-  it('maps summary, matrix, mind map, and clickable sources', () => {
+  it('maps summary, trends, matrix, mind map, and clickable sources', () => {
     const report = buildExecutiveReport(baseMessage());
     expect(report.product).toBe('Veracity');
     expect(report.summary).toContain('SSO');
+    expect(report.trends).toHaveLength(1);
+    expect(report.trends[0].keyword).toBe('AI analytics');
+    expect(report.trendsOutlook).toBe('accelerating');
     expect(report.matrix).toHaveLength(1);
     expect(report.matrix[0].feature).toBe('SSO');
     expect(report.mindMap?.centralTopic).toBe('Growth');

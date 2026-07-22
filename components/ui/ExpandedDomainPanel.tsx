@@ -99,11 +99,11 @@ export function ExpandedDomainPanel({
 
         {output && output.facts.filter(f => !f.startsWith('[')).length > 0 && (
           <div className="neu-extruded rounded-3xl p-5">
-            <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#2C7A7B' }}>
+            <p className="ui-section-label mb-4 flex items-center gap-2" style={{ color: accentInk }}>
               <span className="neu-well w-7 h-7">
                 <CheckCircle2 size={13} style={{ color: accentInk }} />
               </span>
-              Key Facts
+              Key facts
             </p>
             <ul className="flex flex-col gap-3">
               {output.facts.filter(f => !f.startsWith('[')).map((f, i) => (
@@ -122,7 +122,7 @@ export function ExpandedDomainPanel({
 
         {output && output.interpretation.length > 0 && (
           <div className="neu-extruded rounded-3xl p-5">
-            <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: accentInk }}>
+            <p className="ui-section-label mb-4 flex items-center gap-2" style={{ color: accentInk }}>
               <span className="neu-well w-7 h-7">
                 <Activity size={13} className="text-accent" />
               </span>

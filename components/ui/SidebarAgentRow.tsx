@@ -57,7 +57,7 @@ export function SidebarAgentRow({
         )}
       </div>
       <span
-        className="text-[13px] flex-1 truncate"
+        className="ui-body-sm flex-1 truncate"
         style={{
           textDecoration: selected ? 'none' : 'line-through',
           color:
@@ -69,18 +69,17 @@ export function SidebarAgentRow({
                   ? 'var(--status-fail)'
                   : textSubtle,
           fontWeight: status === 'running' ? 600 : selected ? 500 : 400,
-          letterSpacing: '-0.01em',
         }}
       >
         {meta.short}
         {domain === 'mirofish-live' && status === 'idle' && (
-          <span className="ml-1.5 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 neu-pill-positive">
+          <span className="ml-1.5 ui-mono uppercase px-1.5 py-0.5 neu-pill-positive" style={{ fontSize: 9 }}>
             VPS
           </span>
         )}
       </span>
       {status === 'running' && (
-        <span className="neu-pill-accent text-[9px] font-mono font-semibold px-1.5 py-0.5" style={{ color: accent }}>
+        <span className="neu-pill-accent ui-mono font-semibold px-1.5 py-0.5" style={{ color: accent, fontSize: 9 }}>
           live
         </span>
       )}

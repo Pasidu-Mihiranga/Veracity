@@ -2,8 +2,7 @@
 
 import type { RefObject } from 'react';
 import {
-  Activity, BarChart3, Brain, Crosshair, Fish, LogOut, RefreshCw,
-  Shield, Sparkles, Sun, Moon, User, Zap,
+  BarChart3, Brain, Crosshair, LogOut, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 
@@ -37,8 +36,8 @@ export function DashboardHeader({
   headerBg,
   topTab,
   onTopTabChange,
-  selectedAgents,
-  mirofishRunning,
+  selectedAgents: _selectedAgents,
+  mirofishRunning: _mirofishRunning,
   onOpenMemory,
   isDark,
   onToggleTheme,
@@ -97,22 +96,7 @@ export function DashboardHeader({
         </div>
 
         <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
-          <div className="header-island-stats flex items-center gap-2.5 sm:gap-3 text-[11px] font-medium shrink-0" style={{ color: textMuted }}>
-            <span className="flex items-center gap-1.5"><Activity size={11} style={{ color: textSubtle }} /> &lt;5 min</span>
-            <span className="hidden md:flex items-center gap-1.5"><Shield size={11} style={{ color: textSubtle }} /> sourced</span>
-            <span className="hidden lg:flex items-center gap-1.5"><Zap size={11} style={{ color: textSubtle }} /> 16+ signals</span>
-          </div>
           <div className="flex items-center gap-2 shrink-0">
-            {selectedAgents.mirofish && (
-              <span className="neu-pill-accent shrink-0 hidden xl:flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 header-island-chip">
-                {mirofishRunning ? <RefreshCw size={10} className="animate-spin" /> : <Fish size={10} />} forecast
-              </span>
-            )}
-            {selectedAgents['mirofish-live'] && (
-              <span className="neu-pill-positive shrink-0 hidden xl:flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 header-island-chip">
-                <Fish size={10} /> live VPS
-              </span>
-            )}
             <button
               type="button"
               onClick={onOpenMemory}

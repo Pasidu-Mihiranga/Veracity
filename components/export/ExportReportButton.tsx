@@ -8,18 +8,17 @@ import { buildExecutiveReport, reportFilename } from '@/lib/export/build-report-
 
 type Props = {
   message: ChatMessage;
-  accentInk: string;
-  textSubtle: string;
-  cardBg2: string;
-  neuExtrudedSm: string;
+  /** @deprecated kept for call-site compat; colors come from CSS theme vars */
+  accentInk?: string;
+  textSubtle?: string;
+  cardBg2?: string;
+  neuExtrudedSm?: string;
+  variant?: 'header' | 'primary';
 };
 
 export function ExportReportButton({
   message,
-  accentInk,
-  textSubtle,
-  cardBg2,
-  neuExtrudedSm,
+  variant = 'primary',
 }: Props) {
   const [busy, setBusy] = useState(false);
 
@@ -56,26 +55,39 @@ export function ExportReportButton({
     }
   };
 
+  const disabled = busy || !message.content;
+
   return (
     <button
       type="button"
-      onClick={() => { void onExport(); }}
-      disabled={busy || !message.content}
-      title="Download executive PDF"
-      className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded transition-opacity disabled:opacity-50"
-      style={{
-        color: accentInk,
-        background: cardBg2,
-        boxShadow: neuExtrudedSm,
-        border: 'none',
+      onClick={() => {
+        void onExport();
       }}
+      disabled={disabled}
+      title="Download executive PDF with visuals and sources"
+      className={
+        variant === 'primary'
+          ? 'inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-semibold font-sans transition-opacity disabled:opacity-50 min-h-11'
+          : 'inline-flex items-center gap-2 text-[12px] font-semibold font-sans px-3.5 py-2 rounded-xl transition-opacity disabled:opacity-50'
+      }
+      style={
+        variant === 'primary'
+          ? {
+              color: 'var(--accent-fg)',
+              background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%)',
+              boxShadow: 'var(--shadow-extruded-sm)',
+              border: 'none',
+            }
+          : {
+              color: 'var(--accent)',
+              background: 'var(--surface-raised)',
+              boxShadow: 'var(--shadow-extruded-sm)',
+              border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
+            }
+      }
     >
-      {busy ? (
-        <Loader2 size={12} className="animate-spin" style={{ color: textSubtle }} />
-      ) : (
-        <Download size={12} />
-      )}
-      {busy ? 'Exporting…' : 'Export PDF'}
+      {busy ? <Loader2 size={variant === 'primary' ? 16 : 14} className="animate-spin" /> : <Download size={variant === 'primary' ? 16 : 14} />}
+      {busy ? 'Preparing PDF…' : variant === 'primary' ? 'Export PDF report' : 'Export PDF'}
     </button>
   );
 }

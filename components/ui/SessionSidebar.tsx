@@ -1,27 +1,14 @@
 'use client';
 
 import {
-  Plus, RefreshCw, Layers, History, Trash2, PanelLeft, PanelLeftClose, CheckCheck,
+  Plus, History, Trash2, PanelLeft, PanelLeftClose,
 } from 'lucide-react';
-import type { AgentRun } from '@/lib/agents/types';
 import type { ChatSession } from '@/lib/conversations';
-import { ALL_DOMAINS, type Domain } from '@/lib/domain-meta';
-import { SidebarAgentRow } from '@/components/ui/SidebarAgentRow';
 
 export type SessionSidebarProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onNewQuery: () => void;
-  selectedAgents: Record<Domain, boolean>;
-  onToggleAgent: (domain: Domain) => void;
-  onToggleSelectAll: () => void;
-  allSelected: boolean;
-  selectedCount: number;
-  getRunForDomain: (domain: Domain) => AgentRun | undefined;
-  isLoading: boolean;
-  hasResult: boolean;
-  completedCount: number;
-  totalCount: number;
   sessions: ChatSession[];
   loadingSessions: boolean;
   currentSessionId: string | null;
@@ -33,23 +20,12 @@ export type SessionSidebarProps = {
   textMain: string;
   textMuted: string;
   textSubtle: string;
-  accentInk: string;
 };
 
 export function SessionSidebar({
   collapsed,
   onToggleCollapsed,
   onNewQuery,
-  selectedAgents,
-  onToggleAgent,
-  onToggleSelectAll,
-  allSelected,
-  selectedCount,
-  getRunForDomain,
-  isLoading,
-  hasResult,
-  completedCount,
-  totalCount,
   sessions,
   loadingSessions,
   currentSessionId,
@@ -61,7 +37,6 @@ export function SessionSidebar({
   textMain,
   textMuted,
   textSubtle,
-  accentInk,
 }: SessionSidebarProps) {
   return (
     <aside
@@ -116,10 +91,7 @@ export function SessionSidebar({
                 className="brand-logo h-6 w-auto max-w-[140px] object-left"
                 draggable={false}
               />
-              <p
-                className="text-[10px] font-semibold uppercase tracking-[0.12em] leading-none mt-1.5"
-                style={{ color: textSubtle }}
-              >
+              <p className="ui-section-label mt-1.5" style={{ color: textSubtle }}>
                 Growth Intelligence
               </p>
             </div>
@@ -129,77 +101,29 @@ export function SessionSidebar({
         <div className="px-3 pt-3 pb-2">
           <button
             onClick={onNewQuery}
-            className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold focus-ring min-h-11"
+            className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11"
           >
             <Plus size={14} /> New query
           </button>
         </div>
 
-        <div className="px-3 pb-2">
+        <div className="flex-1 overflow-y-auto px-3 pb-3">
           <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
-            <div className="px-3 py-2.5 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Layers size={12} style={{ color: textSubtle }} />
-                  <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>
-                    Agents
-                  </span>
-                </div>
-                {isLoading && totalCount > 0 && (
-                  <span className="text-[10px] font-semibold flex items-center gap-1" style={{ color: textMuted }}>
-                    <RefreshCw size={9} className="animate-spin" /> {completedCount}/{totalCount}
-                  </span>
-                )}
-                {hasResult && !isLoading && (
-                  <span className="text-[10px] font-semibold" style={{ color: accentInk }}>
-                    {completedCount}/{totalCount}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono" style={{ color: textSubtle }}>
-                  {selectedCount}/{ALL_DOMAINS.length} selected
-                </span>
-                <button
-                  type="button"
-                  onClick={onToggleSelectAll}
-                  className={`select-all-btn font-mono flex items-center gap-1 ${allSelected ? 'all-selected' : ''}`}
-                >
-                  <CheckCheck size={10} />
-                  {allSelected ? 'Deselect All' : 'Select All'}
-                </button>
-              </div>
-            </div>
-            <div className="py-1.5 px-1.5 flex flex-col gap-0.5">
-              {ALL_DOMAINS.map((d) => (
-                <SidebarAgentRow
-                  key={d}
-                  domain={d}
-                  run={getRunForDomain(d)}
-                  selected={selectedAgents[d]}
-                  onToggle={() => onToggleAgent(d)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-3 pb-2">
-          <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
-            <div className="px-3 py-2 flex items-center justify-between">
+            <div className="px-3 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <History size={12} style={{ color: textSubtle }} />
-                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>
+                <span className="ui-section-label" style={{ color: textSubtle }}>
                   Recent
                 </span>
               </div>
-              {sessions.length > 0 && (
-                <span className="text-[10px] font-semibold" style={{ color: textSubtle }}>
+              {sessions.length > 0 ? (
+                <span className="ui-mono" style={{ color: textSubtle, fontSize: 10 }}>
                   {sessions.length}
                 </span>
-              )}
+              ) : null}
             </div>
-            <div className="py-1.5 px-1.5">
+
+            <div className="py-1 px-1.5 pb-2">
               {loadingSessions ? (
                 <div className="px-2 py-3 flex flex-col gap-2">
                   <div className="h-3 rounded skeleton w-4/5" />
@@ -208,7 +132,7 @@ export function SessionSidebar({
                 </div>
               ) : sessions.length > 0 ? (
                 <div className="flex flex-col gap-0.5">
-                  {sessions.slice(0, 10).map((session) => (
+                  {sessions.slice(0, 20).map((session) => (
                     <div
                       key={session.id}
                       className={`session-item group relative flex items-center cursor-pointer ${
@@ -218,7 +142,7 @@ export function SessionSidebar({
                     >
                       <div className="flex-1 min-w-0 pr-6">
                         <p
-                          className="text-[12px] font-medium truncate"
+                          className="session-title truncate"
                           style={{
                             color: currentSessionId === session.id ? textMain : textMuted,
                           }}
@@ -226,7 +150,7 @@ export function SessionSidebar({
                           {session.title}
                         </p>
                         {session.created_at && (
-                          <p className="text-[9px] font-medium mt-0.5" style={{ color: textSubtle }}>
+                          <p className="ui-mono mt-0.5" style={{ color: textSubtle, fontSize: 10 }}>
                             {new Date(session.created_at).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -249,9 +173,9 @@ export function SessionSidebar({
                   ))}
                 </div>
               ) : (
-                <div className="px-3 py-4 text-center">
-                  <p className="text-[11px]" style={{ color: textSubtle }}>
-                    No sessions yet
+                <div className="px-3 py-6 text-center">
+                  <p className="ui-caption" style={{ color: textSubtle }}>
+                    No chats yet — start a new query
                   </p>
                 </div>
               )}
@@ -261,7 +185,7 @@ export function SessionSidebar({
 
         <div className="px-4 py-2.5 flex items-center gap-2">
           <div className="live-dot" />
-          <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: textSubtle }}>
+          <span className="ui-mono uppercase tracking-wide" style={{ color: textSubtle, fontSize: 10 }}>
             live · sourced · grounded
           </span>
         </div>

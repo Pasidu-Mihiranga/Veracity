@@ -1,12 +1,13 @@
 'use client';
 
-import type { RefObject } from 'react';
+import { useMemo, useState, type ReactNode, type RefObject } from 'react';
 import {
-  ArrowUpRight, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp,
+  ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp,
 } from 'lucide-react';
 import type { AgentOutput, MindMapOutput } from '@/lib/agents/types';
 import type { ChatMessage } from '@/types/chat-ui';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
+import { ResultsInsightCharts } from '@/components/artifacts/ResultsInsightCharts';
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
 import { ExportReportButton } from '@/components/export/ExportReportButton';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
@@ -14,16 +15,88 @@ import {
   rateRecommendation, recommendationKey, type RecommendationRating,
 } from '@/lib/feedback';
 
-function buildSourceMix(outputs: AgentOutput[] = []) {
-  const counts = new Map<string, number>();
-  for (const output of outputs) {
-    for (const source of output.sources ?? []) {
-      counts.set(source.tool, (counts.get(source.tool) ?? 0) + 1);
-    }
+const VIZ_PRIORITY = [
+  'competitive-matrix',
+  'trend-chart',
+  'pricing-table',
+  'win-loss-scorecard',
+  'positioning-gap',
+  'threat-heatmap',
+  'forecast-chart',
+] as const;
+
+/** Only promote a visual when it has enough structure to be useful — not empty shells. */
+function hasUsefulVisual(output: AgentOutput): boolean {
+  const o = output as AgentOutput & Record<string, unknown>;
+  switch (output.artifactType) {
+    case 'trend-chart':
+      return Array.isArray(o.trends) && (o.trends as unknown[]).length > 0;
+    case 'competitive-matrix':
+      return Array.isArray(o.matrix) && (o.matrix as unknown[]).length > 0;
+    case 'pricing-table':
+      return Array.isArray(o.tiers) && (o.tiers as unknown[]).length > 0
+        || Array.isArray(o.rows) && (o.rows as unknown[]).length > 0
+        || Array.isArray(o.pricing) && (o.pricing as unknown[]).length > 0;
+    case 'win-loss-scorecard':
+      return Array.isArray(o.factors) && (o.factors as unknown[]).length > 0
+        || Array.isArray(o.scorecard) && (o.scorecard as unknown[]).length > 0;
+    case 'forecast-chart':
+      return Array.isArray(o.points) && (o.points as unknown[]).length > 0
+        || Array.isArray(o.forecast) && (o.forecast as unknown[]).length > 0;
+    case 'threat-heatmap':
+      return Array.isArray(o.threats) && (o.threats as unknown[]).length > 0
+        || Array.isArray(o.cells) && (o.cells as unknown[]).length > 0;
+    case 'positioning-gap':
+      return Array.isArray(o.gaps) && (o.gaps as unknown[]).length > 0
+        || Array.isArray(o.axes) && (o.axes as unknown[]).length > 0;
+    default:
+      return Boolean(o.facts && Array.isArray(o.facts) && (o.facts as unknown[]).length > 0);
   }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([tool, count]) => ({ tool, count }));
+}
+
+function pickPrimaryVisual(outputs: AgentOutput[] = []): AgentOutput | null {
+  for (const type of VIZ_PRIORITY) {
+    const hit = outputs.find((o) => o.artifactType === type && hasUsefulVisual(o));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function SectionToggle({
+  title,
+  icon,
+  open,
+  onToggle,
+  textMuted,
+  accentInk,
+}: {
+  title: string;
+  icon: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  textMuted: string;
+  accentInk: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center justify-between gap-2 py-1 text-left"
+    >
+      <span className="results-section-title flex items-center gap-2" style={{ color: textMuted }}>
+        <span style={{ color: accentInk }}>{icon}</span>
+        {title}
+      </span>
+      <ChevronDown
+        size={14}
+        style={{
+          color: textMuted,
+          transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+          transition: 'transform 160ms ease',
+        }}
+      />
+    </button>
+  );
 }
 
 export type IntelligenceResultsProps = {
@@ -64,383 +137,323 @@ export function IntelligenceResults({
   textSubtle,
   accentInk,
   borderC,
-  neuExtruded,
   neuExtrudedSm,
 }: IntelligenceResultsProps) {
+  const [openViz, setOpenViz] = useState(true);
+  const [openMap, setOpenMap] = useState(true);
+  const [openDomains, setOpenDomains] = useState(false);
+  const [openSources, setOpenSources] = useState(false);
+
+  const outputs = currentResult.orchestratorOutput?.outputs ?? [];
+  const mindMapOutput = outputs.find((o) => o.artifactType === 'mind-map') as MindMapOutput | undefined;
+  const primaryVisual = useMemo(() => pickPrimaryVisual(outputs), [outputs]);
+  const product = currentResult.orchestratorOutput?.product ?? '';
+
+  const latencyLabel = (() => {
+    const final = currentResult.orchestratorOutput?.metrics;
+    const live = currentResult.liveMetrics;
+    if (!final && !live) return null;
+    const ms = final?.totalLatencyMs ?? live?.elapsedMs ?? 0;
+    return `${(ms / 1000).toFixed(1)}s`;
+  })();
+
   if (!currentResult.content) return null;
 
-  const mindMapOutput = currentResult.orchestratorOutput?.outputs?.find(
-    o => o.artifactType === 'mind-map',
-  ) as MindMapOutput | undefined;
-
   return (
-    <>
-      <div className="rounded-lg overflow-hidden" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: 'none' }}>
-          <div className="flex items-center gap-2">
-            <Layers size={14} style={{ color: accentInk }} />
-            <span className="text-[12px] font-mono font-semibold uppercase tracking-widest" style={{ color: textMuted }}>
-              Intelligence Summary
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {(() => {
-              const final = currentResult.orchestratorOutput?.metrics;
-              const live = currentResult.liveMetrics;
-              if (!final && !live) return null;
-              const latencyMs = final?.totalLatencyMs ?? live?.elapsedMs ?? 0;
-              const cost = final?.estimatedCostUsd ?? live?.estimatedCostUsd ?? 0;
-              const agentTotal = final?.agentCount ?? live?.agentCount ?? 0;
-              const agentDone = final?.completedAgentCount ?? live?.completedAgentCount ?? 0;
-              const geminiCalls = final?.geminiCallCount ?? live?.geminiCallCount ?? 0;
-              const toolCalls = final?.toolCallCount ?? live?.toolCallCount ?? 0;
-              const isLive = !final && !!live;
-              return (
-                <span
-                  className="text-[10px] font-mono px-2 py-0.5 rounded flex items-center gap-2"
-                  style={{ color: textSubtle, background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}
-                >
-                  {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: '#3D9EFF' }} />}
-                  <span title="Wall-clock latency">{(latencyMs / 1000).toFixed(1)}s</span>
-                  <span style={{ opacity: 0.3 }}>|</span>
-                  <span title="Estimated cost">${cost.toFixed(4)}</span>
-                  <span style={{ opacity: 0.3 }}>|</span>
-                  <span title="Agents completed / dispatched">{agentDone}/{agentTotal} agents</span>
-                  <span style={{ opacity: 0.3 }}>|</span>
-                  <span title="Model calls">{isLive ? `~${geminiCalls}` : geminiCalls} calls</span>
-                  <span style={{ opacity: 0.3 }}>|</span>
-                  <span title="External tool invocations">{isLive ? `~${toolCalls}` : toolCalls} tools</span>
-                </span>
-              );
-            })()}
-            {currentResult.orchestratorOutput?.product && (
+    <div className="flex flex-col gap-5">
+      {/* 1. Decision answer (hero) */}
+      <section className="results-panel overflow-hidden">
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
+          style={{ borderBottom: `1px solid ${borderC || 'var(--border)'}` }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Layers size={14} style={{ color: 'var(--accent)' }} />
+            <span className="results-section-title">Decision</span>
+            {product ? (
               <span
-                className="text-[11px] font-mono px-2 py-0.5 rounded"
-                style={{ color: accentInk, background: 'rgba(0,196,255,0.1)', border: '1px solid rgba(0,196,255,0.2)' }}
+                className="ui-mono px-2 py-0.5 rounded-full truncate"
+                style={{
+                  fontSize: 11,
+                  color: 'var(--accent)',
+                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
+                }}
               >
-                {currentResult.orchestratorOutput.product}
+                {product}
               </span>
-            )}
+            ) : null}
+            {latencyLabel ? (
+              <span className="ui-mono" style={{ color: 'var(--foreground-subtle)', fontSize: 11 }}>
+                {latencyLabel}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="p-6 lg:p-8 flex flex-col gap-5">
+          <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <ExportReportButton
               message={currentResult}
               accentInk={accentInk}
               textSubtle={textSubtle}
               cardBg2={cardBg2}
               neuExtrudedSm={neuExtrudedSm}
+              variant="primary"
             />
+            <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
+              Includes decision, recommendations, visuals, and sources
+            </span>
           </div>
         </div>
+      </section>
 
-        <div className="p-6 lg:p-8 flex flex-col gap-8">
-          <p className="prose-answer">{currentResult.content}</p>
-
-          {(() => {
-            const refinement = currentResult.orchestratorOutput?.refinement;
-            const sourceMix = buildSourceMix(currentResult.orchestratorOutput?.outputs ?? []);
-            const researchRuns = (currentResult.agentRuns ?? []).filter(r =>
-              ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'].includes(r.agentId),
-            );
-            const executionRun = (currentResult.agentRuns ?? []).find(r => r.agentId === 'execution-engine');
-            const researchDone = researchRuns.filter(r => r.status === 'completed').length;
-            const researchFailed = researchRuns.filter(r => r.status === 'failed').length;
-            return (
-              <div className="flex flex-col gap-3 rounded-lg p-4" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider" style={{ color: textSubtle }}>
-                  <span>Phases</span>
-                  <span className="px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>
-                    research {researchDone}/{Math.max(researchRuns.length, 6)}{researchFailed > 0 ? ` · ${researchFailed} failed` : ''}
-                  </span>
-                  <span
-                    className="px-2 py-0.5 rounded-full"
-                    style={{
-                      color: executionRun?.status === 'completed' || executionRun?.status === 'running' ? accentInk : textSubtle,
-                      background: executionRun?.status === 'completed' || executionRun?.status === 'running' ? 'rgba(0,196,255,0.08)' : 'transparent',
-                      border: `1px solid ${executionRun?.status === 'completed' || executionRun?.status === 'running' ? 'rgba(0,196,255,0.2)' : borderC}`,
-                    }}
-                  >
-                    execution {executionRun?.status ?? 'idle'}
-                  </span>
-                  <span
-                    className="px-2 py-0.5 rounded-full"
-                    style={{
-                      color: refinement ? accentInk : textSubtle,
-                      background: refinement ? 'rgba(0,196,255,0.08)' : 'transparent',
-                      border: `1px solid ${refinement ? 'rgba(0,196,255,0.2)' : borderC}`,
-                    }}
-                  >
-                    refinement {refinement ? 'applied' : 'idle'}
-                  </span>
-                </div>
-
-                {sourceMix.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono" style={{ color: textSubtle }}>
-                    <span className="uppercase tracking-wider">Source mix</span>
-                    {sourceMix.map(({ tool, count }) => (
-                      <span key={tool} className="px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>
-                        {tool} × {count}
-                      </span>
-                    ))}
+      {/* 2. Recommendations */}
+      {currentResult.recommendations && currentResult.recommendations.length > 0 ? (
+        <section className="results-panel p-5 lg:p-6">
+          <p className="results-section-title mb-4 flex items-center gap-2">
+            <Rocket size={13} style={{ color: 'var(--accent)' }} /> Recommendations
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {currentResult.recommendations.map((rec: {
+              title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[];
+            }, i: number) => {
+              const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
+              const current = ratedRecs[rk];
+              const rate = (rating: RecommendationRating) => {
+                onRate(rk, rating);
+                if (!currentSessionId) return;
+                rateRecommendation({
+                  sessionId: currentSessionId,
+                  title: rec.title ?? '',
+                  rationale: rec.rationale ?? '',
+                  rating,
+                });
+              };
+              return (
+                <div
+                  key={i}
+                  className="rounded-2xl p-4 flex flex-col gap-2.5"
+                  style={{
+                    background: cardBg2,
+                    border: `1px solid ${borderC || 'var(--border)'}`,
+                  }}
+                >
+                  <div className="flex flex-wrap gap-1.5">
+                    <span
+                      className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase"
+                      style={{
+                        color: rec.priority === 'immediate' ? (isDark ? '#7DD3FC' : '#0B1A2E') : accentInk,
+                        background: rec.priority === 'immediate'
+                          ? (isDark ? 'rgba(125,211,252,0.12)' : 'rgba(11,26,46,0.08)')
+                          : 'rgba(0,196,255,0.1)',
+                        border: `1px solid ${rec.priority === 'immediate' ? 'rgba(125,211,252,0.35)' : 'rgba(0,196,255,0.25)'}`,
+                      }}
+                    >
+                      {rec.priority ?? 'strategic'}
+                    </span>
+                    <ConfidenceBadge
+                      level={(rec.confidence as 'high' | 'medium' | 'low' | undefined)
+                        ?? ((rec.score ?? 0) >= 80 ? 'high' : (rec.score ?? 0) >= 55 ? 'medium' : 'low')}
+                    />
                   </div>
-                )}
-
-                {refinement && refinement.deltas.length > 0 && (
-                  <div className="rounded-md p-3" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div>
-                        <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Before / after refinement</p>
-                        <p className="text-[11px] mt-1" style={{ color: textMuted }}>
-                          {refinement.feedbackApplied.variantResults} variant results, {refinement.feedbackApplied.recommendationFeedback} ratings, {refinement.feedbackApplied.recommendationActions} actions
-                        </p>
-                      </div>
-                      {refinement.focus && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ color: accentInk, background: 'rgba(0,196,255,0.08)', border: '1px solid rgba(0,196,255,0.2)' }}>
-                          {refinement.focus}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {refinement.deltas.slice(0, 3).map(delta => (
-                        <div key={`${delta.domain}-${delta.summary}`} className="rounded-md p-2.5" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: accentInk }}>{delta.domain}</span>
-                            {delta.beforeConfidence && <ConfidenceBadge level={delta.beforeConfidence} />}
-                            <ArrowUpRight size={10} style={{ color: textSubtle, transform: 'rotate(45deg)' }} />
-                            {delta.afterConfidence && <ConfidenceBadge level={delta.afterConfidence} />}
-                          </div>
-                          <p className="text-[11px] mt-1" style={{ color: textMuted }}>{delta.summary}</p>
-                        </div>
+                  <h4 className="rec-title">{rec.title}</h4>
+                  <p className="rec-body">{rec.rationale}</p>
+                  {(rec.evidence?.length ?? 0) > 0 && (
+                    <ul className="flex flex-col gap-1 mt-1">
+                      {rec.evidence!.map((e, ei) => (
+                        <li key={ei} className="text-[12px] flex items-start gap-1.5" style={{ color: textMuted }}>
+                          <span className="font-mono mt-0.5 shrink-0" style={{ color: accentInk }}>›</span>{e}
+                        </li>
                       ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {currentResult.orchestratorOutput?.outputs?.length ? (
-            <div>
-              <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: textSubtle }}>
-                <Layers size={13} /> Domain Highlights
-              </p>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {currentResult.orchestratorOutput.outputs
-                  .filter(o => o.artifactType !== 'mind-map')
-                  .slice(0, 6)
-                  .map((o, i) => {
-                    const domainMeta = DOMAIN_META[o.domain as Domain];
-                    return (
-                      <div
-                        key={`${o.domain}-${i}`}
-                        className="rounded-xl p-4 transition-all"
+                    </ul>
+                  )}
+                  {currentSessionId && (
+                    <div className="flex items-center gap-1.5 mt-1 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => rate('up')}
+                        title="Useful"
+                        className="p-1.5 rounded-lg transition-colors"
                         style={{
-                          background: cardBg2,
-                          border: 'none',
-                          boxShadow: neuExtrudedSm,
-                          borderLeft: `3px solid ${domainMeta?.color ?? borderC}`,
+                          color: current === 'up' ? accentInk : textSubtle,
+                          background: current === 'up' ? 'rgba(0,196,255,0.14)' : 'transparent',
                         }}
                       >
-                        <div className="flex items-center justify-between mb-2.5">
-                          <div className="flex items-center gap-1.5">
-                            {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
-                            <span className="text-[12px] font-mono font-bold uppercase tracking-wide" style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textSubtle }}>
-                              {domainMeta?.short ?? o.domain}
-                            </span>
-                          </div>
-                          <ConfidenceBadge level={o.confidence} />
-                        </div>
-                        <p className="text-[13px] leading-relaxed font-medium" style={{ color: isDark ? '#d4d4d4' : '#333' }}>
-                          {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
-                        </p>
-                        {o.sources?.length ? (
-                          <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5" style={{ borderTop: 'none' }}>
-                            {o.sources.slice(0, 2).map(source => (
-                              <a
-                                key={source.url}
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md transition-colors"
-                                style={{ color: textMuted, background: cardBg, boxShadow: neuExtruded, border: 'none' }}
-                              >
-                                {source.title} <ArrowUpRight size={8} />
-                              </a>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          ) : null}
-
-          {currentResult.recommendations && currentResult.recommendations.length > 0 && (
-            <div>
-              <p className="text-[11px] font-mono font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: textSubtle }}>
-                <Rocket size={13} /> Strategic Recommendations
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentResult.recommendations.map((rec: { title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[] }, i: number) => {
-                  const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
-                  const current = ratedRecs[rk];
-                  const rate = (rating: RecommendationRating) => {
-                    onRate(rk, rating);
-                    if (!currentSessionId) return;
-                    rateRecommendation({
-                      sessionId: currentSessionId,
-                      title: rec.title ?? '',
-                      rationale: rec.rationale ?? '',
-                      rating,
-                    });
-                  };
-                  return (
-                    <div key={i} className="rounded-lg p-4 flex flex-col gap-2.5" style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none' }}>
-                      <div className="flex flex-wrap gap-1.5">
-                        <span
-                          className="text-[10px] font-mono font-medium px-2 py-0.5 rounded uppercase"
-                          style={{
-                            color: rec.priority === 'immediate' ? '#0B1A2E' : '#3D9EFF',
-                            background: rec.priority === 'immediate' ? 'rgba(11,26,46,0.1)' : 'rgba(61,158,255,0.1)',
-                            border: `1px solid ${rec.priority === 'immediate' ? 'rgba(11,26,46,0.25)' : 'rgba(61,158,255,0.25)'}`,
-                          }}
-                        >
-                          {rec.priority ?? 'strategic'}
+                        <ThumbsUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rate('down')}
+                        title="Not useful"
+                        className="p-1.5 rounded-lg transition-colors"
+                        style={{
+                          color: current === 'down' ? '#FCA5A5' : textSubtle,
+                          background: current === 'down' ? 'rgba(252,165,165,0.12)' : 'transparent',
+                        }}
+                      >
+                        <ThumbsDown size={14} />
+                      </button>
+                      {current && (
+                        <span className="text-[10px] font-mono ml-1" style={{ color: current === 'up' ? accentInk : '#FCA5A5' }}>
+                          {current === 'up' ? 'Validated' : 'Rejected'}
                         </span>
-                        <ConfidenceBadge
-                          level={(rec.confidence as 'high' | 'medium' | 'low' | undefined)
-                            ?? ((rec.score ?? 0) >= 80 ? 'high' : (rec.score ?? 0) >= 55 ? 'medium' : 'low')}
-                        />
-                      </div>
-                      <h4 className="rec-title">{rec.title}</h4>
-                      <p className="rec-body">{rec.rationale}</p>
-                      {(rec.evidence?.length ?? 0) > 0 && (
-                        <ul className="flex flex-col gap-1 mt-1">
-                          {rec.evidence!.map((e, ei) => (
-                            <li key={ei} className="text-[11px] flex items-start gap-1.5" style={{ color: textSubtle }}>
-                              <span className="font-mono mt-0.5 shrink-0" style={{ color: isDark ? '#333' : '#ccc' }}>›</span>{e}
-                            </li>
-                          ))}
-                        </ul>
                       )}
-                      {currentSessionId && (
-                        <div className="flex items-center gap-1.5 mt-1 pt-2" style={{ borderTop: 'none' }}>
-                          <button
-                            type="button"
-                            onClick={() => rate('up')}
-                            title="Useful"
-                            className="p-1 rounded transition-colors"
-                            style={{
-                              color: current === 'up' ? accentInk : textSubtle,
-                              background: current === 'up' ? 'rgba(0,196,255,0.12)' : 'transparent',
-                            }}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Insight charts — pie + bars when structured data exists */}
+      <ResultsInsightCharts message={currentResult} outputs={outputs} />
+
+      {/* 3. Primary visual */}
+      {primaryVisual ? (
+        <section className="results-panel p-5 lg:p-6">
+          <SectionToggle
+            title="Key visual"
+            icon={<Layers size={13} />}
+            open={openViz}
+            onToggle={() => setOpenViz((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openViz && (
+            <div className="mt-4 rounded-2xl p-3 sm:p-4" style={{ background: cardBg2, border: `1px solid ${borderC || 'var(--border)'}` }}>
+              <ArtifactRenderer output={primaryVisual} product={product} />
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {/* 4. Strategy mind map */}
+      {mindMapOutput?.branches?.length ? (
+        <section className="results-panel p-5 lg:p-6">
+          <SectionToggle
+            title="Strategy map"
+            icon={<GitBranch size={13} />}
+            open={openMap}
+            onToggle={() => setOpenMap((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openMap && (
+            <div className="mt-4">
+              <ArtifactRenderer output={mindMapOutput} product={product} />
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {/* 5. Domain highlights (secondary, collapsed) */}
+      {outputs.filter((o) => o.artifactType !== 'mind-map').length > 0 ? (
+        <section className="results-panel p-5 lg:p-6">
+          <SectionToggle
+            title="Domain details"
+            icon={<Layers size={13} />}
+            open={openDomains}
+            onToggle={() => setOpenDomains((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openDomains && (
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {outputs
+                .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
+                .slice(0, 6)
+                .map((o, i) => {
+                  const domainMeta = DOMAIN_META[o.domain as Domain];
+                  return (
+                    <div
+                      key={`${o.domain}-${i}`}
+                      className="rounded-xl p-4"
+                      style={{
+                        background: cardBg2,
+                        border: `1px solid ${borderC || 'var(--border)'}`,
+                        borderLeft: `3px solid ${domainMeta?.color ?? accentInk}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
+                          <span
+                            className="text-[12px] font-mono font-bold uppercase tracking-wide"
+                            style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
                           >
-                            <ThumbsUp size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => rate('down')}
-                            title="Not useful"
-                            className="p-1 rounded transition-colors"
-                            style={{
-                              color: current === 'down' ? '#0B1A2E' : textSubtle,
-                              background: current === 'down' ? 'rgba(11,26,46,0.12)' : 'transparent',
-                            }}
-                          >
-                            <ThumbsDown size={12} />
-                          </button>
-                          {current && (
-                            <span className="text-[9px] font-mono ml-1" style={{ color: current === 'up' ? accentInk : '#0B1A2E' }}>
-                              {current === 'up' ? 'Validated' : 'Rejected'}
-                            </span>
-                          )}
+                            {domainMeta?.short ?? o.domain}
+                          </span>
                         </div>
-                      )}
+                        <ConfidenceBadge level={o.confidence} />
+                      </div>
+                      <p className="text-[13px] leading-relaxed" style={{ color: textMain }}>
+                        {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
+                      </p>
                     </div>
                   );
                 })}
-              </div>
             </div>
           )}
+        </section>
+      ) : null}
 
-          {currentResult.sources && currentResult.sources.length > 0 && (
-            <div className="flex items-start gap-3 pt-4" style={{ borderTop: 'none' }}>
-              <span className="text-[10px] font-mono font-semibold uppercase tracking-widest shrink-0 mt-1" style={{ color: textSubtle }}>sources</span>
-              <div className="flex flex-wrap gap-1.5">
-                {currentResult.sources.map(source => (
-                  <a
-                    key={source.url}
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-md transition-colors"
-                    style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}
-                    onMouseEnter={e => {
-                      const a = e.currentTarget as HTMLAnchorElement;
-                      a.style.color = accentInk;
-                      a.style.borderColor = isDark ? 'rgba(0,196,255,0.3)' : 'rgba(0,82,163,0.35)';
-                    }}
-                    onMouseLeave={e => {
-                      const a = e.currentTarget as HTMLAnchorElement;
-                      a.style.color = textMuted;
-                      a.style.borderColor = borderC;
-                    }}
-                  >
-                    {source.title} <ArrowUpRight size={9} />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Dig deeper */}
+      {currentResult.suggestions && currentResult.suggestions.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <span className="results-section-title">Dig deeper</span>
+          {currentResult.suggestions.map((sug) => (
+            <button
+              key={sug}
+              type="button"
+              disabled={isFollowingUp || isLoading}
+              onClick={() => {
+                followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                requestAnimationFrame(() => onFollowUpSuggestion(sug));
+              }}
+              className="ui-body-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all disabled:opacity-45"
+              style={{
+                background: cardBg2,
+                border: `1px solid ${borderC || 'var(--border)'}`,
+                color: textMuted,
+              }}
+            >
+              {sug} <ChevronRight size={11} />
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-          {currentResult.suggestions && currentResult.suggestions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pt-3" style={{ borderTop: 'none' }}>
-              <span className="text-[10px] font-mono font-semibold uppercase tracking-widest" style={{ color: textSubtle }}>dig deeper</span>
-              {currentResult.suggestions.map(sug => (
-                <button
-                  key={sug}
-                  type="button"
-                  disabled={isFollowingUp || isLoading}
-                  onClick={() => {
-                    followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    requestAnimationFrame(() => onFollowUpSuggestion(sug));
-                  }}
-                  className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all disabled:opacity-45 disabled:pointer-events-none"
-                  style={{ background: cardBg2, boxShadow: neuExtrudedSm, border: 'none', color: textMuted }}
-                  onMouseEnter={e => {
-                    const b = e.currentTarget as HTMLButtonElement;
-                    if (b.disabled) return;
-                    b.style.color = accentInk;
-                    b.style.borderColor = isDark ? 'rgba(0,196,255,0.4)' : 'rgba(0,82,163,0.4)';
-                    b.style.background = isDark ? 'rgba(0,196,255,0.06)' : 'rgba(0,82,163,0.06)';
-                  }}
-                  onMouseLeave={e => {
-                    const b = e.currentTarget as HTMLButtonElement;
-                    b.style.color = textMuted;
-                    b.style.borderColor = borderC;
-                    b.style.background = cardBg2;
-                  }}
+      {/* 6. Sources (collapsed) */}
+      {currentResult.sources && currentResult.sources.length > 0 ? (
+        <section className="results-panel p-5">
+          <SectionToggle
+            title={`Sources (${currentResult.sources.length})`}
+            icon={<ArrowUpRight size={13} />}
+            open={openSources}
+            onToggle={() => setOpenSources((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openSources && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {currentResult.sources.map((source) => (
+                <a
+                  key={source.url}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="source-chip"
                 >
-                  {sug} <ChevronRight size={11} />
-                </button>
+                  {source.title} <ArrowUpRight size={9} />
+                </a>
               ))}
             </div>
           )}
-        </div>
-      </div>
-
-      {mindMapOutput?.branches?.length ? (
-        <div className="rounded-lg overflow-hidden" style={{ background: cardBg, boxShadow: neuExtruded, border: 'none' }}>
-          <div className="flex items-center gap-2 px-5 py-3.5" style={{ borderBottom: 'none' }}>
-            <GitBranch size={14} style={{ color: accentInk }} />
-            <span className="text-[12px] font-mono font-semibold uppercase tracking-widest" style={{ color: textMuted }}>
-              Mind Map
-            </span>
-          </div>
-          <div className="p-4">
-            <ArtifactRenderer output={mindMapOutput} product={currentResult.orchestratorOutput?.product ?? ''} />
-          </div>
-        </div>
+        </section>
       ) : null}
-    </>
+    </div>
   );
 }

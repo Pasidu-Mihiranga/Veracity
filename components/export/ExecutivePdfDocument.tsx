@@ -6,7 +6,7 @@ import {
   Link,
   StyleSheet,
 } from '@react-pdf/renderer';
-import type { ExecutiveReportData } from '@/lib/export/build-report-data';
+import type { ExecutiveReportData, ReportTrendBar } from '@/lib/export/build-report-data';
 
 const colors = {
   ink: '#0B1A2E',
@@ -14,6 +14,10 @@ const colors = {
   line: '#D8DEE6',
   accent: '#0A7EA4',
   soft: '#F4F7FA',
+  barTrack: '#E8EEF4',
+  barUp: '#0A7EA4',
+  barFlat: '#8AA0B5',
+  barDown: '#64748B',
 };
 
 const styles = StyleSheet.create({
@@ -122,7 +126,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   branch: {
-    marginBottom: 6,
+    marginBottom: 8,
+    padding: 8,
+    backgroundColor: colors.soft,
+    borderRadius: 4,
   },
   branchChild: {
     marginLeft: 10,
@@ -130,7 +137,77 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginTop: 2,
   },
+  trendRow: {
+    marginBottom: 10,
+  },
+  trendLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  trendKeyword: {
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 9,
+    maxWidth: '70%',
+  },
+  trendPct: {
+    fontSize: 9,
+    color: colors.muted,
+  },
+  barTrack: {
+    height: 8,
+    backgroundColor: colors.barTrack,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  trendSignal: {
+    marginTop: 3,
+    fontSize: 8,
+    color: colors.muted,
+    lineHeight: 1.35,
+  },
 });
+
+function barColor(direction: ReportTrendBar['direction']): string {
+  if (direction === 'up') return colors.barUp;
+  if (direction === 'down') return colors.barDown;
+  return colors.barFlat;
+}
+
+function TrendBars({ trends }: { trends: ReportTrendBar[] }) {
+  const max = Math.max(...trends.map((t) => t.changePercent || 1), 1);
+  return (
+    <>
+      {trends.map((t, i) => {
+        const widthPct = Math.max(8, Math.round((t.changePercent / max) * 100));
+        const dirLabel = t.direction === 'up' ? '↑' : t.direction === 'down' ? '↓' : '→';
+        return (
+          <View key={`${t.keyword}-${i}`} style={styles.trendRow} wrap={false}>
+            <View style={styles.trendLabelRow}>
+              <Text style={styles.trendKeyword}>
+                {dirLabel} {t.keyword}
+              </Text>
+              <Text style={styles.trendPct}>{t.changePercent}%</Text>
+            </View>
+            <View style={styles.barTrack}>
+              <View
+                style={[
+                  styles.barFill,
+                  { width: `${widthPct}%`, backgroundColor: barColor(t.direction) },
+                ]}
+              />
+            </View>
+            {t.signal ? <Text style={styles.trendSignal}>{t.signal}</Text> : null}
+          </View>
+        );
+      })}
+    </>
+  );
+}
 
 type Props = { data: ExecutiveReportData };
 
@@ -167,7 +244,7 @@ export function ExecutivePdfDocument({ data }: Props) {
           </Text>
         </View>
 
-        <Text style={styles.h2}>Executive summary</Text>
+        <Text style={styles.h2}>Executive decision</Text>
         <Text style={styles.body}>{data.summary || 'No summary available for this sweep.'}</Text>
 
         {data.recommendations.length > 0 && (
@@ -185,17 +262,14 @@ export function ExecutivePdfDocument({ data }: Props) {
           </>
         )}
 
-        {data.domainHighlights.length > 0 && (
+        {data.trends.length > 0 && (
           <>
-            <Text style={styles.h2}>Domain highlights</Text>
-            {data.domainHighlights.map((h, i) => (
-              <View key={`${h.domain}-${i}`} style={styles.card} wrap={false}>
-                <Text style={styles.cardMeta}>
-                  {h.domain} · {h.confidence}
-                </Text>
-                <Text style={styles.body}>{h.highlight}</Text>
-              </View>
-            ))}
+            <Text style={styles.h2}>
+              Market trends
+              {data.trendsOutlook ? ` · ${data.trendsOutlook}` : ''}
+              {data.trendsHorizon ? ` · ${data.trendsHorizon}` : ''}
+            </Text>
+            <TrendBars trends={data.trends} />
           </>
         )}
 
@@ -223,7 +297,7 @@ export function ExecutivePdfDocument({ data }: Props) {
 
         {data.mindMap && (
           <>
-            <Text style={styles.h2}>Mind map — {data.mindMap.centralTopic}</Text>
+            <Text style={styles.h2}>Strategy map — {data.mindMap.centralTopic}</Text>
             {data.mindMap.summary ? (
               <Text style={[styles.body, { marginBottom: 8 }]}>{data.mindMap.summary}</Text>
             ) : null}
@@ -231,8 +305,24 @@ export function ExecutivePdfDocument({ data }: Props) {
               <View key={`${b.label}-${i}`} style={styles.branch} wrap={false}>
                 <Text style={styles.cardTitle}>{b.label}</Text>
                 {b.children.map((c, ci) => (
-                  <Text key={`${c}-${ci}`} style={styles.branchChild}>{c}</Text>
+                  <Text key={`${c}-${ci}`} style={styles.branchChild}>
+                    {c}
+                  </Text>
                 ))}
+              </View>
+            ))}
+          </>
+        )}
+
+        {data.domainHighlights.length > 0 && (
+          <>
+            <Text style={styles.h2}>Domain highlights</Text>
+            {data.domainHighlights.map((h, i) => (
+              <View key={`${h.domain}-${i}`} style={styles.card} wrap={false}>
+                <Text style={styles.cardMeta}>
+                  {h.domain} · {h.confidence}
+                </Text>
+                <Text style={styles.body}>{h.highlight}</Text>
               </View>
             ))}
           </>

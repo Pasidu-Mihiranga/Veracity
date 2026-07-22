@@ -15,10 +15,10 @@
   --color-black: var(--black);
   --color-white: var(--white);
 
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ─── Brand palette — ice / cyan / navy / black / white ─── */
@@ -51,6 +51,12 @@
   --card:              #D6E4F0;
   --card-hover:        #D6E4F0;
   --placeholder:       #3D5A78;
+  --chart-1:           #0052A3;
+  --chart-2:           #0E7490;
+  --chart-3:           #1D4ED8;
+  --chart-4:           #0369A1;
+  --chart-5:           #64748B;
+  --chart-track:       rgba(6, 20, 36, 0.08);
 
   --neu-light:         rgba(255, 255, 255, 0.7);
   --neu-dark:          rgba(120, 155, 190, 0.55);
@@ -75,13 +81,13 @@
 .dark {
   color-scheme: dark;
   --background:        #070D16;
-  --surface:           #070D16;
-  --surface-raised:    #070D16;
-  --foreground:        #E8F4FC;
-  --foreground-muted:  #A8C0D8;
-  --foreground-subtle: #6B849C;
-  --muted:             #070D16;
-  --muted-foreground:  #A8C0D8;
+  --surface:           #0B1420;
+  --surface-raised:    #0F1A28;
+  --foreground:        #F2F7FC;
+  --foreground-muted:  #C5D6E8;
+  --foreground-subtle: #9BB0C6;
+  --muted:             #0B1420;
+  --muted-foreground:  #C5D6E8;
   --accent:            #00C4FF;
   --accent-secondary:  #3D9EFF;
   --accent-fg:         #FFFFFF;
@@ -93,23 +99,29 @@
   --status-ok:         #00C4FF;
   --status-warn:       #3D9EFF;
   --status-fail:       #E8F4FC;
-  --border:            transparent;
-  --border-strong:     transparent;
-  --card:              #070D16;
-  --card-hover:        #070D16;
-  --placeholder:       #5A7088;
+  --border:            rgba(168, 192, 216, 0.14);
+  --border-strong:     rgba(168, 192, 216, 0.28);
+  --card:              #0B1420;
+  --card-hover:        #0F1A28;
+  --placeholder:       #8A9FB5;
+  --chart-1:           #00C4FF;
+  --chart-2:           #38BDF8;
+  --chart-3:           #60A5FA;
+  --chart-4:           #22D3EE;
+  --chart-5:           #8AA0B5;
+  --chart-track:       rgba(168, 192, 216, 0.12);
 
-  --neu-light:         rgba(255, 255, 255, 0.06);
-  --neu-dark:          rgba(0, 0, 0, 0.55);
-  --neu-light-strong:  rgba(255, 255, 255, 0.1);
-  --neu-dark-strong:   rgba(0, 0, 0, 0.7);
+  --neu-light:         rgba(255, 255, 255, 0.05);
+  --neu-dark:          rgba(0, 0, 0, 0.4);
+  --neu-light-strong:  rgba(255, 255, 255, 0.08);
+  --neu-dark-strong:   rgba(0, 0, 0, 0.55);
 
-  --shadow-extruded:       9px 9px 18px var(--neu-dark), -9px -9px 18px var(--neu-light);
-  --shadow-extruded-hover: 12px 12px 22px var(--neu-dark-strong), -12px -12px 22px var(--neu-light-strong);
-  --shadow-extruded-sm:    5px 5px 10px var(--neu-dark), -5px -5px 10px var(--neu-light);
-  --shadow-inset:          inset 6px 6px 12px var(--neu-dark), inset -6px -6px 12px var(--neu-light);
-  --shadow-inset-deep:     inset 10px 10px 20px var(--neu-dark-strong), inset -10px -10px 20px var(--neu-light-strong);
-  --shadow-inset-sm:       inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+  --shadow-extruded:       6px 6px 14px var(--neu-dark), -4px -4px 12px var(--neu-light);
+  --shadow-extruded-hover: 8px 8px 16px var(--neu-dark-strong), -5px -5px 14px var(--neu-light-strong);
+  --shadow-extruded-sm:    3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light);
+  --shadow-inset:          inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
+  --shadow-inset-deep:     inset 6px 6px 12px var(--neu-dark-strong), inset -6px -6px 12px var(--neu-light-strong);
+  --shadow-inset-sm:       inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
 
   --shadow:    var(--shadow-extruded);
   --shadow-sm: var(--shadow-extruded-sm);
@@ -134,6 +146,70 @@ body {
 
 .font-display {
   font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ─── UI type scale (high-visibility consistency) ───────── */
+.ui-section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--foreground-muted);
+}
+
+.ui-heading {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+
+.ui-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.ui-body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+
+.ui-body-sm {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--foreground);
+}
+
+.ui-caption {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--foreground-muted);
+}
+
+.ui-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 input, textarea {
@@ -389,8 +465,27 @@ textarea.neu-input:focus {
 }
 
 .prose-answer {
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--foreground);
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+.results-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-extruded-sm);
+}
+
+.results-section-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--foreground-muted);
 }
 
@@ -406,31 +501,31 @@ textarea.neu-input:focus {
   letter-spacing: 0.04em;
   padding: 4px 12px;
   border-radius: 9999px;
-  border: none;
-  background: var(--background);
-  color: var(--foreground-subtle);
-  box-shadow: var(--shadow-inset-sm);
-  transition: color 0.2s, box-shadow 0.3s;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--foreground-muted);
+  box-shadow: none;
+  transition: color 0.2s, border-color 0.2s;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 .source-chip:hover {
   color: var(--accent);
-  box-shadow: var(--shadow-extruded-sm);
+  border-color: var(--border-strong);
 }
 
 .rec-title {
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 700;
   font-family: var(--font-display);
-  line-height: 1.45;
+  line-height: 1.4;
   color: var(--foreground);
   letter-spacing: -0.02em;
 }
 
 .rec-body {
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.65;
   color: var(--foreground-muted);
 }
@@ -442,9 +537,10 @@ textarea.neu-input:focus {
 }
 
 .label-mono {
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--foreground-subtle);
 }
@@ -480,7 +576,10 @@ textarea.neu-input:focus {
 }
 
 .session-title {
-  font-size: 12.5px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
   color: var(--foreground-subtle);
 }
 .session-title:hover, .session-title.active {

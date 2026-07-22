@@ -1,6 +1,7 @@
 import type {
   AgentOutput,
   CompetitiveOutput,
+  MarketTrendsOutput,
   MindMapNode,
   MindMapOutput,
   OrchestratorOutput,
@@ -18,6 +19,13 @@ export type ReportMatrixRow = {
   yours: string;
   competitor: string;
   gap: string;
+};
+
+export type ReportTrendBar = {
+  keyword: string;
+  direction: 'up' | 'down' | 'flat';
+  changePercent: number;
+  signal: string;
 };
 
 export type ReportMindBranch = {
@@ -43,6 +51,9 @@ export type ExecutiveReportData = {
     confidence: string;
     highlight: string;
   }>;
+  trends: ReportTrendBar[];
+  trendsOutlook?: string;
+  trendsHorizon?: string;
   matrix: ReportMatrixRow[];
   matrixCompetitor?: string;
   mindMap: {
@@ -89,6 +100,7 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
   const out: OrchestratorOutput | undefined = message.orchestratorOutput;
   const outputs = out?.outputs ?? [];
   const competitive = outputs.find((o): o is CompetitiveOutput => o.artifactType === 'competitive-matrix');
+  const trendsOut = outputs.find((o): o is MarketTrendsOutput => o.artifactType === 'trend-chart');
   const mindMap = outputs.find((o): o is MindMapOutput => o.artifactType === 'mind-map');
 
   const recommendations = (message.recommendations ?? out?.topRecommendations ?? []).map((rec) => ({
@@ -108,13 +120,27 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
     recommendations: recommendations.slice(0, 8),
     domainHighlights: outputs
       .filter((o) => o.artifactType !== 'mind-map')
-      .slice(0, 8)
-      .map((o) => ({
-        domain: o.domain,
-        confidence: o.confidence,
-        highlight: o.interpretation?.[0] || o.facts?.[0] || 'No highlight.',
-      })),
-    matrix: (competitive?.matrix ?? []).slice(0, 16).map((row) => ({
+      .slice(0, 12)
+      .map((o) => {
+        const bits = [
+          ...(o.interpretation ?? []).slice(0, 2),
+          ...(o.facts ?? []).filter((f) => !String(f).startsWith('[')).slice(0, 2),
+        ];
+        return {
+          domain: o.domain,
+          confidence: o.confidence,
+          highlight: bits.join(' · ') || 'No highlight.',
+        };
+      }),
+    trends: (trendsOut?.trends ?? []).slice(0, 12).map((t) => ({
+      keyword: t.keyword,
+      direction: t.direction,
+      changePercent: Math.abs(t.changePercent || 0),
+      signal: t.signal,
+    })),
+    trendsOutlook: trendsOut?.categoryOutlook,
+    trendsHorizon: trendsOut?.timeHorizon,
+    matrix: (competitive?.matrix ?? []).slice(0, 20).map((row) => ({
       feature: row.feature,
       yours: row.yourProduct,
       competitor: row.competitor,
@@ -125,9 +151,9 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
       ? {
           centralTopic: mindMap.centralTopic,
           summary: mindMap.summary,
-          branches: (mindMap.branches ?? []).slice(0, 8).map((b) => ({
+          branches: (mindMap.branches ?? []).slice(0, 10).map((b) => ({
             label: b.label,
-            children: flattenMindChildren(b.children, 5),
+            children: flattenMindChildren(b.children, 8),
           })),
         }
       : null,

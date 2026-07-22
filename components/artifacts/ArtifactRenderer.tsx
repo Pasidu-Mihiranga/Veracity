@@ -111,7 +111,7 @@ function ArtifactRendererInner({ output, product, sessionId, messageId, onRefine
     case 'mind-map': {
       const o = withArrayDefaults(output as MindMapOutput, ['branches']);
       if (!o.branches.length) {
-        return <EmptyArtifact label="Mind Map" reason="Synthesis produced no usable mind-map branches." />;
+        return <EmptyArtifact label="Strategy map" reason="Synthesis produced no usable strategy pillars." />;
       }
       return <MindMap output={o} />;
     }

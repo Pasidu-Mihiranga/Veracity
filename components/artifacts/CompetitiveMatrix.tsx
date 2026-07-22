@@ -1,78 +1,153 @@
 'use client';
 
-import React from 'react';
 import type { CompetitiveOutput, CompetitorFeature } from '@/lib/agents/types';
+import { useTheme } from '@/lib/theme-provider';
 
 interface Props {
   output: CompetitiveOutput;
   product: string;
 }
 
-const STRENGTH_CONFIG = {
-  strong:  { label: '●●●', color: 'text-sky-600', bg: 'bg-sky-50' },
-  medium:  { label: '●●○', color: 'text-sky-600',   bg: 'bg-sky-50'   },
-  weak:    { label: '●○○', color: 'text-slate-800',     bg: 'bg-slate-100'     },
-  none:    { label: '○○○', color: 'text-muted-foreground', bg: 'bg-muted'  },
-};
+const STRENGTH_LABEL = {
+  strong: '●●●',
+  medium: '●●○',
+  weak: '●○○',
+  none: '○○○',
+} as const;
 
-const GAP_CONFIG = {
-  advantage:    { label: '▲ Advantage',    class: 'text-sky-600 bg-sky-50 border-sky-200' },
-  parity:       { label: '= Parity',        class: 'text-muted-foreground bg-muted border-border'      },
-  disadvantage: { label: '▼ Gap',           class: 'text-slate-800 bg-slate-100 border-slate-300'             },
-};
+const GAP_LABEL = {
+  advantage: '▲ Advantage',
+  parity: '= Parity',
+  disadvantage: '▼ Gap',
+} as const;
 
-function StrengthDot({ level }: { level: CompetitorFeature['yourProduct'] }) {
-  const cfg = STRENGTH_CONFIG[level];
+function StrengthDot({
+  level,
+  isDark,
+}: {
+  level: CompetitorFeature['yourProduct'];
+  isDark: boolean;
+}) {
+  const palette =
+    level === 'strong'
+      ? { color: isDark ? '#7DD3FC' : '#0369A1', bg: isDark ? 'rgba(14,165,233,0.18)' : 'rgba(224,242,254,1)' }
+      : level === 'medium'
+        ? { color: isDark ? '#93C5FD' : '#1D4ED8', bg: isDark ? 'rgba(59,130,246,0.16)' : 'rgba(239,246,255,1)' }
+        : level === 'weak'
+          ? { color: isDark ? '#CBD5E1' : '#1E293B', bg: isDark ? 'rgba(148,163,184,0.14)' : 'rgba(241,245,249,1)' }
+          : { color: isDark ? '#9BB0C6' : '#64748B', bg: isDark ? 'rgba(107,132,156,0.12)' : 'rgba(241,245,249,1)' };
+
   return (
-    <span className={`text-[13px] font-mono ${cfg.color} ${cfg.bg} px-2 py-0.5 rounded tracking-widest`}>
-      {cfg.label}
+    <span
+      className="text-[13px] font-mono px-2 py-0.5 rounded tracking-widest"
+      style={{ color: palette.color, background: palette.bg }}
+    >
+      {STRENGTH_LABEL[level]}
     </span>
   );
 }
 
 export function CompetitiveMatrix({ output, product }: Props) {
+  const { isDark, textMuted, textSubtle } = useTheme();
   const matrix = output.matrix ?? [];
   const competitor = output.competitor;
   const competitorSummary = output.competitorSummary;
   const hiringSignals = output.hiringSignals ?? [];
   const recentMoves = output.recentMoves ?? [];
 
+  const gapStyle = (direction: CompetitorFeature['gapDirection']) => {
+    if (direction === 'advantage') {
+      return {
+        color: isDark ? '#7DD3FC' : '#0369A1',
+        background: isDark ? 'rgba(14,165,233,0.16)' : 'rgba(224,242,254,1)',
+        borderColor: isDark ? 'rgba(56,189,248,0.35)' : 'rgba(186,230,253,1)',
+      };
+    }
+    if (direction === 'disadvantage') {
+      return {
+        color: isDark ? '#E2E8F0' : '#1E293B',
+        background: isDark ? 'rgba(148,163,184,0.14)' : 'rgba(241,245,249,1)',
+        borderColor: isDark ? 'rgba(148,163,184,0.35)' : 'rgba(203,213,225,1)',
+      };
+    }
+    return {
+      color: textMuted,
+      background: isDark ? 'rgba(107,132,156,0.12)' : 'rgba(241,245,249,1)',
+      borderColor: isDark ? 'rgba(107,132,156,0.3)' : 'rgba(226,232,240,1)',
+    };
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Feature Comparison Matrix</div>
+      <div className="text-xs font-mono uppercase tracking-wider" style={{ color: textMuted }}>
+        Feature Comparison Matrix
+      </div>
 
-      {/* Competitor summary */}
       {competitorSummary && (
-        <p className="text-sm text-muted-foreground leading-relaxed">{competitorSummary}</p>
+        <p className="text-sm leading-relaxed" style={{ color: textMuted }}>
+          {competitorSummary}
+        </p>
       )}
 
-      {/* Matrix table */}
       {matrix.length > 0 && (
-        <div className="overflow-x-auto rounded-xl neu-extruded">
+        <div className="overflow-x-auto rounded-xl results-panel">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/60">
-                <th className="text-left px-4 py-2.5 text-xs font-mono text-muted-foreground uppercase tracking-wider w-[40%]">Feature</th>
-                <th className="text-center px-3 py-2.5 text-xs font-mono text-accent uppercase tracking-wider w-[20%]">{product}</th>
-                <th className="text-center px-3 py-2.5 text-xs font-mono text-muted-foreground uppercase tracking-wider w-[20%]">{competitor}</th>
-                <th className="text-center px-3 py-2.5 text-xs font-mono text-muted-foreground uppercase tracking-wider w-[20%]">Gap</th>
+              <tr style={{ background: isDark ? 'rgba(15,26,40,0.9)' : 'rgba(214,228,240,0.7)' }}>
+                <th
+                  className="text-left px-4 py-2.5 text-xs font-mono uppercase tracking-wider w-[40%]"
+                  style={{ color: textSubtle }}
+                >
+                  Feature
+                </th>
+                <th className="text-center px-3 py-2.5 text-xs font-mono uppercase tracking-wider w-[20%] text-accent">
+                  {product}
+                </th>
+                <th
+                  className="text-center px-3 py-2.5 text-xs font-mono uppercase tracking-wider w-[20%]"
+                  style={{ color: textMuted }}
+                >
+                  {competitor}
+                </th>
+                <th
+                  className="text-center px-3 py-2.5 text-xs font-mono uppercase tracking-wider w-[20%]"
+                  style={{ color: textMuted }}
+                >
+                  Gap
+                </th>
               </tr>
             </thead>
             <tbody>
               {matrix.map((row, i) => {
-                const gapCfg = GAP_CONFIG[row.gapDirection];
+                const gap = gapStyle(row.gapDirection);
                 return (
-                  <tr key={i} className={`transition-colors hover:bg-muted/30 ${i % 2 === 0 ? '' : 'bg-muted/10'}`}>
-                    <td className="px-4 py-2.5 text-foreground font-medium">{row.feature}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <StrengthDot level={row.yourProduct} />
+                  <tr
+                    key={i}
+                    className="transition-colors"
+                    style={{
+                      background:
+                        i % 2 === 0
+                          ? 'transparent'
+                          : isDark
+                            ? 'rgba(15,26,40,0.45)'
+                            : 'rgba(214,228,240,0.35)',
+                    }}
+                  >
+                    <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--foreground)' }}>
+                      {row.feature}
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <StrengthDot level={row.competitor} />
+                      <StrengthDot level={row.yourProduct} isDark={isDark} />
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded neu-pill ${gapCfg.class}`}>
-                        {gapCfg.label}
+                      <StrengthDot level={row.competitor} isDark={isDark} />
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <span
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded border"
+                        style={gap}
+                      >
+                        {GAP_LABEL[row.gapDirection]}
                       </span>
                     </td>
                   </tr>
@@ -83,24 +158,29 @@ export function CompetitiveMatrix({ output, product }: Props) {
         </div>
       )}
 
-      {/* Hiring + recent moves */}
       <div className="grid grid-cols-2 gap-3">
         {hiringSignals.length > 0 && (
-          <div className="neu-extruded-sm rounded-xl p-3 flex flex-col gap-1.5">
-            <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Hiring Signals</p>
+          <div className="results-panel rounded-xl p-3 flex flex-col gap-1.5">
+            <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: textMuted }}>
+              Hiring Signals
+            </p>
             {hiringSignals.slice(0, 3).map((s, i) => (
-              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                <span className="text-sky-500 shrink-0">↑</span>{s}
+              <p key={i} className="text-xs flex items-start gap-1.5" style={{ color: textMuted }}>
+                <span className="text-sky-400 shrink-0">↑</span>
+                {s}
               </p>
             ))}
           </div>
         )}
         {recentMoves.length > 0 && (
-          <div className="neu-extruded-sm rounded-xl p-3 flex flex-col gap-1.5">
-            <p className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">Recent Moves</p>
+          <div className="results-panel rounded-xl p-3 flex flex-col gap-1.5">
+            <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: textMuted }}>
+              Recent Moves
+            </p>
             {recentMoves.slice(0, 3).map((s, i) => (
-              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                <span className="text-accent shrink-0">›</span>{s}
+              <p key={i} className="text-xs flex items-start gap-1.5" style={{ color: textMuted }}>
+                <span className="text-accent shrink-0">›</span>
+                {s}
               </p>
             ))}
           </div>

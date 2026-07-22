@@ -81,7 +81,7 @@ export default function VeracityDashboard() {
   const router   = useRouter();
   const supabase = createClient();
   const { streamChat } = useChatStream();
-  const { isDark, toggle: toggleTheme, surface, surface2, text, textMuted, textSubtle } = useTheme();
+  const { isDark, toggle: toggleTheme, surface, surface2, text, textMuted, textSubtle, accent, border } = useTheme();
   const [messages, setMessages]           = useState<Message[]>([]);
   const [inputValue, setInputValue]       = useState('');
   const [isLoading, setIsLoading]         = useState(false);
@@ -181,8 +181,6 @@ export default function VeracityDashboard() {
     island.style.setProperty('--hc', headerCompress.current.toFixed(4));
   });
 
-  const allSelected = ALL_DOMAINS.every(d => selectedAgents[d]);
-
   const currentResult  = [...messages].reverse().find(m => m.role === 'assistant');
   const recentQueries  = messages.filter(m => m.role === 'user').map(m => m.content);
   const hasResult      = !!(currentResult?.orchestratorOutput);
@@ -253,12 +251,8 @@ export default function VeracityDashboard() {
     if (followUps.length > 0) followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [followUps]);
 
-  useEffect(() => {
-    if (!currentResult?.orchestratorOutput) return;
-    if (expandedDomain && getOutputForDomain(expandedDomain)) return;
-    const firstAvailable = ALL_DOMAINS.find(d => !!getOutputForDomain(d));
-    if (firstAvailable) setExpandedDomain(firstAvailable);
-  }, [currentResult?.orchestratorOutput, expandedDomain]);
+  // Do not auto-open domain Analysis panel — results should lead with Decision.
+  // Users can open domains from Domain details when needed.
 
   const handleSignOut = async () => { await supabase.auth.signOut(); router.push('/auth'); router.refresh(); };
 
@@ -655,17 +649,16 @@ export default function VeracityDashboard() {
     return !!run || !!output || d === 'mirofish';
   });
 
-  /* ─ Neumorphism helpers ─ */
+  /* ─ Theme surfaces (from lib/theme-tokens via ThemeProvider) ─ */
   const sidebarBg  = surface;
   const headerBg   = surface;
-  const borderC    = 'transparent';
+  const borderC    = border;
   const textMain   = text;
   const cardBg     = surface;
   const cardBg2    = surface2;
   const neuExtruded = 'var(--shadow-extruded)';
   const neuExtrudedSm = 'var(--shadow-extruded-sm)';
-  /* Readable accent for text/icons — bright cyan washes out on light surfaces */
-  const accentInk = isDark ? '#00C4FF' : '#0052A3';
+  const accentInk = accent;
 
   return (
     <div className={isDark ? 'dark' : 'light'} style={{ display: 'contents' }}>
@@ -675,21 +668,6 @@ export default function VeracityDashboard() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
         onNewQuery={handleNewQuery}
-        selectedAgents={selectedAgents}
-        onToggleAgent={(d) => setSelectedAgents((prev) => ({ ...prev, [d]: !prev[d] }))}
-        onToggleSelectAll={() => {
-          const newState = allSelected
-            ? (Object.fromEntries(ALL_DOMAINS.map((d) => [d, false])) as Record<Domain, boolean>)
-            : (Object.fromEntries(ALL_DOMAINS.map((d) => [d, d !== 'mirofish-live'])) as Record<Domain, boolean>);
-          setSelectedAgents(newState);
-        }}
-        allSelected={allSelected}
-        selectedCount={selectedAgentIds.length}
-        getRunForDomain={getRunForDomain}
-        isLoading={isLoading}
-        hasResult={hasResult}
-        completedCount={completedCount}
-        totalCount={totalCount}
         sessions={sessions}
         loadingSessions={loadingSessions}
         currentSessionId={currentSessionId}
@@ -707,7 +685,6 @@ export default function VeracityDashboard() {
         textMain={textMain}
         textMuted={textMuted}
         textSubtle={textSubtle}
-        accentInk={accentInk}
       />
 
       {/* ═══════════════════════════════════ MAIN ══ */}
@@ -789,8 +766,8 @@ export default function VeracityDashboard() {
               isDark={isDark}
             />
 
-            {/* ── Agent Tabs ── */}
-            {(currentResult || isLoading) && (
+            {/* Agent progress — loading only; hidden after results ready */}
+            {isLoading && (
               <AgentProgressGrid
                 queryLabel={recentQueries[recentQueries.length - 1] ?? 'analysing…'}
                 userImages={messages.filter(m => m.role === 'user').pop()?.images}
