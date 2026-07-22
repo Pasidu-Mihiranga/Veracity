@@ -4,6 +4,7 @@ import {
   Plus, History, Trash2, PanelLeft, PanelLeftClose,
 } from 'lucide-react';
 import type { ChatSession } from '@/lib/conversations';
+import { BrandWordmark } from '@/components/ui/BrandWordmark';
 
 export type SessionSidebarProps = {
   collapsed: boolean;
@@ -83,14 +84,7 @@ export function SessionSidebar({
               draggable={false}
             />
             <div className="min-w-0">
-              <img
-                src="/logo-text.avif"
-                alt="Veracity"
-                width={140}
-                height={40}
-                className="brand-logo h-6 w-auto max-w-[140px] object-left"
-                draggable={false}
-              />
+              <BrandWordmark size="sm" />
               <p className="ui-section-label mt-1.5" style={{ color: textSubtle }}>
                 Growth Intelligence
               </p>

@@ -92,17 +92,14 @@ function AuthForm() {
         {/* Left branding */}
         <div className="hidden lg:flex lg:w-[52%] flex-col justify-between p-10 xl:p-14 min-h-screen">
           <div className="auth-card pointer-events-auto w-fit px-5 py-4">
-            <picture>
-              <source srcSet="/logo.avif" type="image/avif" />
-              <img
-                src="/logo.png"
-                alt="Veracity"
-                width={160}
-                height={54}
-                className="auth-logo h-14 w-auto max-w-[280px] object-left object-contain"
-                draggable={false}
-              />
-            </picture>
+            <img
+              src={isDark ? '/logo-dark.png' : '/logo.png'}
+              alt="Veracity"
+              width={160}
+              height={54}
+              className="auth-logo h-14 w-auto max-w-[280px] object-left object-contain"
+              draggable={false}
+            />
             <p className="auth-muted text-sm font-medium tracking-wide mt-2 pl-0.5">
               Growth Intelligence Platform
             </p>
@@ -132,17 +129,14 @@ function AuthForm() {
         <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-[400px] pointer-events-auto">
             <div className="lg:hidden mb-8 auth-card w-fit px-4 py-3">
-              <picture>
-                <source srcSet="/logo.avif" type="image/avif" />
-                <img
-                  src="/logo.png"
-                  alt="Veracity"
-                  width={140}
-                  height={47}
-                  className="auth-logo h-12 w-auto max-w-[220px] object-left object-contain"
-                  draggable={false}
-                />
-              </picture>
+              <img
+                src={isDark ? '/logo-dark.png' : '/logo.png'}
+                alt="Veracity"
+                width={140}
+                height={47}
+                className="auth-logo h-12 w-auto max-w-[220px] object-left object-contain"
+                draggable={false}
+              />
             </div>
 
             <div className="auth-card p-7 sm:p-8">
