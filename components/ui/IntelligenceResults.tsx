@@ -373,10 +373,8 @@ export function IntelligenceResults({
                       className="rounded-xl p-4"
                       style={{
                         background: cardBg2,
-                        borderTop: `1px solid ${borderC || 'var(--border)'}`,
-                        borderRight: `1px solid ${borderC || 'var(--border)'}`,
-                        borderBottom: `1px solid ${borderC || 'var(--border)'}`,
-                        borderLeft: `3px solid ${domainMeta?.color ?? accentInk}`,
+                        border: `1px solid ${borderC || 'var(--border)'}`,
+                        boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
                       }}
                     >
                       <div className="flex items-center justify-between mb-2">

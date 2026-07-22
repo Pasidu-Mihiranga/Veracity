@@ -22,29 +22,27 @@ function ChipList({
   items,
   textSubtle,
   accentInk,
-  cardBg,
-  neuExtrudedSm,
 }: {
   label: string;
   items: string[];
   textSubtle: string;
   accentInk: string;
-  cardBg: string;
-  neuExtrudedSm: string;
 }) {
   if (!items.length) return null;
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>{label}</p>
+      <p className="ui-section-label" style={{ color: textSubtle }}>
+        {label}
+      </p>
       <div className="flex flex-wrap gap-1.5">
-        {items.map(item => (
+        {items.map((item) => (
           <span
             key={item}
-            className="text-[11px] font-mono px-2 py-0.5 rounded-full"
+            className="ui-caption px-2.5 py-1 rounded-md"
             style={{
               color: accentInk,
-              background: cardBg,
-              boxShadow: neuExtrudedSm,
+              background: 'var(--surface-raised)',
+              border: '1px solid var(--border)',
             }}
           >
             {item}
@@ -62,10 +60,6 @@ export function MemoryDrawer({
   textMain,
   textMuted,
   textSubtle,
-  cardBg,
-  cardBg2,
-  neuExtruded,
-  neuExtrudedSm,
   accentInk,
 }: MemoryDrawerProps) {
   if (!open) return null;
@@ -90,16 +84,28 @@ export function MemoryDrawer({
       />
       <aside
         className="relative h-full w-full max-w-md flex flex-col overflow-hidden"
-        style={{ background: cardBg, boxShadow: neuExtruded }}
+        style={{
+          background: 'var(--card)',
+          borderLeft: '1px solid var(--border)',
+          boxShadow: 'none',
+        }}
       >
-        <div className="flex items-center justify-between px-5 py-4 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="neu-well w-8 h-8">
+        <div
+          className="flex items-center justify-between px-5 py-4 shrink-0"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }}
+            >
               <Brain size={14} style={{ color: accentInk }} />
             </span>
             <div>
-              <p className="text-[14px] font-bold tracking-tight" style={{ color: textMain }}>Durable memory</p>
-              <p className="text-[11px] font-mono" style={{ color: textSubtle }}>
+              <p className="ui-title" style={{ color: textMain }}>
+                Durable memory
+              </p>
+              <p className="ui-caption" style={{ color: textSubtle }}>
                 Facts carried into the next sweep
               </p>
             </div>
@@ -107,34 +113,48 @@ export function MemoryDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ color: textMuted }}
+            className="w-9 h-9 rounded-lg flex items-center justify-center"
+            style={{
+              color: textMuted,
+              border: '1px solid var(--border)',
+              background: 'var(--surface-raised)',
+            }}
             aria-label="Close"
           >
             <X size={15} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-8 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
           {!hasProfile ? (
-            <div className="neu-inset rounded-2xl p-4" style={{ background: cardBg2 }}>
-              <p className="text-[13px] leading-relaxed" style={{ color: textMuted }}>
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+            >
+              <p className="ui-body-sm" style={{ color: textMuted }}>
                 No durable memory yet. After a few research sweeps, role, company, products, and competitors will appear here and feed the next query.
               </p>
             </div>
           ) : (
             <>
               {(memory?.role || memory?.company) && (
-                <div className="neu-extruded rounded-2xl p-4 flex flex-col gap-2" style={{ background: cardBg2 }}>
+                <div
+                  className="rounded-xl px-4 py-3 flex flex-col gap-2"
+                  style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+                >
                   {memory?.role && (
-                    <p className="text-[13px]" style={{ color: textMain }}>
-                      <span className="font-mono text-[10px] uppercase tracking-widest mr-2" style={{ color: textSubtle }}>Role</span>
+                    <p className="ui-body-sm" style={{ color: textMain }}>
+                      <span className="ui-section-label mr-2" style={{ color: textSubtle }}>
+                        Role
+                      </span>
                       {memory.role}
                     </p>
                   )}
                   {memory?.company && (
-                    <p className="text-[13px]" style={{ color: textMain }}>
-                      <span className="font-mono text-[10px] uppercase tracking-widest mr-2" style={{ color: textSubtle }}>Company</span>
+                    <p className="ui-body-sm" style={{ color: textMain }}>
+                      <span className="ui-section-label mr-2" style={{ color: textSubtle }}>
+                        Company
+                      </span>
                       {memory.company}
                     </p>
                   )}
@@ -146,35 +166,35 @@ export function MemoryDrawer({
                 items={memory?.products ?? []}
                 textSubtle={textSubtle}
                 accentInk={accentInk}
-                cardBg={cardBg2}
-                neuExtrudedSm={neuExtrudedSm}
               />
               <ChipList
                 label="Competitors"
                 items={memory?.competitors ?? []}
                 textSubtle={textSubtle}
                 accentInk={accentInk}
-                cardBg={cardBg2}
-                neuExtrudedSm={neuExtrudedSm}
               />
               <ChipList
                 label="Interests"
                 items={memory?.interests ?? []}
                 textSubtle={textSubtle}
                 accentInk={accentInk}
-                cardBg={cardBg2}
-                neuExtrudedSm={neuExtrudedSm}
               />
 
               {(memory?.facts?.length ?? 0) > 0 && (
                 <div className="flex flex-col gap-2">
-                  <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Facts</p>
+                  <p className="ui-section-label" style={{ color: textSubtle }}>
+                    Facts
+                  </p>
                   <ul className="flex flex-col gap-2">
                     {memory!.facts.map((f, i) => (
                       <li
                         key={`${f.fact}-${i}`}
-                        className="neu-inset rounded-xl px-3 py-2 text-[12px] leading-relaxed"
-                        style={{ color: textMuted, background: cardBg2 }}
+                        className="rounded-xl px-3.5 py-3 ui-caption min-h-[56px] flex items-start"
+                        style={{
+                          color: textMuted,
+                          background: 'var(--surface-raised)',
+                          border: '1px solid var(--border)',
+                        }}
                       >
                         {f.fact}
                       </li>
@@ -185,8 +205,17 @@ export function MemoryDrawer({
 
               {memory?.raw_summary && (
                 <div className="flex flex-col gap-2">
-                  <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: textSubtle }}>Summary</p>
-                  <p className="text-[13px] leading-relaxed neu-inset rounded-2xl p-4" style={{ color: textMuted, background: cardBg2 }}>
+                  <p className="ui-section-label" style={{ color: textSubtle }}>
+                    Summary
+                  </p>
+                  <p
+                    className="ui-body-sm rounded-xl px-4 py-3"
+                    style={{
+                      color: textMuted,
+                      background: 'var(--surface-raised)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
                     {memory.raw_summary}
                   </p>
                 </div>

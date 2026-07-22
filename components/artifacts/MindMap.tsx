@@ -109,10 +109,8 @@ function PillarCard({
       className="rounded-2xl overflow-hidden"
       style={{
         background: isDark ? 'rgba(15,26,40,0.85)' : 'rgba(255,255,255,0.55)',
-        borderTop: `1px solid ${isDark ? 'rgba(168,192,216,0.14)' : 'rgba(26,53,84,0.12)'}`,
-        borderRight: `1px solid ${isDark ? 'rgba(168,192,216,0.14)' : 'rgba(26,53,84,0.12)'}`,
-        borderBottom: `1px solid ${isDark ? 'rgba(168,192,216,0.14)' : 'rgba(26,53,84,0.12)'}`,
-        borderLeft: `3px solid ${accent}`,
+        border: `1px solid ${isDark ? 'rgba(168,192,216,0.14)' : 'rgba(26,53,84,0.12)'}`,
+        boxShadow: `inset 3px 0 0 0 ${accent}`,
       }}
     >
       <button

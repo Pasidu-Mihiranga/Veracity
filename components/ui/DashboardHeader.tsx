@@ -5,6 +5,7 @@ import {
   BarChart3, Brain, Crosshair, LogOut, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
+import { BrandWordmark } from '@/components/ui/BrandWordmark';
 
 export type TopTab = 'intelligence' | 'usage' | 'steal';
 
@@ -47,7 +48,7 @@ export function DashboardHeader({
   onSignOut,
   textMuted,
   textSubtle,
-  accentInk,
+  accentInk: _accentInk,
 }: DashboardHeaderProps) {
   return (
     <div
@@ -60,39 +61,32 @@ export function DashboardHeader({
       >
         {sidebarCollapsed && (
           <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
-            <img
-              src="/logo.avif"
-              alt="Veracity"
-              width={140}
-              height={36}
-              className="brand-logo h-8 w-auto object-left object-contain"
-              draggable={false}
-            />
+            <BrandWordmark size="md" />
           </div>
         )}
 
-        <div className="header-island-tabs flex items-center gap-1.5 shrink-0">
+        <div className="header-island-tabs flex items-center gap-0.5 shrink-0" role="tablist">
           {([
-            { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={12} /> },
-            { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={12} /> },
-            { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={12} /> },
-          ]).map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTopTabChange(tab.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all min-h-9"
-              style={{
-                color: topTab === tab.id ? accentInk : textMuted,
-                background: 'var(--background)',
-                border: 'none',
-                boxShadow: topTab === tab.id ? 'var(--shadow-inset-sm)' : 'var(--shadow-extruded-sm)',
-              }}
-            >
-              {tab.icon}
-              <span className="header-island-tab-label">{tab.label}</span>
-            </button>
-          ))}
+            { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={13} /> },
+            { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={13} /> },
+            { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={13} /> },
+          ]).map(tab => {
+            const active = topTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onTopTabChange(tab.id)}
+                className="header-nav-tab flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-medium transition-colors min-h-9"
+                data-active={active ? 'true' : 'false'}
+              >
+                {tab.icon}
+                <span className="header-island-tab-label">{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">

@@ -67,17 +67,12 @@ export function ExportReportButton({
       title="Download executive PDF with visuals and sources"
       className={
         variant === 'primary'
-          ? 'inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-semibold font-sans transition-opacity disabled:opacity-50 min-h-11'
+          ? 'bg-gradient-signature inline-flex items-center justify-center gap-2 px-5 py-2.5 text-[14px] font-semibold font-sans disabled:opacity-50 min-h-11'
           : 'inline-flex items-center gap-2 text-[12px] font-semibold font-sans px-3.5 py-2 rounded-xl transition-opacity disabled:opacity-50'
       }
       style={
         variant === 'primary'
-          ? {
-              color: 'var(--accent-fg)',
-              background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%)',
-              boxShadow: 'var(--shadow-extruded-sm)',
-              border: 'none',
-            }
+          ? undefined
           : {
               color: 'var(--accent)',
               background: 'var(--surface-raised)',

@@ -101,10 +101,10 @@ export function ChatPanel({
           <div className="flex-1 flex flex-col gap-2.5 w-full max-w-xl">
             {DEMO_QUERIES.map(q => (
               <button key={q} type="button" onClick={() => onDemoQuery(q)} className="suggest-row">
-                <span className="neu-well w-8 h-8 shrink-0">
-                  <Search size={13} className="text-accent" />
+                <span className="suggest-row-icon">
+                  <Search size={14} />
                 </span>
-                <span className="flex-1 demo-query-text text-left">{q}</span>
+                <span className="flex-1 demo-query-text text-left line-clamp-2">{q}</span>
                 <ChevronRight size={14} style={{ color: textSubtle, flexShrink: 0 }} />
               </button>
             ))}
@@ -115,10 +115,10 @@ export function ChatPanel({
                 onClick={() => onDemoQuery('What should Clay build or reposition over the next six months to capture emerging demand?')}
                 className="suggest-row"
               >
-                <span className="neu-well w-8 h-8 shrink-0">
-                  <Layers size={13} className="text-accent" />
+                <span className="suggest-row-icon">
+                  <Layers size={14} />
                 </span>
-                <span className="flex-1 demo-query-text text-left">
+                <span className="flex-1 demo-query-text text-left line-clamp-2">
                   What should Clay build or reposition over the next six months to capture emerging demand?
                 </span>
                 <ChevronRight size={14} style={{ color: textSubtle, flexShrink: 0 }} />
@@ -133,11 +133,7 @@ export function ChatPanel({
           key={fu.id}
           className="rounded-lg overflow-hidden"
           style={{
-            borderTop: 'none',
-            borderRight: 'none',
-            borderBottom: 'none',
-            borderLeft: `2px solid ${accentInk}`,
-            boxShadow: neuExtrudedSm,
+            boxShadow: `${neuExtrudedSm}, inset 2px 0 0 0 ${accentInk}`,
             background: cardBg,
           }}
         >
