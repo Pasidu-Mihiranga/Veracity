@@ -13,17 +13,22 @@
 
 ## Docs for other developers (start here)
 
-Share and read these first when onboarding:
-
 | Document | Purpose |
 |----------|---------|
-| **[`plan.md`](./plan.md)** | Product thesis, winning strategy, and current architecture intent — **share this with the team** |
-| **[`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md)** | Living phase checklist (what’s done / what’s next). Update checkboxes when you ship work |
-| [`docs/adr/`](./docs/adr/) | Architecture Decision Records (governance, env standards) |
-| [`CLAUDE.md`](./CLAUDE.md) | Deep agent/domain notes for contributors and AI-assisted coding |
+| **[`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md)** | **Single engineering execution plan (v2.0.1)** — checkboxes, Now/Next/Later (§0C), onboarding (§0D), competition Must-Haves |
+| **[`plan.md`](./plan.md)** | Product thesis & winning strategy |
+| [`docs/adr/`](./docs/adr/) | Architecture Decision Records |
+| [`CLAUDE.md`](./CLAUDE.md) | Agent/domain notes for contributors |
 | [`.env.example`](./.env.example) | Required vs optional environment variables |
 
-> **Rule of thumb:** strategy → `plan.md` · execution backlog → `docs/phase_by_phase_improvement_plan.md` · setup → this README.
+> **Rule of thumb:** setup → this README · **what to build today** → phase plan §0C · strategy → `plan.md` · ADRs → `docs/adr/`.
+
+### 15-minute onboarding
+
+1. Skim this README (setup + architecture).
+2. Open the phase plan → **§0A / §0B / §0C / §0D**.
+3. Copy `.env.example` → `.env`, run `npm install`, `npm run db:setup`, `npm run dev`.
+4. Run `npm test` and `npm run test:quality`.
 
 ---
 
@@ -38,13 +43,16 @@ Veracity is a Next.js app for product and growth teams. Ask a question; speciali
 
 ### Highlights
 
-- Real-time **SSE** agent progress on the dashboard  
-- Structured artifacts (matrix, charts, mind map, execution plan)  
-- Session history, user memory, semantic recall (**pgvector**)  
-- Cost / latency / call counts on each sweep  
-- Structured JSON logging + correlation IDs  
-- **Export PDF** executive report from Intelligence Summary  
-- Rate limiting (Upstash), CI + pre-commit hooks  
+- Real-time **SSE** agent progress on the dashboard
+- Structured artifacts (matrix, charts, mind map, execution plan)
+- **One composer** for new queries and follow-ups (New query starts a fresh session)
+- Session history, user memory, semantic recall (**pgvector**)
+- **Output quality gate** — entity-aware sources + anti-hallucination abstain rules
+- Cost / latency / call counts on each sweep
+- Structured JSON logging + correlation IDs
+- **Export PDF** executive report
+- Rate limiting (Upstash), CI + pre-commit hooks
+- Steal strategy + API usage tabs
 
 ---
 
@@ -79,7 +87,7 @@ AUTH_SECRET=change-me-to-a-long-random-string
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
-See `.env.example` for tool keys, MiroFish URLs, Google OAuth, and rate-limit Redis.
+See `.env.example` for tool keys, MiroFish URLs, Google OAuth, and rate-limit Redis. Set `UPSTASH_*` in production to **enforce** sweep rate limits (fail-open without them).
 
 ### 3. Database
 
@@ -105,6 +113,7 @@ npm run mirofish:bootstrap  # seed a local MiroFish simulation map
 
 ```bash
 npm test
+npm run test:quality   # offline output-quality / anti-hallucination scenarios
 npm run typecheck
 npm run lint
 ```
@@ -120,6 +129,7 @@ npm run lint
 | `npm run mirofish` | MiroFish Flask service only |
 | `npm run build` / `start` | Production build & serve |
 | `npm test` | Vitest unit tests |
+| `npm run test:quality` | Validate entity filter + quality gate (no live LLM) |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ---
@@ -131,22 +141,23 @@ app/page.tsx              Dashboard shell (SSE + sessions)
 components/ui/            Sidebar, chat, progress, results, memory
 components/artifacts/     Domain visualizations + ArtifactRenderer
 components/export/        Executive PDF (react-pdf)
-lib/agents/               Orchestrator + domain/execution agents
-lib/tools/                SerpAPI, Firecrawl, Reddit/HN, Apify, …
+lib/agents/               Orchestrator + domain/execution agents + output-quality
+lib/tools/                SerpAPI, Firecrawl, Reddit/HN, Apify, source-relevance, …
 lib/logger.ts             JSON logs + correlation IDs
 lib/export/               PDF report data shaping
 mirofish-service/         Optional local swarm service (Python)
-docs/                     ADRs + phase improvement plan
+docs/                     ADRs + phase engineering plan (SoT)
 plan.md                   Product thesis for the team
 ```
 
 ### Orchestrator flow
 
-1. Classify query (LLM + deterministic execution-intent heuristics)  
-2. Fan out research agents (`Promise.allSettled`)  
-3. Optionally run execution engine grounded in Stage 1  
-4. Synthesise prose + recommendations + mind map  
-5. Stream SSE chunks; attach metrics  
+1. Classify query (LLM + deterministic execution-intent heuristics)
+2. Fan out research agents (`Promise.allSettled`)
+3. Optionally run execution engine grounded in Stage 1
+4. Entity-filter sources → synthesise prose + recommendations + mind map
+5. URL hygiene + **output quality gate** (abstain/soften when evidence is thin)
+6. Stream SSE chunks; attach metrics
 
 ### Feedback loop
 
@@ -160,7 +171,7 @@ Research → Execute → Rate / record results → Refine → sharper next cycle
 
 ### `POST /api/chat`
 
-SSE stream. Body includes `query`, optional `history`, `images`, `memoryContext`, selected agents.
+SSE stream. Body includes `query`, optional `history`, `images`, `memoryContext`, selected agents, `followUpMode`.
 
 Chunks: `agent_update` · `orchestration_log` · `result` · `error` (+ MiroFish variants).
 
@@ -178,18 +189,22 @@ Re-run execution (and related orchestration) with accumulated feedback.
 
 Index / retrieve semantic session context via pgvector.
 
+### `POST /api/steal-strategy` · `GET /api/usage-info`
+
+Steal-strategy analysis · configured providers/models (no secrets).
+
 ---
 
-## Team ownership (optional sprint model)
+## Team ownership
 
 | Focus | Typical areas |
 |-------|----------------|
 | Orchestration + refine loop | `lib/agents/orchestrator.ts`, `app/api/refine`, feedback tables |
-| Agent quality + grounding | `lib/agents/*`, `lib/agents/execution/*` |
+| Agent quality + grounding | `lib/agents/*`, `lib/agents/output-quality.ts`, `lib/tools/source-relevance.ts` |
 | Dashboard UX | `app/page.tsx`, `components/ui/*`, `components/artifacts/*` |
 | Tools + QA + CI | `lib/tools/*`, `__tests__/*`, `.github/workflows` |
 
-For **what to build next**, always check [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md).
+**What to build next:** always check phase plan **§0C Now / Next / Later** and open `[ ]` items in §0. RACI lives in the phase plan §5.
 
 ---
 
@@ -197,9 +212,9 @@ For **what to build next**, always check [`docs/phase_by_phase_improvement_plan.
 
 ### New agent
 
-1. Add `lib/agents/my-agent.ts` implementing `AgentConfig`  
-2. Register in `lib/agents/orchestrator.ts`  
-3. Add domain meta / UI tab if user-facing  
+1. Add `lib/agents/my-agent.ts` implementing `AgentConfig`
+2. Register in `lib/agents/orchestrator.ts`
+3. Add domain meta / UI tab if user-facing
 
 ### Tool fallbacks
 
@@ -207,25 +222,26 @@ Tools return `ToolResult<T>` via `lib/tools/fallback.ts` — never throw; status
 
 ### Themes
 
-Dark/light via `lib/theme-provider` (header toggle).
+Dark/light via `lib/theme-provider` (header toggle). Brand wordmarks: `components/ui/BrandWordmark.tsx`.
 
 ---
 
 ## Deployment
 
-- Deploy on Vercel (or Node host). Set env from `.env.example`.  
-- Chat route uses `maxDuration = 120` — ensure the plan allows long SSE runs.  
+- Deploy on Vercel (or Node host). Set env from `.env.example`.
+- Chat route uses `maxDuration = 120` — ensure the plan allows long SSE runs.
 - Production: tighten RLS (Supabase migrations), set strong `AUTH_SECRET`, enable rate limits (Upstash).
+- Competition UI flags (when implemented): see phase plan §29 (`ff_board_mode`, `ff_orchestrator_view`, `ff_evidence_trail`, `ff_async_sweep`).
 
 ---
 
 ## Contributing
 
-1. Read [`plan.md`](./plan.md) and the open items in [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md)  
-2. Branch from `main`: `git checkout -b feature/short-name`  
-3. `npm test` && `npm run typecheck`  
-4. Prefer short commit messages focused on *why*  
-5. Open a PR  
+1. Read [`plan.md`](./plan.md) and **§0C / open checkboxes** in [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md)
+2. Branch: `feat/TASK-id-slug` (see phase plan §5)
+3. `npm test` && `npm run test:quality` && `npm run typecheck`
+4. Prefer short commit messages focused on *why*
+5. Open a PR; update §0 checkboxes when the work lands
 
 ---
 
@@ -235,4 +251,4 @@ MIT — see [LICENSE](LICENSE) if present.
 
 ## Acknowledgements
 
-Google Gemini · PostgreSQL / pgvector · Supabase · Firecrawl · SerpAPI · Next.js · Vitest · `@react-pdf/renderer`
+Google Gemini · PostgreSQL / pgvector · Firecrawl · SerpAPI · Next.js · Vitest · `@react-pdf/renderer`
