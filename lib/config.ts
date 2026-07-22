@@ -45,6 +45,8 @@ const envSchema = z.object({
       .min(16, 'AUTH_SECRET must be at least 16 characters'),
   ),
   GEMINI_API_KEY: requiredString,
+  /** Optional second key used when the primary key hits 401/403/429. */
+  GEMINI_API_KEY_FALLBACK: optionalString,
 
   // ── AI (optional overrides) ────────────────────────────
   GEMINI_MODEL: optionalString,

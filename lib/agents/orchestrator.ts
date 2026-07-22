@@ -8,7 +8,16 @@ import { executionEngineAgent } from './execution/execution-engine';
 import { mirofishAgent } from './mirofish';
 import { mirofishLiveAgent } from './mirofish-live';
 import { detectExecutionIntent } from './execution-intent';
-import { generateHuggingFaceText } from './gemini';
+import { generateHuggingFaceJson, generateHuggingFaceText } from './gemini';
+import {
+  extractEntitiesFromQuery,
+  resolveCompetitorName,
+  resolveProductName,
+} from './extract-entities';
+import { isPlaceholderProduct } from './entity-url';
+import { isSynthesisFailureInterpretation } from './synthesis-fallback';
+import { normalizeMindMapTree } from './mind-map-normalize';
+import { logger } from '@/lib/logger';
 import { filterAndRankSources } from '@/lib/tools/source-validator';
 import type {
   AgentConfig,
@@ -95,16 +104,21 @@ async function classifyQuery(
     .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
     .join('\n');
 
-  const prompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory.
+  const heuristic = extractEntitiesFromQuery(query);
+  const regexExecution = detectExecutionIntent(query);
 
-${memoryContext ? `${memoryContext}\n\n` : ''}Conversation history:
+  const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present.`;
+
+  const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}Conversation history:
 ${priorContext || 'None'}
 
 Current query: "${query}"
+${images.length > 0 ? `\nAttached images: ${images.length}. Use them as contextual metadata only; the specialist agents inspect the actual image content.` : ''}
+${heuristic.product ? `\nHeuristic hint — product: "${heuristic.product}"${heuristic.competitor ? `, competitor: "${heuristic.competitor}"` : ''}. Prefer these when they match the query.` : ''}
 
 Respond with JSON:
 {
-  "product": string,         // The product being analysed (infer from context if not explicit)
+  "product": string,         // The product being analysed (real brand name; infer from context if not explicit)
   "competitor": string | null,  // Competitor name if mentioned or inferable from context
   "productUrl": string | null,  // Product website if known (e.g. vectoragents.ai)
   "competitorUrl": string | null,
@@ -114,7 +128,7 @@ Respond with JSON:
 }
 
 Domain selection rules:
-- "vs", "compare", "competitive" → include competitive, win-loss, positioning
+- "vs", "compare", "competitive", "compete with" → include competitive, win-loss, positioning
 - "market", "trend", "category", "growing" → include market-trends
 - "pricing", "cost", "expensive" → include pricing
 - "messaging", "positioning", "marketing" → include positioning
@@ -132,34 +146,36 @@ Execution intent detection (set runExecution: true if ANY of these apply):
 
 Set runExecution: false for pure research questions ("compare X vs Y", "what is the market for X", "is X growing", "who are the competitors of X").`;
 
-  // Deterministic regex check — runs in parallel with the LLM classifier so
-  // we never miss obvious execution intents even if Gemini misclassifies.
-  const regexExecution = detectExecutionIntent(query);
-
   try {
-    const imageNote = images.length > 0
-      ? `\n\nAttached images: ${images.length}. Use them as contextual metadata only; the specialist agents inspect the actual image content.`
-      : '';
-    const raw = await generateHuggingFaceText(prompt + imageNote, {
+    const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
       maxNewTokens: 512,
       temperature: 0.1,
     });
-    const parsed = safeParseJson(raw);
+    const product = resolveProductName(parsed.product, heuristic);
+    const competitor = resolveCompetitorName(parsed.competitor, heuristic);
+    if (isPlaceholderProduct(product)) {
+      logger.warn('classify.placeholder_product', { query, product, heuristic });
+    }
     return {
-      product: (parsed.product as string) ?? 'the product',
-      competitor: (parsed.competitor as string) ?? undefined,
-      productUrl: (parsed.productUrl as string) ?? undefined,
-      competitorUrl: (parsed.competitorUrl as string) ?? undefined,
+      product,
+      competitor,
+      productUrl: (parsed.productUrl as string) || undefined,
+      competitorUrl: (parsed.competitorUrl as string) || undefined,
       domains: normalizeDomains(parsed.domains),
-      intent: (parsed.intent as string) ?? query,
-      runExecution: ((parsed.runExecution as boolean) ?? false) || regexExecution,
+      intent: (parsed.intent as string) || query,
+      runExecution: Boolean(parsed.runExecution) || regexExecution,
     };
-  } catch {
-    // Fallback: activate all domains. Honour the regex execution check even
-    // when Gemini errors out — a "draft a cold email" query must still trigger
-    // the Execution Engine.
+  } catch (err) {
+    logger.error('classify.failed', {
+      query,
+      error: err instanceof Error ? err.message : String(err),
+      heuristic,
+    });
+    // Fallback: activate all domains. Prefer regex/heuristic entities so
+    // "Notion vs Linear" still searches the right brands when Gemini errors.
     return {
-      product: 'the current product',
+      product: resolveProductName(undefined, heuristic, 'unknown product'),
+      competitor: resolveCompetitorName(undefined, heuristic),
       domains: ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'],
       intent: query,
       runExecution: regexExecution,
@@ -223,7 +239,7 @@ async function synthesize(
     interpretation: o.interpretation.slice(0, 3),
   }));
 
-  const prompt = `You are the synthesis layer of a multi-agent growth intelligence system. Your job is to produce a clean, direct, well-written answer.
+  const prompt = `You are the synthesis layer of a multi-agent growth intelligence system. Produce an executive-quality answer a growth lead can act on today.
 
 Original query: "${query}"
 ${memoryContext ? `${memoryContext}\n` : ''}${priorSummary ? `Prior conversation context:\n${priorSummary}\n` : ''}
@@ -231,26 +247,27 @@ Agent findings from ${outputs.length} specialist agents:
 ${JSON.stringify(outputSummaries, null, 2)}
 
 Rules:
-1. If the query asks a FACTUAL question (revenue, funding amount, year founded, etc.), lead with the direct answer in the first sentence.
-2. Write in clean prose — no raw tool labels like [WEB], [NEWS], [REDDIT]. Never output bracket prefixes.
-3. Reference insights by domain only when relevant (e.g. "Competitive data shows...").
-4. Be specific and concrete — cite actual company names, numbers, trends from the findings.
-5. Keep the "answer" field under 180 words. Make it readable and insightful.
-6. Only include recommendations if directly actionable from the findings. 2-3 max.
+1. Lead with the direct recommendation or answer in sentence 1.
+2. Clean prose only — no [WEB]/[NEWS]/[REDDIT] labels.
+3. Be specific: name products, buyer types, workflows, pricing models from the findings. Avoid vague filler ("leverage synergies").
+4. Keep "answer" under 140 words.
+5. Exactly 2-3 recommendations. Each title must be an imperative action (verb-first, ≤8 words). Evidence must quote a concrete finding.
+6. Prefer recommendations tagged immediate when the query asks what to build/ship now.
+7. Follow-ups must be decision questions, not generic "tell me more".
 
-Return ONLY valid JSON (no markdown, no fences):
+Return ONLY valid JSON:
 {
-  "answer": "string — direct, clean prose answer. Start with the most important finding. No raw tool labels.",
+  "answer": "string",
   "recommendations": [
     {
-      "title": "string — short action title",
-      "rationale": "string — 1-2 sentences grounded in specific findings",
-      "evidence": ["string — specific fact or quote from findings"],
+      "title": "string",
+      "rationale": "string",
+      "evidence": ["string"],
       "confidence": "high" | "medium" | "low",
       "priority": "immediate" | "short-term" | "strategic"
     }
   ],
-  "followUps": ["string — 3 specific follow-up questions the user would naturally ask next"]
+  "followUps": ["string", "string", "string"]
 }`;
 
   try {
@@ -268,7 +285,9 @@ Return ONLY valid JSON (no markdown, no fences):
       followUps: (parsed.followUps as string[]) ?? [],
     };
   } catch (err) {
-    console.error('[Orchestrator synthesis error]', err instanceof Error ? err.message : err);
+    logger.error('orchestrator.synthesis_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return {
       answer: buildFallbackAnswer(outputs, query),
       recommendations: [],
@@ -278,20 +297,43 @@ Return ONLY valid JSON (no markdown, no fences):
 }
 
 function buildFallbackAnswer(outputs: AgentOutput[], query: string): string {
-  if (outputs.length === 0) return `I couldn't retrieve signal data for "${query}". Please check your API keys and try again.`;
+  if (outputs.length === 0) {
+    return `I couldn't retrieve signal data for "${query}". Please check your API keys and try again.`;
+  }
+
+  const synthesisFailures = outputs.filter((o) => isSynthesisFailureInterpretation(o.interpretation));
+  const errorLines = synthesisFailures
+    .map((o) => o.interpretation.find((line) => line.startsWith('SYNTHESIS_ERROR:')))
+    .filter((line): line is string => Boolean(line));
+
+  if (synthesisFailures.length === outputs.length && errorLines.length > 0) {
+    const uniqueErrors = [...new Set(errorLines)].slice(0, 3);
+    return [
+      `I collected live search signals for "${query}", but AI analysis failed for every domain.`,
+      '',
+      'Exception(s):',
+      ...uniqueErrors.map((e) => `• ${e.replace(/^SYNTHESIS_ERROR:\s*/, '')}`),
+      '',
+      'Check GEMINI_API_KEY / GEMINI_MODEL. Prefer gemini-flash-latest or gemini-3.5-flash (free). gemini-2.5-flash is blocked for many new keys. Then rerun. Domain cards still show raw snippets only.',
+    ].join('\n');
+  }
+
   // Produce clean prose from agent outputs, filtering out raw tool prefixes
   const cleanFacts = outputs
     .flatMap(o => o.facts)
-    .filter(f => !f.startsWith('['))
+    .filter(f => !f.startsWith('[') && !f.startsWith('SYNTHESIS_ERROR:'))
     .slice(0, 4);
   const domains = outputs.map(o => o.domain.replace(/-/g, ' ')).join(', ');
+  const warning = synthesisFailures.length > 0
+    ? `\n\nWarning: AI synthesis failed for ${synthesisFailures.length}/${outputs.length} domains (${errorLines[0]?.replace(/^SYNTHESIS_ERROR:\s*/, '') ?? 'see domain cards'}).`
+    : '';
   if (cleanFacts.length > 0) {
-    return `Based on intelligence gathered across ${domains}:\n\n${cleanFacts.map(f => `• ${f}`).join('\n')}`;
+    return `Based on intelligence gathered across ${domains}:\n\n${cleanFacts.map(f => `• ${f}`).join('\n')}${warning}`;
   }
-  return `Intelligence gathered from ${outputs.length} agents covering: ${domains}. Expand the Agent Findings below for detailed insights.`;
+  return `Intelligence gathered from ${outputs.length} agents covering: ${domains}. Expand the Agent Findings below for detailed insights.${warning}`;
 }
 
-// ── Mind map generator — builds a visual tree from all agent outputs ─────────
+// ── Mind map generator — executive strategy / issue-tree map ─────────────────
 async function generateMindMap(
   query: string,
   product: string,
@@ -307,51 +349,49 @@ async function generateMindMap(
     interpretation: o.interpretation.slice(0, 3),
   }));
 
-  const prompt = `You are building a strategic mind map from multi-agent intelligence findings.
+  const systemPrompt = `You build executive strategy mind maps (issue-tree / pillar style), not decorative spider diagrams.
+Return valid JSON only. Prefer short keyword labels. Put long explanation in "detail".`;
 
-Product: "${product}"
+  const userPrompt = `Product: "${product}"
 Query: "${query}"
-Agent findings (use domain names exactly as given for sourceAgent):
+Agent findings:
 ${JSON.stringify(outputSummaries, null, 2)}
 
-Create a mind map with 4-6 top-level branches. Each branch maps to one of the intelligence domains above.
-Each branch should have 2-4 child nodes. Key children with deep insights may have 1-3 grandchildren.
-Every node must have a sentiment: "positive", "negative", "warning", or "neutral".
+Build a STRATEGY MIND MAP that answers the query.
 
-CRITICAL RULES:
-- Every "id" must be globally unique (e.g. "branch-1", "leaf-1-2", "gc-1-2-1")
-- Every "label" MUST be a complete, meaningful phrase (3-8 words). NEVER use one-word labels
-- Every node MUST have a non-empty label and a non-empty "detail" string
-- Keep branch labels concise (2-5 words); child/grandchild labels slightly longer (4-10 words)
-- Each branch MUST set "sourceAgent" to the exact domain string that most contributed to it (e.g. "market-trends", "competitive", "win-loss", "pricing", "positioning", "adjacent")
-- Each branch MUST set "confidence" to the confidence level of its source domain ("high", "medium", or "low")
+STRUCTURE (strict):
+- centralTopic: rephrase the USER QUESTION as 3-6 words (NOT a domain name like "Market Trend Alignment")
+- Exactly 5 branches (pillars). Prefer this decision set when the query is about what to build:
+  1) Specialize / ICP workflow to ship
+  2) Prove ROI / reliability
+  3) Pricing model
+  4) Positioning narrative
+  5) Avoid / do-not-build
+- Each branch: 2-3 children max. No grandchildren unless essential (max 1 level of grandchildren).
+- Branch labels: 2-5 words. Child labels: 3-7 words. Imperative or noun phrases — NOT full sentences.
+- Branch labels MUST be unique and MUST NOT equal centralTopic.
+- Every node needs non-empty "detail" (1 sentence evidence).
+- Each branch sets sourceAgent to the best matching domain and confidence from findings.
+- sentiment: positive | neutral | negative | warning
 
-Return ONLY valid JSON (no markdown, no fences):
+Return JSON:
 {
-  "centralTopic": "string — core topic (3-8 words)",
-  "summary": "string — one-line overview of the map",
+  "centralTopic": "string",
+  "summary": "string — one line thesis",
   "branches": [
     {
       "id": "branch-1",
-      "label": "string — branch title (2-5 words)",
-      "detail": "string — one sentence branch summary",
+      "label": "string",
+      "detail": "string",
       "sentiment": "positive" | "neutral" | "negative" | "warning",
       "confidence": "high" | "medium" | "low",
       "sourceAgent": "market-trends" | "competitive" | "win-loss" | "pricing" | "positioning" | "adjacent",
       "children": [
         {
           "id": "leaf-1-1",
-          "label": "string — complete descriptive insight (4-10 words)",
-          "detail": "string — supporting evidence or context",
-          "sentiment": "positive" | "neutral" | "negative" | "warning",
-          "children": [
-            {
-              "id": "gc-1-1-1",
-              "label": "string — specific data point or sub-insight (4-10 words)",
-              "detail": "string — evidence or source context",
-              "sentiment": "positive" | "neutral" | "negative" | "warning"
-            }
-          ]
+          "label": "string",
+          "detail": "string",
+          "sentiment": "positive" | "neutral" | "negative" | "warning"
         }
       ]
     }
@@ -359,14 +399,19 @@ Return ONLY valid JSON (no markdown, no fences):
 }`;
 
   try {
-    const raw = await generateHuggingFaceText(prompt, {
+    const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
       maxNewTokens: 2048,
       temperature: 0.15,
     });
-    const parsed = safeParseJson(raw);
 
-    const branches = (parsed.branches as MindMapNode[]) ?? [];
-    if (branches.length === 0) return null;
+    const normalized = normalizeMindMapTree({
+      centralTopic: parsed.centralTopic,
+      summary: parsed.summary,
+      branches: parsed.branches,
+      product,
+      query,
+    });
+    if (normalized.branches.length === 0) return null;
 
     const avgScore = outputs.reduce((s, o) => s + o.confidenceScore, 0) / outputs.length;
 
@@ -380,12 +425,14 @@ Return ONLY valid JSON (no markdown, no fences):
       sources: filterAndRankSources(outputs.flatMap(o => o.sources), 10),
       generatedAt: new Date().toISOString(),
       artifactType: 'mind-map',
-      centralTopic: (parsed.centralTopic as string) ?? product,
-      branches,
-      summary: (parsed.summary as string) ?? '',
+      centralTopic: normalized.centralTopic,
+      branches: normalized.branches,
+      summary: normalized.summary,
     };
   } catch (err) {
-    console.error('[MindMap generation error]', err instanceof Error ? err.message : err);
+    logger.error('mindmap.generation_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -408,6 +455,10 @@ export async function orchestrate(
   let modelCallCount = 1;
 
   const { product, competitor, productUrl, competitorUrl, intent, runExecution } = classification;
+  log?.(`Classified product: ${product}${competitor ? ` vs ${competitor}` : ''} — ${intent}`);
+  if (isPlaceholderProduct(product)) {
+    log?.(`Warning: product name looks like a placeholder ("${product}") — search quality may be low.`);
+  }
   const allowedAgents = new Set(options?.selectedAgents?.length ? options.selectedAgents : ALL_AGENTS.map(a => a.id));
   const executionEnabled = allowedAgents.has('execution-engine');
   const shouldRunExecution = executionEnabled && (runExecution || options?.forceExecution === true);
@@ -426,8 +477,9 @@ export async function orchestrate(
     .filter(Boolean)
     .join('\n\n') || undefined;
 
+  // Keep the user's original wording for search/synthesis (not only the LLM intent rewrite).
   const agentContext: AgentContext = {
-    query: intent,
+    query,
     product,
     competitor,
     productUrl,
@@ -468,7 +520,17 @@ export async function orchestrate(
     try {
       const output = await agent.run(agentContext);
       agentLatencies[agent.id] = Date.now() - agentStart;
-      agentRuns[i] = { ...agentRuns[i], status: 'completed', completedAt: new Date().toISOString() };
+      const synthError = output.interpretation.find((line) => line.startsWith('SYNTHESIS_ERROR:'));
+      if (synthError) {
+        agentRuns[i] = {
+          ...agentRuns[i],
+          status: 'failed',
+          completedAt: new Date().toISOString(),
+          error: synthError.replace(/^SYNTHESIS_ERROR:\s*/, ''),
+        };
+      } else {
+        agentRuns[i] = { ...agentRuns[i], status: 'completed', completedAt: new Date().toISOString() };
+      }
       onAgentUpdate?.(agentRuns[i]);
       return output;
     } catch (err) {

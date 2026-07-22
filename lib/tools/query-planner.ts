@@ -31,7 +31,15 @@ function compactJoin(parts: Array<string | undefined | null>): string {
     .join(' ');
 }
 
+function isWeakProductLabel(product: string | undefined): boolean {
+  const p = product?.trim().toLowerCase() ?? '';
+  return !p || p === 'the product' || p === 'the current product' || p === 'unknown product' || p === 'product';
+}
+
 function normalizeCategory(ctx: QueryPlanContext): string {
+  if (isWeakProductLabel(ctx.product)) {
+    return ctx.query.trim().slice(0, 80) || 'SaaS category';
+  }
   return ctx.category?.trim() || `${ctx.product} category`;
 }
 
@@ -39,15 +47,21 @@ function normalizeCompetitor(ctx: QueryPlanContext): string {
   return ctx.competitor?.trim() || 'top competitors';
 }
 
+function productOrQuery(ctx: QueryPlanContext): string {
+  if (isWeakProductLabel(ctx.product)) return ctx.query.trim().slice(0, 100);
+  return ctx.product.trim();
+}
+
 // Domain-specific query templates
 const TEMPLATES: Record<IntelligenceDomain, (ctx: QueryPlanContext) => QueryBundle> = {
   'market-trends': (ctx) => {
     const { year, nextYear } = currentYears();
     const category = normalizeCategory(ctx);
+    const subject = productOrQuery(ctx);
     return {
-    broad: `${ctx.product} market trends ${year} ${nextYear} growth industry`,
-    targeted: `site:reddit.com OR site:indiehackers.com OR site:x.com OR site:twitter.com OR site:linkedin.com OR site:instagram.com "${ctx.product}" "${category}" trending growth`,
-    hypothesis: `"${ctx.product}" OR "${category}" (accelerating OR consolidating OR emerging) adoption`,
+    broad: `${subject} market trends ${year} ${nextYear} growth industry`,
+    targeted: `site:reddit.com OR site:indiehackers.com OR site:x.com OR site:twitter.com OR site:linkedin.com OR site:instagram.com "${subject}" "${category}" trending growth`,
+    hypothesis: `"${subject}" OR "${category}" (accelerating OR consolidating OR emerging) adoption`,
     keywords: ['growth', 'trends', 'adoption', 'market', 'category', 'revenue', 'x.com', 'linkedin', 'instagram'],
   };
   },
@@ -55,10 +69,11 @@ const TEMPLATES: Record<IntelligenceDomain, (ctx: QueryPlanContext) => QueryBund
   competitive: (ctx) => {
     const { year, nextYear } = currentYears();
     const competitor = normalizeCompetitor(ctx);
+    const subject = productOrQuery(ctx);
     return {
-    broad: `${competitor} ${ctx.product} features pricing positioning`,
+    broad: `${competitor} ${subject} features pricing positioning`,
     targeted: `site:linkedin.com OR site:x.com OR site:twitter.com OR site:instagram.com "${competitor}" ("new feature" OR "just launched" OR positioning) ${year} ${nextYear}`,
-    hypothesis: `${competitor} vs ${ctx.product} differentiation competitive advantage`,
+    hypothesis: `${competitor} vs ${subject} differentiation competitive advantage`,
     keywords: ['feature', 'competitor', 'pricing', 'positioning', 'launch', 'announcement', 'linkedin', 'x.com', 'instagram'],
   };
   },

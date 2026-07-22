@@ -84,10 +84,10 @@ function layoutNodes(
   const count = branches.length;
   if (count === 0) return positioned;
 
-  // Scale r1 with branch density to reduce overlap between adjacent sectors
-  const r1 = Math.max(235, 185 + count * 12);
-  const r2 = 162;
-  const r3 = 118;
+  // Wider radii for ≤5 pillars — reduces hub clutter and line crossings
+  const r1 = Math.max(280, 220 + count * 18);
+  const r2 = 188;
+  const r3 = 128;
 
   branches.forEach((branch, i) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
@@ -105,12 +105,12 @@ function layoutNodes(
 
     if (collapsed.has(branch.id)) return;
 
-    const children = branch.children ?? [];
+    const children = (branch.children ?? []).slice(0, 3);
     if (!children.length) return;
 
-    // Spread angle proportional to sector size so adjacent branches don't collide
+    // Narrower sector spread keeps children in their pillar lane
     const sectorAngle = (2 * Math.PI) / count;
-    const spread2 = Math.min(sectorAngle * 0.72, Math.PI * 0.58);
+    const spread2 = Math.min(sectorAngle * 0.55, Math.PI * 0.42);
 
     children.forEach((child, ci) => {
       const childAngle = children.length === 1
@@ -128,11 +128,10 @@ function layoutNodes(
         branchId: branch.id,
       });
 
-      // Grandchildren (depth 3)
-      const grandchildren = child.children ?? [];
+      const grandchildren = (child.children ?? []).slice(0, 2);
       if (!grandchildren.length) return;
 
-      const spread3 = Math.min(Math.PI * 0.38, Math.PI * 0.14 * grandchildren.length);
+      const spread3 = Math.min(Math.PI * 0.28, Math.PI * 0.12 * grandchildren.length);
 
       grandchildren.forEach((gc, gi) => {
         const gcAngle = grandchildren.length === 1
@@ -232,12 +231,12 @@ function MapNode({
   const isBranch = depth === 1;
   const sentiment = node.sentiment ? SENTIMENT_CONFIG[node.sentiment] : null;
 
-  const maxW = depth === 1 ? 178 : depth === 2 ? 158 : 136;
-  const nodeH = depth === 1 ? 88 : depth === 2 ? 70 : 56;
-  const px = depth === 1 ? 14 : 10;
-  const py = depth === 1 ? 10 : 8;
-  const fontSize = depth === 1 ? 12.5 : depth === 2 ? 11 : 10.5;
-  const fw = depth === 1 ? 600 : 500;
+  const maxW = depth === 1 ? 168 : depth === 2 ? 148 : 128;
+  const nodeH = depth === 1 ? 72 : depth === 2 ? 58 : 48;
+  const px = depth === 1 ? 12 : 9;
+  const py = depth === 1 ? 9 : 7;
+  const fontSize = depth === 1 ? 13 : depth === 2 ? 11.5 : 10.5;
+  const fw = depth === 1 ? 650 : 550;
 
   const bgColor = isSelected || isHovered
     ? color.bg
@@ -317,10 +316,12 @@ function MapNode({
             </span>
           )}
 
-          {/* Label */}
-          <span style={{
+          {/* Label — short keywords; full text lives in detail panel */}
+          <span
+            title={node.detail || node.label}
+            style={{
             display: '-webkit-box',
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}>

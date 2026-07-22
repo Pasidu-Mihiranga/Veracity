@@ -15,6 +15,11 @@ import type {
 import { scoreToLevel } from './types';
 import { computeSignalQualityPenalty, extractToolResults } from '../tools/fallback';
 import { isPlaceholderCompetitor, isUsableScrapePage, skippedScrapePromise } from './entity-url';
+import {
+  SYNTHESIS_FAILURE_CONFIDENCE,
+  factsFromRawSignals,
+  synthesisFailureInterpretation,
+} from './synthesis-fallback';
 
 function g2ReviewsUrl(competitorBrand: string): string {
   const slug = competitorBrand.toLowerCase().replace(/\s+/g, '-');
@@ -136,16 +141,16 @@ Produce JSON:
       maxNewTokens: 1400,
       temperature: 0.2,
     });
-  } catch {
+  } catch (err) {
     parsed = {
-      facts: rawContent.slice(0, 3).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['Analysis synthesis is temporarily unavailable. Raw data signals are shown below.'],
+      facts: factsFromRawSignals(rawContent, 3),
+      interpretation: synthesisFailureInterpretation(err),
       competitorWins: [],
       competitorLosses: [],
       buyerSentiment: 'mixed',
       topSwitchTriggers: [],
       synthesizedAnswer: 'Buyer sentiment data collected but synthesis failed.',
-      confidenceScore: 0.4,
+      confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
     };
   }
 

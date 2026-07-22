@@ -1,24 +1,84 @@
-1. Core Winning Thesis (What Makes Us Stand Out)
-Judges will see 10+ research bots or chat wrappers. We win by:
+# Veracity — Product Strategy & Winning Thesis
 
-Seamless intent detection & mode switching (no “switch to research mode” — conversation flows naturally, like the example in the brief).
-Ephemeral UIs inside the thread — variant comparison grids, clickable channel selectors, performance maps, one-pagers rendered inline (inspired by Claude Artifacts + generative UI patterns).
-True closed loop with learning — feedback updates the intelligence layer; next cycle is measurably sharper.
-Live signals only — real web research on competitors (11x, Salesloft, Relevance AI, etc.), audience forums, LinkedIn trends.
-Polish & demo magic — beautiful, responsive web demo that feels like the future of growth tools. Full video walkthrough + generalization toggle (Lilian ↔ Bradley ↔ any product).
-Technical excellence — multi-agent orchestration via LangGraph + Claude API (exactly what Anthropic recommends in their 2024–2025 guides).
+> **Share this with other developers.** It explains *why* we build what we build.  
+> For the living engineering checklist (phases, tasks, exit criteria), use  
+> [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md).
 
-This directly hits every hard constraint: multi-agent, dynamic UIs, tools/live data, full loop, not a single prompt.
-2. Recommended Tech Stack (Claude-Native & Hackathon-Proven)
+---
 
-LayerChoiceWhy it winsLLMClaude (latest Sonnet/Opus via API)Best reasoning + tool use; native structured outputsOrchestrationLangGraph (stateful graph)Explicit control over loop stages, memory, conditional routing, intent detectionAgents5 specialized agents (supervisor + sub-agents)Matches Anthropic multi-agent best practicesToolsCustom tools + web_search/browse_page (MCP-style)Live signals onlyFrontendNext.js 15 + shadcn/ui + TailwindBeautiful chat thread that renders dynamic JSON → UI components (grids, buttons, charts, cards) inlineUI PatternGenerative/ephemeral UI (JSON schema → React components) + Claude Artifacts inspirationPerfectly matches “ephemeral interfaces” requirementState & MemoryLangGraph persistent state + vector store (for campaign history)Accumulates learning across cyclesDeploymentVercel (free tier) + live demo linkJudges can play with it instantly
-Alternative ultra-minimal path (if we want to ship faster): Build the entire experience as a Claude Artifact (interactive React app inside claude.ai conversation). This is extremely high-wow and perfectly matches the “inside the conversation” spec. We can fall back to this if time is tight.
-3. Agent Architecture (Multi-Agent, Not One Big Prompt)
+## 1. Core winning thesis
 
-Orchestrator / Supervisor Agent (Claude + LangGraph node): Detects intent, manages loop state, routes, ensures structured outputs, handles mode switches.
-Research Agent: Live multi-hop research (competitors, audience language, channel trends, PESTEL). Outputs typed JSON findings + confidence scores + sources.
-Content Agent: Turns findings into outreach sequences, LinkedIn posts, A/B variants (with explicit hypotheses), social content, briefs, visual mocks.
-Outreach / Deployment Simulator: Renders ephemeral UIs (side-by-side variant grids, channel choosers). “Deploys” via mock (shows what would happen).
-Feedback / Learning Agent: Ingests engagement data (mock or real), interprets against hypotheses, updates shared intelligence layer.
+Judges and customers will see research bots and chat wrappers. We win by:
 
-All agents use structured outputs (Pydantic schemas) so content is always traceable to signals.
+1. **Seamless intent detection** — no manual “switch to research mode”; conversation flows naturally into research or execution.
+2. **Ephemeral UIs in the thread** — variant grids, domain panels, charts, mind maps, and execution plans rendered inline (artifact-style).
+3. **Closed loop with learning** — recommendation ratings + variant results feed refine; the next cycle is measurably sharper.
+4. **Live signals only** — real web/community research (SerpAPI, Firecrawl, Reddit/HN, Apify, etc.), not canned prompts.
+5. **Polish & demo clarity** — responsive dashboard, live agent progress (SSE), cost/latency metrics, executive PDF export.
+6. **Technical excellence** — multi-agent orchestration (research fan-out → synthesis → optional execution), typed outputs, tests, CI.
+
+This hits the hard constraints: multi-agent, dynamic UIs, tools/live data, full loop — not a single prompt.
+
+---
+
+## 2. Current tech stack (source of truth)
+
+| Layer | Choice | Notes |
+|-------|--------|--------|
+| LLM | Google Gemini (`GEMINI_MODEL`, default flash-class) | Multimodal; usage tracked via `usageMetadata` |
+| Orchestration | Custom TypeScript orchestrator (`lib/agents/orchestrator.ts`) | Parallel research + conditional execution |
+| Agents | 6 research + execution engine (+ MiroFish swarm optional) | Structured `AgentOutput` + confidence/sources |
+| Tools | SerpAPI, Firecrawl, Reddit/HN, Apify, scrape fallbacks | Degrade gracefully when keys missing |
+| Frontend | Next.js 15 + React 19 + Tailwind | SSE chat, modular UI under `components/ui/` |
+| Data | PostgreSQL + pgvector (local and/or Supabase) | Sessions, memory, embeddings, feedback |
+| Auth | JWT (`AUTH_SECRET`) + optional Google OAuth / Supabase | See `.env.example` |
+| Observability | JSON logger + correlation IDs (`lib/logger.ts`) | Chat route emits `x-correlation-id` |
+| Export | `@react-pdf/renderer` executive PDF | Intelligence Summary → Export PDF |
+
+> Historical note: early hackathon drafts mentioned Claude + LangGraph. **This repo runs on Gemini + our orchestrator.** Prefer this file and the phase plan over outdated stack notes elsewhere.
+
+---
+
+## 3. Agent architecture
+
+```
+User query
+  → Orchestrator (classify intent, fan-out)
+      → Research agents (parallel): market, competitive, win/loss, pricing, positioning, adjacent
+      → Optional: MiroFish / MiroFish Live (swarm forecast)
+      → Optional Stage 2: Execution Engine (content, A/B variants, outreach)
+  → Synthesis + mind map + recommendations
+  → SSE stream to dashboard
+  → Feedback → Refine loop
+```
+
+All agents return structured outputs so claims stay traceable to sources and tools.
+
+---
+
+## 4. How developers should use this repo
+
+| Doc | When to read it |
+|-----|-----------------|
+| [`README.md`](./README.md) | Setup, scripts, API overview |
+| **This file (`plan.md`)** | Product thesis + architecture intent |
+| [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md) | What to build next; mark checkboxes when done |
+| [`docs/adr/`](./docs/adr/) | Architecture decisions (governance, env schema) |
+| [`CLAUDE.md`](./CLAUDE.md) | Deeper agent/domain notes for AI-assisted work |
+| [`.env.example`](./.env.example) | Required vs optional env vars |
+
+**Before starting work:** check the phase tracker in the improvement plan, pick an open `[ ]` item, open a branch, keep commits simple (no “Phase N” wording required).
+
+---
+
+## 5. Demo / product proof points
+
+- Live agent status grid during a sweep  
+- Artifact drill-down with sources  
+- Execution plan with “record result” + refine  
+- Cost/latency strip on the intelligence summary  
+- One-click **Export PDF** for stakeholder share-out  
+
+---
+
+*Last updated: 2026-07-22 — aligned with Gemini orchestrator, observability, and PDF export.*

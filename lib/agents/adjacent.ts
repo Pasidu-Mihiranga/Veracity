@@ -13,6 +13,11 @@ import type {
 } from './types';
 import { scoreToLevel } from './types';
 import { computeSignalQualityPenalty, extractToolResults } from '../tools/fallback';
+import {
+  SYNTHESIS_FAILURE_CONFIDENCE,
+  factsFromRawSignals,
+  synthesisFailureInterpretation,
+} from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
@@ -122,16 +127,16 @@ Produce JSON:
       maxNewTokens: 1400,
       temperature: 0.2,
     });
-  } catch {
+  } catch (err) {
     parsed = {
-      facts: rawContent.slice(0, 3).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['Analysis synthesis is temporarily unavailable. Raw data signals are shown below.'],
+      facts: factsFromRawSignals(rawContent, 3),
+      interpretation: synthesisFailureInterpretation(err),
       threats: [],
       overallRisk: 'medium',
       timeToImpact: '12-18 months',
       defensiveActions: [],
       synthesizedAnswer: 'Adjacent threat data collected but synthesis failed.',
-      confidenceScore: 0.4,
+      confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
     };
   }
 

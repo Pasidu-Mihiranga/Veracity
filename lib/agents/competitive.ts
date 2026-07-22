@@ -19,6 +19,11 @@ import type {
 } from './types';
 import { scoreToLevel } from './types';
 import { computeSignalQualityPenalty, extractToolResults } from '../tools/fallback';
+import {
+  SYNTHESIS_FAILURE_CONFIDENCE,
+  factsFromRawSignals,
+  synthesisFailureInterpretation,
+} from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
@@ -143,16 +148,16 @@ For the matrix, infer the most relevant feature dimensions from the signals abov
       maxNewTokens: 1400,
       temperature: 0.2,
     });
-  } catch {
+  } catch (err) {
     parsed = {
-      facts: rawContent.slice(0, 3).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['Analysis synthesis is temporarily unavailable. Raw data signals are shown below.'],
-      competitorSummary: `${competitorName} competitive data collected.`,
+      facts: factsFromRawSignals(rawContent, 3),
+      interpretation: synthesisFailureInterpretation(err),
+      competitorSummary: `${competitorName} competitive data collected but AI synthesis failed.`,
       matrix: [],
       hiringSignals: [],
       recentMoves: [],
       synthesizedAnswer: 'Competitive data was gathered but synthesis failed.',
-      confidenceScore: 0.4,
+      confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
     };
   }
 

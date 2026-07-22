@@ -15,6 +15,11 @@ import type {
 } from './types';
 import { scoreToLevel } from './types';
 import { computeSignalQualityPenalty, extractToolResults } from '../tools/fallback';
+import {
+  SYNTHESIS_FAILURE_CONFIDENCE,
+  factsFromRawSignals,
+  synthesisFailureInterpretation,
+} from './synthesis-fallback';
 
 function isSocialUrl(url: string): boolean {
   return /(?:^|\/\/)(?:www\.)?(x\.com|twitter\.com|linkedin\.com|instagram\.com)\//i.test(url);
@@ -192,16 +197,16 @@ Produce a JSON object with this exact shape:
       maxNewTokens: 1400,
       temperature: 0.2,
     });
-  } catch {
+  } catch (err) {
     parsed = {
-      facts: rawContent.slice(0, 4).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['Analysis synthesis is temporarily unavailable. Raw data signals are shown below.'],
+      facts: factsFromRawSignals(rawContent),
+      interpretation: synthesisFailureInterpretation(err),
       trends: [],
       categoryOutlook: 'emerging',
       keySignals: [],
       timeHorizon: '6-12 months',
       synthesizedAnswer: 'Market trend data was collected but synthesis encountered an error.',
-      confidenceScore: 0.4,
+      confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
     };
   }
 

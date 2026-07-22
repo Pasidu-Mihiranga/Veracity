@@ -8,6 +8,7 @@ import type { AgentOutput, MindMapOutput } from '@/lib/agents/types';
 import type { ChatMessage } from '@/types/chat-ui';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
+import { ExportReportButton } from '@/components/export/ExportReportButton';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
 import {
   rateRecommendation, recommendationKey, type RecommendationRating,
@@ -120,6 +121,13 @@ export function IntelligenceResults({
                 {currentResult.orchestratorOutput.product}
               </span>
             )}
+            <ExportReportButton
+              message={currentResult}
+              accentInk={accentInk}
+              textSubtle={textSubtle}
+              cardBg2={cardBg2}
+              neuExtrudedSm={neuExtrudedSm}
+            />
           </div>
         </div>
 

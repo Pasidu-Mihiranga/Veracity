@@ -13,7 +13,7 @@ export async function GET() {
   }
 
   const cfg = getConfig();
-  const textModel = cfg.GEMINI_MODEL || 'gemini-2.5-flash';
+  const textModel = cfg.GEMINI_MODEL || 'gemini-flash-latest';
   const embedModel = cfg.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001';
 
   const providers = [

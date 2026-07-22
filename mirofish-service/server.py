@@ -47,7 +47,7 @@ load_dotenv(_SERVICE_DIR.parent / ".env", override=False)
 GEMINI_API_KEY  = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
 GEMINI_BASE_URL = os.getenv("LLM_BASE_URL",
                              "https://generativelanguage.googleapis.com/v1beta/openai/")
-GEMINI_MODEL    = os.getenv("LLM_MODEL_NAME") or os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+GEMINI_MODEL    = os.getenv("LLM_MODEL_NAME") or os.getenv("GEMINI_MODEL") or "gemini-flash-latest"
 DATA_DIR        = Path(os.getenv("DATA_DIR", str(_SERVICE_DIR / "data")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 if not GEMINI_API_KEY:
