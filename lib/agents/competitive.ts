@@ -28,18 +28,23 @@ import {
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
 
-  const competitorName = competitor ?? 'relevant competitors';
+  const competitorName = competitor?.trim() || null;
+  const searchSubject = competitorName || `${product} competitors alternatives`;
   const compUrl = competitorSiteUrl(ctx);
 
   // ── Parallel data fetch ────────────────────────────────────────────────────
   const [webResult, newsResult, hnResult, scrapeResult, pricingResult, socialSignalsResult, apifyTwitterResult] = await Promise.allSettled([
-    searchWeb(`${competitorName} features product update 2025 2026`),
-    searchNews(`${competitorName} funding launch product announcement 2025`),
-    searchHN(`${competitorName} ${product}`),
+    searchWeb(`${searchSubject} features product update 2025 2026`),
+    searchNews(`${searchSubject} funding launch product announcement 2025`),
+    searchHN(competitorName ? `${competitorName} ${product}` : `${product} competitors`),
     compUrl ? scrapePage(compUrl) : skippedScrapePromise(),
     compUrl ? scrapeCompetitorPricing(compUrl) : skippedScrapePromise(),
-    searchWeb(`${competitorName} ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com launch feature feedback`),
-    scrapeTwitterX([`${competitorName} ${product}`, `${competitorName} launch feedback`], {
+    searchWeb(`${searchSubject} ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com launch feature feedback`),
+    scrapeTwitterX(
+      competitorName
+        ? [`${competitorName} ${product}`, `${competitorName} launch feedback`]
+        : [`${product} competitors`, `${product} alternatives`],
+      {
       maxItems: 80,
       sort: 'Latest',
       language: 'en',
@@ -48,7 +53,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
 
   // Hiring signals
   const hiringResult = await Promise.allSettled([
-    searchWeb(`${competitorName} jobs hiring "AI" OR "machine learning" OR "sales" site:linkedin.com OR site:greenhouse.io`),
+    searchWeb(`${searchSubject} jobs hiring "AI" OR "machine learning" OR "sales" site:linkedin.com OR site:greenhouse.io`),
   ]);
 
   // ── Collect sources ────────────────────────────────────────────────────────
@@ -75,7 +80,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   }
   if (isUsableScrapePage(scrapeResult)) {
     const page = scrapeResult.value.data;
-    sources.push({ url: page.url, title: page.title || competitorName, timestamp: scrapeResult.value.timestamp, tool: 'firecrawl' });
+    sources.push({ url: page.url, title: page.title || searchSubject, timestamp: scrapeResult.value.timestamp, tool: 'firecrawl' });
     rawContent.push(`[COMPETITOR HOMEPAGE] ${page.excerpt}`);
   }
   if (isUsableScrapePage(pricingResult)) {
@@ -116,7 +121,7 @@ ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
-Competitor: ${competitorName}
+Competitor: ${competitorName ?? `${product} category alternatives`}
 
 Raw signals:
 ${rawContent.join('\n')}
@@ -140,7 +145,7 @@ Produce a JSON object:
   "confidenceScore": number
 }
 
-For the matrix, infer the most relevant feature dimensions from the signals above. Choose dimensions that are actually relevant to ${product} and ${competitorName} based on what the data shows.`;
+For the matrix, infer the most relevant feature dimensions from the signals above. Choose dimensions that are actually relevant to ${product}${competitorName ? ` and ${competitorName}` : ''} based on what the data shows. Do not invent competitor features without signal support.`;
 
   let parsed: any = {};
   try {
@@ -152,7 +157,7 @@ For the matrix, infer the most relevant feature dimensions from the signals abov
     parsed = {
       facts: factsFromRawSignals(rawContent, 3),
       interpretation: synthesisFailureInterpretation(err),
-      competitorSummary: `${competitorName} competitive data collected but AI synthesis failed.`,
+      competitorSummary: `${competitorName ?? product} competitive data collected but AI synthesis failed.`,
       matrix: [],
       hiringSignals: [],
       recentMoves: [],
@@ -176,7 +181,7 @@ For the matrix, infer the most relevant feature dimensions from the signals abov
     interpretation: parsed.interpretation ?? [],
     sources,
     generatedAt: new Date().toISOString(),
-    competitor: competitorName,
+    competitor: competitorName ?? 'category alternatives',
     matrix: (parsed.matrix ?? []) as CompetitorFeature[],
     competitorSummary: parsed.competitorSummary ?? '',
     hiringSignals: parsed.hiringSignals ?? [],

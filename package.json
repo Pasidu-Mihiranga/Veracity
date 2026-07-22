@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "clean": "next clean",
     "test": "vitest run",
+    "test:quality": "npx tsx scripts/validate-output-quality.ts",
     "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },

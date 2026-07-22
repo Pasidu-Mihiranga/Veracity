@@ -25,7 +25,8 @@ describe('query planner', () => {
       query: 'compare competitors',
     });
 
-    expect(bundle.broad).toContain('top competitors');
+    expect(bundle.broad).toContain('competitors alternatives');
+    expect(bundle.broad).not.toContain('top competitors');
     expect(bundle.hypothesis).not.toContain('undefined');
     expect(bundle.targeted).not.toContain('undefined');
   });

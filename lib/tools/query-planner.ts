@@ -43,8 +43,12 @@ function normalizeCategory(ctx: QueryPlanContext): string {
   return ctx.category?.trim() || `${ctx.product} category`;
 }
 
-function normalizeCompetitor(ctx: QueryPlanContext): string {
-  return ctx.competitor?.trim() || 'top competitors';
+function normalizeCompetitor(ctx: QueryPlanContext): string | null {
+  const c = ctx.competitor?.trim();
+  if (!c) return null;
+  const lower = c.toLowerCase();
+  if (lower === 'top competitors' || lower === 'relevant competitors') return null;
+  return c;
 }
 
 function productOrQuery(ctx: QueryPlanContext): string {
@@ -70,20 +74,31 @@ const TEMPLATES: Record<IntelligenceDomain, (ctx: QueryPlanContext) => QueryBund
     const { year, nextYear } = currentYears();
     const competitor = normalizeCompetitor(ctx);
     const subject = productOrQuery(ctx);
+    const rival = competitor ?? `${subject} competitors alternatives`;
     return {
-    broad: `${competitor} ${subject} features pricing positioning`,
-    targeted: `site:linkedin.com OR site:x.com OR site:twitter.com OR site:instagram.com "${competitor}" ("new feature" OR "just launched" OR positioning) ${year} ${nextYear}`,
-    hypothesis: `${competitor} vs ${subject} differentiation competitive advantage`,
+    broad: `${rival} ${subject} features pricing positioning`,
+    targeted: competitor
+      ? `site:linkedin.com OR site:x.com OR site:twitter.com OR site:instagram.com "${competitor}" ("new feature" OR "just launched" OR positioning) ${year} ${nextYear}`
+      : `site:linkedin.com OR site:x.com OR site:g2.com "${subject}" (competitors OR alternatives OR "vs") ${year} ${nextYear}`,
+    hypothesis: competitor
+      ? `${competitor} vs ${subject} differentiation competitive advantage`
+      : `${subject} competitive landscape differentiation alternatives`,
     keywords: ['feature', 'competitor', 'pricing', 'positioning', 'launch', 'announcement', 'linkedin', 'x.com', 'instagram'],
   };
   },
 
   'win-loss': (ctx) => {
     const competitor = normalizeCompetitor(ctx);
+    const subject = productOrQuery(ctx);
+    const rival = competitor ?? 'alternatives';
     return {
-    broad: `why choose ${competitor} over ${ctx.product} review comparison`,
-    targeted: `site:g2.com OR site:capterra.com "${ctx.product}" review pros cons`,
-    hypothesis: `buyers switching from ${ctx.product} to ${competitor} reasons`,
+    broad: competitor
+      ? `why choose ${competitor} over ${subject} review comparison`
+      : `${subject} vs alternatives review comparison why choose`,
+    targeted: `site:g2.com OR site:capterra.com "${subject}" review pros cons`,
+    hypothesis: competitor
+      ? `buyers switching from ${subject} to ${competitor} reasons`
+      : `buyers switching from ${subject} reasons reviews`,
     keywords: ['review', 'comparison', 'alternative', 'why', 'better', 'difference'],
   };
   },
@@ -91,9 +106,12 @@ const TEMPLATES: Record<IntelligenceDomain, (ctx: QueryPlanContext) => QueryBund
   pricing: (ctx) => {
     const competitor = normalizeCompetitor(ctx);
     const category = normalizeCategory(ctx);
+    const subject = productOrQuery(ctx);
     return {
-    broad: `${ctx.product} pricing cost per seat willingness to pay ${competitor}`,
-    targeted: `site:reddit.com OR site:x.com OR site:linkedin.com OR site:instagram.com "${ctx.product}" pricing (expensive OR cheap OR worth)`,
+    broad: competitor
+      ? `${subject} pricing cost per seat willingness to pay ${competitor}`
+      : `${subject} pricing cost per seat willingness to pay SaaS`,
+    targeted: `site:reddit.com OR site:x.com OR site:linkedin.com OR site:instagram.com "${subject}" pricing (expensive OR cheap OR worth)`,
     hypothesis: `pricing model SaaS ${category} (ROI OR cost savings OR CAC)`,
     keywords: ['pricing', 'cost', 'willingness', 'CAC', 'ROI', 'per-seat', 'x.com', 'linkedin', 'instagram'],
   };
@@ -101,10 +119,13 @@ const TEMPLATES: Record<IntelligenceDomain, (ctx: QueryPlanContext) => QueryBund
 
   positioning: (ctx) => {
     const competitor = normalizeCompetitor(ctx);
+    const subject = productOrQuery(ctx);
     return {
-    broad: `${ctx.product} messaging positioning brand USP vs ${competitor}`,
-    targeted: `site:linkedin.com OR site:x.com OR site:twitter.com OR site:instagram.com "${ctx.product}" brand message positioning ("think like" OR "move like")`,
-    hypothesis: `positioning gap ${ctx.product} market opportunity messaging`,
+    broad: competitor
+      ? `${subject} messaging positioning brand USP vs ${competitor}`
+      : `${subject} messaging positioning brand USP category`,
+    targeted: `site:linkedin.com OR site:x.com OR site:twitter.com OR site:instagram.com "${subject}" brand message positioning ("think like" OR "move like")`,
+    hypothesis: `positioning gap ${subject} market opportunity messaging`,
     keywords: ['positioning', 'messaging', 'USP', 'brand', 'audience', 'claim', 'x.com', 'linkedin', 'instagram'],
   };
   },

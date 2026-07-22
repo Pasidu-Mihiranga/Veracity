@@ -28,7 +28,8 @@ import {
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
 
-  const competitorName = competitor ?? 'relevant competitors';
+  const competitorName = competitor?.trim() || null;
+  const searchSubject = competitorName || `${product} category pricing`;
   const compUrl = competitorSiteUrl(ctx);
   const prodUrl = productSiteUrl(ctx);
 
@@ -40,11 +41,11 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     redditPricingResult,
     pricingNewsResult,
   ] = await Promise.allSettled([
-    searchWeb(`${competitorName} pricing plans cost per seat 2025`),
+    searchWeb(`${searchSubject} pricing plans cost per seat 2025`),
     compUrl ? scrapeCompetitorPricing(compUrl) : skippedScrapePromise(),
     prodUrl ? scrapeCompetitorPricing(prodUrl) : skippedScrapePromise(),
-    searchReddit(`${competitorName} pricing expensive cheap worth it`),
-    searchWeb(`${product} OR ${competitorName} pricing model SaaS willingness to pay`),
+    searchReddit(`${product} pricing expensive cheap worth it`),
+    searchWeb(`${product}${competitorName ? ` OR ${competitorName}` : ''} pricing model SaaS willingness to pay`),
   ]);
 
   // ── Collect sources ────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
-Competitor: ${competitorName}
+Competitor: ${competitorName ?? 'not specified — use category pricing signals only'}
 
 Raw signals:
 ${rawContent.join('\n')}

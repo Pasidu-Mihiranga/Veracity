@@ -28,7 +28,8 @@ import {
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
 
-  const competitorName = competitor ?? 'relevant competitors';
+  const competitorName = competitor?.trim() || null;
+  const searchSubject = competitorName || product;
   const compUrl = competitorSiteUrl(ctx);
   const prodUrl = productSiteUrl(ctx);
 
@@ -44,11 +45,15 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   ] = await Promise.allSettled([
     compUrl ? scrapePage(compUrl) : skippedScrapePromise(),
     prodUrl ? scrapePage(prodUrl) : skippedScrapePromise(),
-    searchAdsTransparency(competitorName),
+    competitorName ? searchAdsTransparency(competitorName) : searchAdsTransparency(product),
     searchAdsTransparency(product),
-    searchWeb(`${competitorName} vs ${product} messaging positioning marketing`),
-    searchReddit(`how does ${competitorName} market itself brand positioning`),
-    searchWeb(`${competitorName} OR ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com positioning messaging`),
+    searchWeb(competitorName
+      ? `${competitorName} vs ${product} messaging positioning marketing`
+      : `${product} messaging positioning marketing brand`),
+    searchReddit(competitorName
+      ? `how does ${competitorName} market itself brand positioning`
+      : `how does ${product} market itself brand positioning`),
+    searchWeb(`${searchSubject} OR ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com positioning messaging`),
   ]);
 
   const compAboutUrl = compUrl ? `${compUrl.replace(/\/$/, '')}/about` : '';
@@ -126,7 +131,7 @@ ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
-Competitor: ${competitorName}
+Competitor: ${competitorName ?? 'not specified — focus on product messaging only'}
 
 Raw signals:
 ${rawContent.join('\n')}
@@ -187,7 +192,7 @@ Dimensions to analyse: Value Framing, Audience Language, Category Claim, Emotion
     interpretation: parsed.interpretation ?? [],
     sources,
     generatedAt: new Date().toISOString(),
-    competitor: competitorName,
+    competitor: competitorName ?? 'category alternatives',
     yourPositioning: parsed.yourPositioning ?? '',
     competitorPositioning: parsed.competitorPositioning ?? '',
     gaps: (parsed.gaps ?? []) as MessagingGap[],

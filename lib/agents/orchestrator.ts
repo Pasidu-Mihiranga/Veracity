@@ -17,8 +17,12 @@ import {
 import { isPlaceholderProduct } from './entity-url';
 import { isSynthesisFailureInterpretation } from './synthesis-fallback';
 import { normalizeMindMapTree } from './mind-map-normalize';
-import { logger } from '@/lib/logger';
 import { filterAndRankSources } from '@/lib/tools/source-validator';
+import {
+  applyEntitySourceFilterToOutputs,
+  applyOutputQualityGate,
+} from '@/lib/agents/output-quality';
+import { logger } from '@/lib/logger';
 import type {
   AgentConfig,
   AgentContext,
@@ -107,7 +111,7 @@ async function classifyQuery(
   const heuristic = extractEntitiesFromQuery(query);
   const regexExecution = detectExecutionIntent(query);
 
-  const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present.`;
+  const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present. Prefer company/product entities over people with the same name. If the query only mentions an ambiguous personal name with no product category, still return the name but keep domains focused and do not invent a competitor.`;
 
   const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}Conversation history:
 ${priorContext || 'None'}
@@ -225,6 +229,8 @@ async function synthesize(
   history: ConversationMessage[],
   images: ImageAttachment[] = [],
   memoryContext?: string,
+  product?: string,
+  competitor?: string,
 ): Promise<{ answer: string; recommendations: Recommendation[]; followUps: string[] }> {
   const priorSummary = history
     .slice(-4)
@@ -237,23 +243,45 @@ async function synthesize(
     confidence: o.confidence,
     facts: o.facts.slice(0, 4),
     interpretation: o.interpretation.slice(0, 3),
+    sources: o.sources.slice(0, 4).map(s => ({ title: s.title, url: s.url })),
   }));
 
-  const prompt = `You are the synthesis layer of a multi-agent growth intelligence system. Produce an executive-quality answer a growth lead can act on today.
+  const citedTitles = outputs
+    .flatMap(o => o.sources)
+    .slice(0, 16)
+    .map(s => s.title)
+    .filter(Boolean);
+
+  const prompt = `You are the synthesis layer of a multi-agent growth intelligence system. Write a clear, simple answer a busy founder can understand in 30 seconds — plain English, not consultant jargon.
 
 Original query: "${query}"
+Resolved product: "${product ?? 'unknown'}"${competitor ? `\nResolved competitor: "${competitor}"` : ''}
 ${memoryContext ? `${memoryContext}\n` : ''}${priorSummary ? `Prior conversation context:\n${priorSummary}\n` : ''}
 Agent findings from ${outputs.length} specialist agents:
 ${JSON.stringify(outputSummaries, null, 2)}
 
+Available source titles (for grounding only — do not invent URLs):
+${JSON.stringify(citedTitles, null, 2)}
+
 Rules:
-1. Lead with the direct recommendation or answer in sentence 1.
-2. Clean prose only — no [WEB]/[NEWS]/[REDDIT] labels.
-3. Be specific: name products, buyer types, workflows, pricing models from the findings. Avoid vague filler ("leverage synergies").
-4. Keep "answer" under 140 words.
-5. Exactly 2-3 recommendations. Each title must be an imperative action (verb-first, ≤8 words). Evidence must quote a concrete finding.
-6. Prefer recommendations tagged immediate when the query asks what to build/ship now.
-7. Follow-ups must be decision questions, not generic "tell me more".
+1. Lead with the direct recommendation or answer in sentence 1 — BUT only if findings clearly support it.
+2. LANGUAGE (mandatory):
+   - Use short sentences and everyday words.
+   - Avoid buzzwords: "opinionated", "system of action", "system of record", "agentic", "cognitive load", "verticalize", "commoditize", "ICP" unless you immediately explain in plain words.
+   - Prefer "what to do" and "why it matters" over abstract strategy language.
+3. ANTI-HALLUCINATION (mandatory):
+   - Use ONLY facts present in agent findings / source titles above.
+   - Do NOT invent product categories, vertical pivots, rebrands, or competitors not supported by findings.
+   - Do NOT mention other products from memory (e.g. Lilian) unless they appear in the current query or findings.
+   - If sources look like people, resumes, or LinkedIn personal profiles for "${product ?? 'the product'}", say evidence is ambiguous and ask for the official company URL instead of inventing strategy.
+   - If evidence is thin or conflicting, set recommendation confidence to "low", avoid "immediate" priority, and state uncertainty in plain language.
+   - Never claim a market growth % or industry ranking unless it appears in the findings.
+4. Clean prose only — no [WEB]/[NEWS]/[REDDIT] labels.
+5. Be specific when evidence supports it: name products, buyer types, workflows, pricing from the findings. Avoid vague filler.
+6. Keep "answer" under 120 words.
+7. Exactly 2-3 recommendations. Each title must be a simple action (verb-first, ≤8 words). Evidence must quote a concrete finding (or say "not enough evidence").
+8. Prefer recommendations tagged immediate ONLY when findings strongly support shipping now.
+9. Follow-ups must be simple decision questions about THIS product/competitor only.
 
 Return ONLY valid JSON:
 {
@@ -276,7 +304,7 @@ Return ONLY valid JSON:
       : '';
     const raw = await generateHuggingFaceText(prompt + imageNote, {
       maxNewTokens: 768,
-      temperature: 0.2,
+      temperature: 0.15,
     });
     const parsed = safeParseJson(raw);
     return {
@@ -583,32 +611,61 @@ export async function orchestrate(
     onAgentUpdate?.(execRun);
   }
 
-  // Step 4: Synthesise + generate mind map in parallel (2 model calls)
+  // Step 4: Entity-filter sources before synthesis so the model sees less noise
+  const filtered = applyEntitySourceFilterToOutputs(outputs, product, competitor);
+  const researchOutputs = filtered.outputs;
+
+  // Step 5: Synthesise + generate mind map in parallel (2 model calls)
   log?.('Reasoning over findings — synthesizing answer and strategic mind map…');
   const [synthesisResult, mindMapResult] = await Promise.all([
-    synthesize(query, outputs, history, images, synthesisMemoryContext),
-    generateMindMap(query, product, outputs),
+    synthesize(query, researchOutputs, history, images, synthesisMemoryContext, product, competitor),
+    generateMindMap(query, product, researchOutputs),
   ]);
   modelCallCount += 2; // synthesis + mind map
-  const { answer, recommendations, followUps } = synthesisResult;
 
   // Append mind map to outputs if generated successfully
   if (mindMapResult) {
-    outputs.push(mindMapResult);
+    researchOutputs.push(mindMapResult);
   }
 
-  // Step 5: Filter & rank sources across all agent outputs
-  for (const output of outputs) {
+  // Step 6: URL hygiene + entity relevance ranking
+  for (const output of researchOutputs) {
     output.sources = filterAndRankSources(output.sources, 8);
   }
 
-  // Step 6: Compute overall confidence
-  const avgConfidence = outputs.length > 0
-    ? outputs.reduce((sum, o) => sum + o.confidenceScore, 0) / outputs.length
+  // Step 7: Post-synthesis quality gate (anti-hallucination / abstain)
+  const allSources = researchOutputs.flatMap((o) => o.sources);
+  const agentConfidenceAvg = researchOutputs.length > 0
+    ? researchOutputs.reduce((sum, o) => sum + o.confidenceScore, 0) / researchOutputs.length
     : 0.5;
-  const totalConfidence: ConfidenceLevel = scoreToLevel(avgConfidence);
+  const guarded = applyOutputQualityGate({
+    product,
+    competitor,
+    sources: allSources,
+    answer: synthesisResult.answer,
+    recommendations: synthesisResult.recommendations,
+    followUps: synthesisResult.followUps,
+    agentConfidenceAvg,
+  });
+  if (guarded.quality.shouldAbstainFromStrongClaims) {
+    logger.warn('orchestrator.quality_abstain', {
+      product,
+      competitor,
+      flags: guarded.quality.flags,
+      matchRatio: guarded.quality.sourceMatchRatio,
+      matched: guarded.quality.matchedSourceCount,
+      total: guarded.quality.totalSourceCount,
+    });
+    log?.('Evidence quality check flagged thin or ambiguous grounding — softening claims…');
+  }
 
-  // Step 7: Build run metrics
+  const answer = guarded.answer;
+  const recommendations = guarded.recommendations;
+  const followUps = guarded.followUps;
+  const totalConfidence = guarded.totalConfidence;
+  const outputsFinal = researchOutputs;
+
+  // Step 8: Build run metrics
   // Tool call count: each successful agent typically makes 2-4 tool calls.
   // We estimate based on completed agents (a rough heuristic — agents don't
   // currently report exact tool call counts back).
@@ -632,7 +689,7 @@ export async function orchestrate(
     product,
     competitor,
     agentRuns,
-    outputs,
+    outputs: outputsFinal,
     synthesizedAnswer: answer,
     topRecommendations: recommendations,
     suggestedFollowUps: followUps,

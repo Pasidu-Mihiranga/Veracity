@@ -29,7 +29,8 @@ function g2ReviewsUrl(competitorBrand: string): string {
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
 
-  const competitorName = competitor ?? 'relevant competitors';
+  const competitorName = competitor?.trim() || null;
+  const searchSubject = competitorName || `${product} alternatives`;
   const g2Url = !isPlaceholderCompetitor(competitor) && competitor?.trim()
     ? g2ReviewsUrl(competitor)
     : null;
@@ -43,12 +44,16 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     g2ScrapeResult,
     socialReviewResult,
   ] = await Promise.allSettled([
-    searchWeb(`${competitorName} vs ${product} review pros cons 2025`),
+    searchWeb(competitorName
+      ? `${competitorName} vs ${product} review pros cons 2025`
+      : `${product} vs alternatives review pros cons 2025`),
     searchProductReviews(product),
-    searchProductReviews(competitorName),
-    searchHN(`${competitorName} ${product} review comparison`),
+    competitorName ? searchProductReviews(competitorName) : searchReddit(`${product} alternative vs review`),
+    searchHN(competitorName ? `${competitorName} ${product} review comparison` : `${product} review comparison`),
     g2Url ? scrapePage(g2Url) : skippedScrapePromise(),
-    searchWeb(`${competitorName} vs ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com review comparison buyer feedback`),
+    searchWeb(competitorName
+      ? `${competitorName} vs ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com review comparison buyer feedback`
+      : `${product} review site:x.com OR site:twitter.com OR site:linkedin.com buyer feedback`),
   ]);
 
   // Also search for deal loss reasons in sales-adjacent communities
@@ -75,7 +80,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   if (redditCompetitorResult.status === 'fulfilled') {
     redditCompetitorResult.value.data.slice(0, 4).forEach(p => {
       sources.push({ url: p.url, title: p.title, timestamp: p.created, tool: 'reddit' });
-      rawContent.push(`[REDDIT ${competitorName}] sentiment=${p.sentiment} | ${p.title}: ${p.snippet}`);
+      rawContent.push(`[REDDIT ${competitorName ?? 'alternatives'}] sentiment=${p.sentiment} | ${p.title}: ${p.snippet}`);
     });
   }
   if (hnResult.status === 'fulfilled') {
@@ -114,7 +119,7 @@ ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
-Competitor: ${competitorName}
+Competitor: ${competitorName ?? 'category alternatives'}
 
 Raw signals (buyer reviews, Reddit posts, comparisons):
 ${rawContent.join('\n')}
@@ -169,7 +174,7 @@ Produce JSON:
     interpretation: parsed.interpretation ?? [],
     sources,
     generatedAt: new Date().toISOString(),
-    competitor: competitorName,
+    competitor: competitorName ?? 'category alternatives',
     competitorWins: (parsed.competitorWins ?? []) as WinReason[],
     competitorLosses: (parsed.competitorLosses ?? []) as WinReason[],
     buyerSentiment: parsed.buyerSentiment ?? 'mixed',
