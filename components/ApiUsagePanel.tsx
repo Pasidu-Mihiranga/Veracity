@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, Cpu, DollarSign, Gauge, Plug, RefreshCw, Server } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
 import type { RunMetrics } from '@/lib/agents/types';
 
@@ -29,6 +30,40 @@ type SessionUsage = {
   totalToolCalls: number;
 };
 
+function StatCard({
+  label,
+  value,
+  hint,
+  icon,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div
+      className="results-panel p-4 sm:p-5 flex flex-col gap-2 min-h-[108px]"
+      style={{ background: 'var(--surface)' }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="ui-section-label" style={{ color: 'var(--foreground-subtle)' }}>
+          {label}
+        </span>
+        <span style={{ color: 'var(--accent)' }}>{icon}</span>
+      </div>
+      <p className="ui-heading" style={{ fontSize: 22 }}>
+        {value}
+      </p>
+      {hint ? (
+        <p className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ApiUsagePanel({
   lastMetrics,
   lastLive,
@@ -38,7 +73,7 @@ export function ApiUsagePanel({
   lastLive?: LiveStreamMetrics;
   sessionTotals: SessionUsage;
 }) {
-  const { text, textMuted, textSubtle } = useTheme();
+  const { text, textMuted } = useTheme();
   const [info, setInfo] = useState<UsageInfo | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -50,13 +85,15 @@ export function ApiUsagePanel({
         setErr(res.status === 401 ? 'Sign in to see usage details.' : 'Could not load usage info.');
         return;
       }
-      setInfo(await res.json() as UsageInfo);
+      setInfo((await res.json()) as UsageInfo);
     } catch {
       setErr('Network error');
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const latencyMs = lastMetrics?.totalLatencyMs ?? lastLive?.elapsedMs;
   const cost = lastMetrics?.estimatedCostUsd ?? lastLive?.estimatedCostUsd;
@@ -64,83 +101,198 @@ export function ApiUsagePanel({
   const toolCalls = lastMetrics?.toolCallCount ?? lastLive?.toolCallCount;
   const agentN = lastMetrics?.agentCount ?? lastLive?.agentCount;
   const doneN = lastMetrics?.completedAgentCount ?? lastLive?.completedAgentCount;
+  const failedN = lastLive?.failedAgentCount;
+  const hasRun = Boolean(lastMetrics || lastLive);
+
+  const avgCost = useMemo(() => {
+    if (!sessionTotals.queries) return null;
+    return sessionTotals.totalCostUsd / sessionTotals.queries;
+  }, [sessionTotals]);
+
+  const avgLatency = useMemo(() => {
+    if (!sessionTotals.queries) return null;
+    return sessionTotals.totalLatencyMs / sessionTotals.queries;
+  }, [sessionTotals]);
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl w-full">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 text-center sm:text-left">
+        <div className="max-w-2xl mx-auto sm:mx-0">
+          <h2 className="ui-heading" style={{ fontSize: 24, color: text }}>
+            API and model usage
+          </h2>
+          <p className="ui-body mt-2" style={{ color: textMuted }}>
+            Estimated costs and latency from Veracity intelligence runs. Provider dashboards remain the source of truth for billing.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            void load();
+          }}
+          className="ui-mono inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl self-center sm:self-auto"
+          style={{
+            color: 'var(--accent)',
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border)',
+            fontSize: 11,
+          }}
+        >
+          <RefreshCw size={12} /> Refresh config
+        </button>
+      </div>
+
       <div>
-        <h2 className="font-display text-xl font-extrabold tracking-tight" style={{ color: text }}>
-          API and model usage
-        </h2>
-        <p className="text-[13px] mt-1.5 leading-relaxed" style={{ color: textMuted }}>
-          In-app numbers are estimated from the last intelligence run and your session. Provider dashboards are authoritative for billing.
-        </p>
+        <p className="ui-section-label mb-3 text-center sm:text-left">Last intelligence run</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard
+            label="Latency"
+            value={latencyMs != null ? `${(latencyMs / 1000).toFixed(1)}s` : '—'}
+            hint={hasRun ? 'End-to-end sweep' : 'Run a query first'}
+            icon={<Gauge size={16} />}
+          />
+          <StatCard
+            label="Est. cost"
+            value={cost != null ? `$${Number(cost).toFixed(4)}` : '—'}
+            hint="Gemini tokens (est.)"
+            icon={<DollarSign size={16} />}
+          />
+          <StatCard
+            label="Model calls"
+            value={geminiCalls != null ? String(geminiCalls) : '—'}
+            hint="LLM invocations"
+            icon={<Cpu size={16} />}
+          />
+          <StatCard
+            label="Agents"
+            value={agentN != null ? `${doneN ?? 0}/${agentN}` : '—'}
+            hint={failedN ? `${failedN} failed` : 'Completed / total'}
+            icon={<Activity size={16} />}
+          />
+        </div>
+        {toolCalls != null ? (
+          <p className="ui-caption mt-3 text-center sm:text-left" style={{ color: 'var(--foreground-subtle)' }}>
+            Tool invocations this run: {toolCalls}
+          </p>
+        ) : null}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="veracity-card p-5">
-          <p className="label-mono mb-3">Last run</p>
-          {lastMetrics || lastLive ? (
-            <ul className="text-[13px] font-mono space-y-2" style={{ color: textMuted }}>
-              {latencyMs != null && <li>Latency: {(latencyMs / 1000).toFixed(1)}s</li>}
-              {cost != null && <li>Est. model cost: ${Number(cost).toFixed(4)}</li>}
-              {geminiCalls != null && <li>Model calls (est.): {geminiCalls}</li>}
-              {toolCalls != null && <li>Tool invocations (est.): {toolCalls}</li>}
-              {agentN != null && <li>Agents: {doneN ?? '—'}/{agentN}</li>}
-            </ul>
-          ) : (
-            <p className="text-[13px] leading-relaxed" style={{ color: textMuted }}>
-              Run a query on the Intelligence tab to populate metrics.
-            </p>
-          )}
-        </div>
-        <div className="veracity-card p-5">
-          <p className="label-mono mb-3">Session</p>
-          <ul className="text-[13px] font-mono space-y-2" style={{ color: textMuted }}>
-            <li>Queries with metrics: {sessionTotals.queries}</li>
-            <li>Sum est. cost: ${sessionTotals.totalCostUsd.toFixed(4)}</li>
-            <li>Sum latency: {(sessionTotals.totalLatencyMs / 1000).toFixed(1)}s</li>
-            <li>Sum model calls (est.): {sessionTotals.totalGeminiCalls}</li>
-            <li>Sum tool calls (est.): {sessionTotals.totalToolCalls}</li>
-          </ul>
+      <div>
+        <p className="ui-section-label mb-3 text-center sm:text-left">This browser session</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard
+            label="Queries"
+            value={String(sessionTotals.queries)}
+            hint="With recorded metrics"
+            icon={<Server size={16} />}
+          />
+          <StatCard
+            label="Session cost"
+            value={`$${sessionTotals.totalCostUsd.toFixed(4)}`}
+            hint={avgCost != null ? `Avg $${avgCost.toFixed(4)} / query` : 'Sum of estimates'}
+            icon={<DollarSign size={16} />}
+          />
+          <StatCard
+            label="Session latency"
+            value={`${(sessionTotals.totalLatencyMs / 1000).toFixed(1)}s`}
+            hint={avgLatency != null ? `Avg ${(avgLatency / 1000).toFixed(1)}s / query` : 'Sum'}
+            icon={<Gauge size={16} />}
+          />
+          <StatCard
+            label="Model calls"
+            value={String(sessionTotals.totalGeminiCalls)}
+            hint={`${sessionTotals.totalToolCalls} tool calls`}
+            icon={<Cpu size={16} />}
+          />
         </div>
       </div>
 
-      {err && (
-        <div className="neu-inset rounded-2xl px-4 py-3 flex items-start gap-2">
-          <p className="text-[12px] text-sky-700 dark:text-sky-300">{err}</p>
+      {err ? (
+        <div
+          className="rounded-2xl px-4 py-3 text-center"
+          style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+        >
+          <p className="ui-body-sm" style={{ color: 'var(--status-warn)' }}>
+            {err}
+          </p>
         </div>
-      )}
+      ) : null}
 
-      {info && (
-        <div className="space-y-4">
-          <div className="veracity-card p-5">
-            <p className="label-mono mb-3">Configured models</p>
-            <p className="text-[13px] font-mono leading-relaxed" style={{ color: textMuted }}>
-              Text: {info.models.text}
-            </p>
-            <p className="text-[13px] font-mono mt-1.5 leading-relaxed" style={{ color: textMuted }}>
-              Embeddings: {info.models.embedding} ({info.models.embeddingDimensions}d)
+      {info ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="results-panel p-5 sm:p-6" style={{ background: 'var(--surface)' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Cpu size={14} style={{ color: 'var(--accent)' }} />
+              <p className="ui-section-label">Configured models</p>
+            </div>
+            <div className="space-y-3">
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+              >
+                <p className="ui-caption mb-1" style={{ color: 'var(--foreground-subtle)' }}>
+                  Text generation
+                </p>
+                <p className="ui-title" style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+                  {info.models.text}
+                </p>
+              </div>
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+              >
+                <p className="ui-caption mb-1" style={{ color: 'var(--foreground-subtle)' }}>
+                  Embeddings
+                </p>
+                <p className="ui-title" style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+                  {info.models.embedding}
+                </p>
+                <p className="ui-caption mt-1">{info.models.embeddingDimensions} dimensions</p>
+              </div>
+            </div>
+            <p className="ui-caption mt-4" style={{ color: 'var(--foreground-subtle)' }}>
+              Override with GEMINI_MODEL / embedding env vars. Free-tier keys need a supported flash-lite model.
             </p>
           </div>
 
-          <div className="veracity-card p-5">
-            <p className="label-mono mb-4">Integrations</p>
-            <ul className="flex flex-col gap-3">
-              {info.providers.map(p => (
-                <li key={p.id} className="neu-inset rounded-2xl px-4 py-3.5">
+          <div className="results-panel p-5 sm:p-6" style={{ background: 'var(--surface)' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Plug size={14} style={{ color: 'var(--accent)' }} />
+              <p className="ui-section-label">Integrations</p>
+            </div>
+            <ul className="flex flex-col gap-2.5">
+              {info.providers.map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded-xl px-4 py-3.5"
+                  style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+                >
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-[13px] font-semibold" style={{ color: text }}>{p.label}</span>
-                    <span className={`text-[10px] font-mono px-2 py-0.5 ${p.configured ? 'neu-pill-positive' : 'neu-pill'}`}>
+                    <span className="ui-title" style={{ fontSize: 14 }}>
+                      {p.label}
+                    </span>
+                    <span
+                      className="ui-mono px-2 py-0.5 rounded-full"
+                      style={{
+                        fontSize: 10,
+                        color: p.configured ? 'var(--accent)' : 'var(--foreground-subtle)',
+                        background: p.configured
+                          ? 'color-mix(in srgb, var(--accent) 12%, transparent)'
+                          : 'var(--chart-track)',
+                      }}
+                    >
                       {p.configured ? 'configured' : 'not set'}
                     </span>
                   </div>
-                  <p className="text-[12px] leading-relaxed" style={{ color: textSubtle }}>{p.usageNote}</p>
+                  <p className="ui-caption" style={{ color: 'var(--foreground-muted)' }}>
+                    {p.usageNote}
+                  </p>
                 </li>
               ))}
             </ul>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
