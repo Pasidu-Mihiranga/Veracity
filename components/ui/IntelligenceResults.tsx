@@ -373,7 +373,9 @@ export function IntelligenceResults({
                       className="rounded-xl p-4"
                       style={{
                         background: cardBg2,
-                        border: `1px solid ${borderC || 'var(--border)'}`,
+                        borderTop: `1px solid ${borderC || 'var(--border)'}`,
+                        borderRight: `1px solid ${borderC || 'var(--border)'}`,
+                        borderBottom: `1px solid ${borderC || 'var(--border)'}`,
                         borderLeft: `3px solid ${domainMeta?.color ?? accentInk}`,
                       }}
                     >

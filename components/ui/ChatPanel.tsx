@@ -133,9 +133,11 @@ export function ChatPanel({
           key={fu.id}
           className="rounded-lg overflow-hidden"
           style={{
-            border: 'none',
-            boxShadow: neuExtrudedSm,
+            borderTop: 'none',
+            borderRight: 'none',
+            borderBottom: 'none',
             borderLeft: `2px solid ${accentInk}`,
+            boxShadow: neuExtrudedSm,
             background: cardBg,
           }}
         >
