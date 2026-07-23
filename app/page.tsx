@@ -18,6 +18,8 @@ import { SessionSidebar } from '@/components/ui/SessionSidebar';
 import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
+import { AlertsDrawer } from '@/components/ui/AlertsDrawer';
+import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
 import {
   defaultSelectedAgents,
@@ -50,6 +52,8 @@ export default function VeracityDashboard() {
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alertsUnread, setAlertsUnread] = useState(0);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -95,6 +99,21 @@ export default function VeracityDashboard() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
   }, [supabase]);
+
+  useEffect(() => {
+    if (!featureFlags.alerts) return;
+    const loadUnread = () => {
+      void fetch('/api/alerts?unread=1')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { alerts?: unknown[] } | null) => {
+          setAlertsUnread(d?.alerts?.length ?? 0);
+        })
+        .catch(() => {});
+    };
+    loadUnread();
+    const id = window.setInterval(loadUnread, 60000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (followUps.length > 0) followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -204,6 +223,8 @@ export default function VeracityDashboard() {
           selectedAgents={selectedAgents}
           mirofishRunning={mirofishRunning}
           onOpenMemory={() => setMemoryDrawerOpen(true)}
+          onOpenAlerts={() => setAlertsOpen(true)}
+          alertsUnread={alertsUnread}
           isDark={isDark}
           onToggleTheme={toggleTheme}
           userEmail={userEmail}
@@ -275,6 +296,7 @@ export default function VeracityDashboard() {
       neuExtrudedSm={neuExtrudedSm}
       accentInk={accentInk}
     />
+    <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     </div>
   );
 }

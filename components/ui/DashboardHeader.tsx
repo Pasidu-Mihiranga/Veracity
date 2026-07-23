@@ -2,10 +2,11 @@
 
 import type { RefObject } from 'react';
 import {
-  BarChart3, Brain, Crosshair, LogOut, Sparkles, Sun, Moon, User,
+  BarChart3, Bell, Brain, Crosshair, LogOut, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
+import { featureFlags } from '@/lib/feature-flags';
 
 export type TopTab = 'intelligence' | 'usage' | 'steal';
 
@@ -19,6 +20,8 @@ export type DashboardHeaderProps = {
   selectedAgents: Record<Domain, boolean>;
   mirofishRunning: boolean;
   onOpenMemory: () => void;
+  onOpenAlerts?: () => void;
+  alertsUnread?: number;
   isDark: boolean;
   onToggleTheme: () => void;
   userEmail: string | null;
@@ -40,6 +43,8 @@ export function DashboardHeader({
   selectedAgents,
   mirofishRunning,
   onOpenMemory,
+  onOpenAlerts,
+  alertsUnread = 0,
   isDark,
   onToggleTheme,
   userEmail,
@@ -102,6 +107,22 @@ export function DashboardHeader({
             ) : null}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {featureFlags.alerts && onOpenAlerts ? (
+              <button
+                type="button"
+                onClick={onOpenAlerts}
+                className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative"
+                style={{ color: textMuted }}
+                title="Alerts"
+              >
+                <Bell size={14} />
+                {alertsUnread > 0 ? (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-accent text-white text-[9px] font-mono flex items-center justify-center">
+                    {alertsUnread > 9 ? '9+' : alertsUnread}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onOpenMemory}

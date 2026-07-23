@@ -16,6 +16,7 @@ import {
   patchResearchJob,
 } from '@/lib/research-jobs';
 import { query } from '@/lib/db';
+import { processMonitoringJobResult } from '@/lib/monitoring/process-result';
 
 export type SweepRequestedData = {
   jobId: string;
@@ -32,6 +33,10 @@ export type SweepRequestedData = {
   forceExecution?: boolean;
   includeMirofish?: boolean;
   includeMirofishLive?: boolean;
+  kind?: string;
+  watchlistId?: string;
+  product?: string;
+  competitor?: string;
 };
 
 function isTransientError(err: unknown): boolean {
@@ -165,6 +170,21 @@ export const researchSweepFn = inngest.createFunction(
         finished: true,
       });
       await appendJobLog(jobId, 'Async sweep completed.');
+
+      if (data.kind === 'monitoring') {
+        await step.run('process-monitoring', async () => {
+          await processMonitoringJobResult({
+            userId: data.userId,
+            jobId,
+            watchlistId: data.watchlistId,
+            product: data.product || result.product || 'Product',
+            competitor: data.competitor || result.competitor || 'Competitor',
+            output: result,
+            succeeded: true,
+          });
+        });
+      }
+
       return { ok: true, jobId };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -209,6 +229,28 @@ export const researchSweepFn = inngest.createFunction(
         finished: true,
         error: message,
       });
+      if (data.kind === 'monitoring' && data.watchlistId) {
+        await processMonitoringJobResult({
+          userId: data.userId,
+          jobId,
+          watchlistId: data.watchlistId,
+          product: data.product || 'Product',
+          competitor: data.competitor || 'Competitor',
+          output: {
+            query: data.query,
+            product: data.product || 'Product',
+            competitor: data.competitor,
+            agentRuns: [],
+            outputs: [],
+            synthesizedAnswer: '',
+            topRecommendations: [],
+            suggestedFollowUps: [],
+            totalConfidence: 'low',
+            generatedAt: new Date().toISOString(),
+          },
+          succeeded: false,
+        }).catch(() => {});
+      }
       throw err;
     }
   },
