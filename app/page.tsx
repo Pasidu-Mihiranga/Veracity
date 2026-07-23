@@ -19,6 +19,11 @@ import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
+import {
+  defaultSelectedAgents,
+  loadSelectedAgents,
+  saveSelectedAgents,
+} from '@/lib/selected-agents-storage';
 const MemoryDrawer = dynamic(
   () => import('@/components/ui/MemoryDrawer').then((m) => m.MemoryDrawer),
   { ssr: false },
@@ -43,11 +48,18 @@ export default function VeracityDashboard() {
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
-  const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(() =>
-    Object.fromEntries(ALL_DOMAINS.map(d => [d, d !== 'mirofish-live'])) as Record<Domain, boolean>
-  );
+  const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [topTab, setTopTab] = useState<'intelligence' | 'usage' | 'steal'>('intelligence');
+
+  // Persist / restore adaptive agent selection per session
+  useEffect(() => {
+    setSelectedAgents(loadSelectedAgents(currentSessionId));
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    saveSelectedAgents(currentSessionId, selectedAgents);
+  }, [currentSessionId, selectedAgents]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const followUpEndRef = useRef<HTMLDivElement>(null);
@@ -224,6 +236,7 @@ export default function VeracityDashboard() {
           composerProps={composerProps}
           sessionUsage={sessionUsage}
           queryCacheStats={queryCacheStats}
+          selectedAgentIds={selectedAgentIds}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
       </div>

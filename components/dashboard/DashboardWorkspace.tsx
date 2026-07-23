@@ -81,6 +81,7 @@ type Props = {
   composerProps: ComposerProps;
   sessionUsage: { queries: number; totalCostUsd: number; totalLatencyMs: number; totalGeminiCalls: number; totalToolCalls: number };
   queryCacheStats: { hits: number; misses: number };
+  selectedAgentIds?: string[];
   chrome: {
     cardBg: string;
     cardBg2: string;
@@ -127,6 +128,7 @@ export function DashboardWorkspace({
   composerProps,
   sessionUsage,
   queryCacheStats,
+  selectedAgentIds,
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
@@ -176,6 +178,9 @@ export function DashboardWorkspace({
                   completedCount={completedCount}
                   totalCount={totalCount}
                   orchestrationLines={orchestrationLines}
+                  selectedAgentIds={selectedAgentIds}
+                  product={currentResult?.orchestratorOutput?.product}
+                  competitor={currentResult?.orchestratorOutput?.competitor}
                   {...chrome}
                 />
               </AppErrorBoundary>
