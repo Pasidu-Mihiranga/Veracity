@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DM_Sans, JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import { AppQueryProvider } from '@/lib/query-provider';
 import { ThemeProvider } from '@/lib/theme-provider';
 
 const dmSans = DM_Sans({
@@ -41,7 +42,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="font-sans antialiased text-foreground bg-background" suppressHydrationWarning>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <AppQueryProvider>{children}</AppQueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
