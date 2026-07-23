@@ -2,6 +2,7 @@ import type {
   AgentOutput,
   AgentSource,
   ConfidenceLevel,
+  OutputQualityReport,
   Recommendation,
 } from '@/lib/agents/types';
 import { scoreToLevel } from '@/lib/agents/types';
@@ -11,16 +12,7 @@ import {
   sourceMatchesEntities,
 } from '@/lib/tools/source-relevance';
 
-export type OutputQualityReport = {
-  /** 0–1 overall evidence quality after checks */
-  evidenceScore: number;
-  sourceMatchRatio: number;
-  matchedSourceCount: number;
-  totalSourceCount: number;
-  flags: string[];
-  /** When true, decision should stay cautious / abstain from bold pivots */
-  shouldAbstainFromStrongClaims: boolean;
-};
+export type { OutputQualityReport };
 
 export type QualityGuardedSynthesis = {
   answer: string;
@@ -108,14 +100,26 @@ export function assessOutputQuality(input: {
     flags.push('contradictory_strategy_framing');
   }
 
+  const agentAvg = Math.max(0, Math.min(1, input.agentConfidenceAvg));
+  const entityMatch = Math.max(0, Math.min(1, relevance.matchRatio));
+  // Tool health proxy: enough matched sources and non-empty pool
+  const toolHealth = Math.max(
+    0,
+    Math.min(
+      1,
+      input.sources.length === 0
+        ? 0
+        : 0.35 * Math.min(input.sources.length / 10, 1) +
+          0.65 * Math.min(matchedSourceCount / 8, 1),
+    ),
+  );
+
   // Blend tool/agent confidence with evidence match
   const evidenceScore = Math.max(
     0,
     Math.min(
       1,
-      input.agentConfidenceAvg * 0.45 +
-        relevance.matchRatio * 0.4 +
-        Math.min(matchedSourceCount / 8, 1) * 0.15,
+      agentAvg * 0.45 + entityMatch * 0.4 + Math.min(matchedSourceCount / 8, 1) * 0.15,
     ),
   );
 
@@ -132,6 +136,11 @@ export function assessOutputQuality(input: {
     (flags.includes('person_homonym_noise') && !strongGrounding) ||
     (!strongGrounding && evidenceScore < 0.45);
 
+  // Gate score drops when abstaining / flagged
+  const qualityGate = shouldAbstainFromStrongClaims
+    ? Math.min(evidenceScore, 0.42)
+    : evidenceScore;
+
   return {
     evidenceScore,
     sourceMatchRatio: relevance.matchRatio,
@@ -139,6 +148,10 @@ export function assessOutputQuality(input: {
     totalSourceCount: input.sources.length,
     flags,
     shouldAbstainFromStrongClaims,
+    toolHealth,
+    entityMatch,
+    agentAvg,
+    qualityGate,
   };
 }
 
