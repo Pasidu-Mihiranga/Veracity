@@ -140,11 +140,60 @@ export function isValidSourceUrl(url: string | undefined | null): boolean {
  * Trusted sources get priority when deduplicating and sorting.
  */
 export function isTrustedSource(url: string): boolean {
+  return getSourceTrustTier(url) === 'T1';
+}
+
+export type SourceTrustTier = 'T1' | 'T2' | 'T3';
+
+/** Community / discussion / repo domains — solid secondary evidence */
+const T2_DOMAINS = [
+  'github.com',
+  'news.ycombinator.com',
+  'ycombinator.com',
+  'reddit.com',
+  'linkedin.com',
+  'twitter.com',
+  'x.com',
+  'medium.com',
+  'substack.com',
+  'producthunt.com',
+];
+
+/**
+ * T1 = press / analyst / review trusted list
+ * T2 = community + product/competitor primary domains (when provided)
+ * T3 = other valid sources
+ */
+export function getSourceTrustTier(
+  url: string,
+  opts?: { productDomains?: string[]; competitorDomains?: string[] },
+): SourceTrustTier {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '');
-    return TRUSTED_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`));
+    const isT1 = TRUSTED_DOMAINS.some(
+      (d) => hostname === d || hostname.endsWith(`.${d}`),
+    );
+    // Trusted list includes some T2-ish hosts — treat community as T2 for badges
+    const isCommunity = T2_DOMAINS.some(
+      (d) => hostname === d || hostname.endsWith(`.${d}`),
+    );
+    if (isT1 && !isCommunity) return 'T1';
+    if (isCommunity) return 'T2';
+
+    const primary = [
+      ...(opts?.productDomains ?? []),
+      ...(opts?.competitorDomains ?? []),
+    ].map((d) => d.replace(/^www\./, '').toLowerCase());
+    if (
+      primary.some(
+        (d) => d && (hostname === d || hostname.endsWith(`.${d}`) || hostname.includes(d)),
+      )
+    ) {
+      return 'T2';
+    }
+    return 'T3';
   } catch {
-    return false;
+    return 'T3';
   }
 }
 

@@ -22,6 +22,8 @@ import {
   applyEntitySourceFilterToOutputs,
   applyOutputQualityGate,
 } from '@/lib/agents/output-quality';
+import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
+import { computeEvidenceCoverage } from '@/lib/agents/evidence-coverage';
 import { logger } from '@/lib/logger';
 import type {
   AgentConfig,
@@ -660,10 +662,25 @@ export async function orchestrate(
   }
 
   const answer = guarded.answer;
-  const recommendations = guarded.recommendations;
   const followUps = guarded.followUps;
   const totalConfidence = guarded.totalConfidence;
   const outputsFinal = researchOutputs;
+
+  // Step 7b: Bind recommendation evidence → source URLs (Evidence Trail)
+  const recommendations = bindEvidenceToSources(
+    guarded.recommendations,
+    allSources,
+    product,
+    competitor,
+  );
+
+  // Step 7c: Evidence Coverage Radar scores
+  const evidenceCoverage = computeEvidenceCoverage(
+    outputsFinal,
+    agentRuns,
+    product,
+    competitor,
+  );
 
   // Step 8: Build run metrics
   // Tool call count: each successful agent typically makes 2-4 tool calls.
@@ -696,6 +713,8 @@ export async function orchestrate(
     totalConfidence,
     generatedAt: new Date().toISOString(),
     metrics,
+    quality: guarded.quality,
+    evidenceCoverage,
   };
 }
 
