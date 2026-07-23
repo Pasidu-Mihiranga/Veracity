@@ -115,6 +115,15 @@ async function handleChatPost(req: NextRequest, userId: string) {
     return jsonError('query is required', 400);
   }
 
+  const { buildLearningContext } = await import('@/lib/feedback-learning');
+  let learningContext = '';
+  try {
+    learningContext = await buildLearningContext(userId);
+  } catch {
+    learningContext = '';
+  }
+  const mergedMemoryContext = [memoryContext, learningContext].filter(Boolean).join('\n\n') || undefined;
+
   const requestCtx = getRequestContext();
   logger.info('chat.started', {
     queryPreview: query.slice(0, 120),
@@ -138,7 +147,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
           query,
           history,
           images,
-          memoryContext,
+          memoryContext: mergedMemoryContext,
           selectedAgents,
           followUpMode,
           forceFullSweep,
@@ -156,7 +165,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
           query,
           history,
           images,
-          memoryContext,
+          memoryContext: mergedMemoryContext,
           selectedAgents,
           followUpMode,
           forceFullSweep,
@@ -241,7 +250,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
             });
           },
           images,
-          memoryContext,
+          mergedMemoryContext,
           {
             followUpMode,
             selectedAgents,
@@ -265,7 +274,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
               write({ type: 'agent_update', run: agentRun, metrics: computeLiveMetrics() });
             },
             images,
-            memoryContext,
+            mergedMemoryContext,
             (line: string) => write({ type: 'orchestration_log', line }),
           );
           if (mirofishOutput) {
@@ -286,7 +295,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
               write({ type: 'agent_update', run: agentRun, metrics: computeLiveMetrics() });
             },
             images,
-            memoryContext,
+            mergedMemoryContext,
             (line: string) => write({ type: 'orchestration_log', line }),
           );
           if (mirofishLiveOutput) {

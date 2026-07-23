@@ -19,10 +19,13 @@ import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
+import { CompetitiveTimeline } from '@/components/ui/CompetitiveTimeline';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
+import { featureFlags } from '@/lib/feature-flags';
 import {
   rateRecommendation, recommendationKey, type RecommendationRating,
 } from '@/lib/feedback';
+import { confidenceFromRecLevel } from '@/lib/decision-policy';
 
 const VIZ_PRIORITY = [
   'competitive-matrix',
@@ -276,6 +279,13 @@ export function IntelligenceResults({
 
       <ResearchReplay message={currentResult} />
 
+      {featureFlags.competitiveTimeline ? (
+        <CompetitiveTimeline
+          product={currentResult.orchestratorOutput?.product}
+          competitor={currentResult.orchestratorOutput?.competitor}
+        />
+      ) : null}
+
       <StrategyCanvas message={currentResult} />
 
       {/* 2. Recommendations */}
@@ -299,6 +309,26 @@ export function IntelligenceResults({
                   rationale: rec.rationale ?? '',
                   rating,
                 });
+                if (featureFlags.decisionMemory && (rating === 'up' || rating === 'down')) {
+                  const decision = rating === 'up' ? 'accepted' : 'rejected';
+                  const reason = rating === 'up'
+                    ? `Accepted because ${(rec.rationale ?? '').split(/[.!?]/)[0] || 'recommendation matched strategy'}`
+                    : `Rejected because ${(rec.rationale ?? '').split(/[.!?]/)[0] || 'did not fit current priorities'}`;
+                  void fetch('/api/decisions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      title: rec.title,
+                      rationale: rec.rationale,
+                      decision,
+                      reason,
+                      confidence: confidenceFromRecLevel(rec.confidence),
+                      sessionId: currentSessionId,
+                      sourceRecommendationKey: rk,
+                      evidenceUrls: rec.sourceUrls ?? [],
+                    }),
+                  }).catch(() => {});
+                }
               };
               return (
                 <div

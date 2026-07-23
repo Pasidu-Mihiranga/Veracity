@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Brain, X } from 'lucide-react';
 import type { UserMemory } from '@/lib/memory';
+import { featureFlags } from '@/lib/feature-flags';
 
 export type MemoryDrawerProps = {
   open: boolean;
@@ -15,6 +17,15 @@ export type MemoryDrawerProps = {
   neuExtruded: string;
   neuExtrudedSm: string;
   accentInk: string;
+};
+
+type DecisionLite = {
+  id: string;
+  title: string;
+  decision: string;
+  reason: string;
+  outcome: string;
+  confidence: number;
 };
 
 function ChipList({
@@ -62,6 +73,18 @@ export function MemoryDrawer({
   textSubtle,
   accentInk,
 }: MemoryDrawerProps) {
+  const [decisions, setDecisions] = useState<DecisionLite[]>([]);
+
+  useEffect(() => {
+    if (!open || !featureFlags.decisionMemory) return;
+    void fetch('/api/decisions')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { decisions?: DecisionLite[] } | null) => {
+        setDecisions(d?.decisions ?? []);
+      })
+      .catch(() => {});
+  }, [open]);
+
   if (!open) return null;
 
   const hasProfile = Boolean(
@@ -73,6 +96,19 @@ export function MemoryDrawer({
     || (memory?.facts?.length ?? 0)
     || memory?.raw_summary,
   );
+
+  const setOutcome = async (id: string, outcome: string) => {
+    await fetch('/api/decisions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, outcome }),
+    });
+    const res = await fetch('/api/decisions');
+    if (res.ok) {
+      const d = await res.json() as { decisions?: DecisionLite[] };
+      setDecisions(d.decisions ?? []);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -222,6 +258,70 @@ export function MemoryDrawer({
               )}
             </>
           )}
+
+          {featureFlags.decisionMemory ? (
+            <div className="flex flex-col gap-2">
+              <p className="ui-section-label" style={{ color: textSubtle }}>
+                Decisions
+              </p>
+              {decisions.length === 0 ? (
+                <p className="ui-caption" style={{ color: textMuted }}>
+                  Thumbs on recommendations become durable decisions with reasons.
+                </p>
+              ) : (
+                decisions.slice(0, 12).map((d) => (
+                  <div
+                    key={d.id}
+                    className="rounded-xl px-3.5 py-3 flex flex-col gap-1.5"
+                    style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="ui-mono" style={{ color: accentInk, fontSize: 10 }}>
+                        {d.decision}
+                      </span>
+                      <span className="ui-mono" style={{ color: textSubtle, fontSize: 10 }}>
+                        {(Number(d.confidence) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <p className="ui-body-sm" style={{ color: textMain }}>{d.title}</p>
+                    {d.reason ? (
+                      <p className="ui-caption" style={{ color: textMuted }}>Because {d.reason}</p>
+                    ) : null}
+                    <p className="ui-mono" style={{ color: textSubtle, fontSize: 10 }}>
+                      Outcome · {d.outcome}
+                    </p>
+                    {d.outcome === 'pending' ? (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          className="text-[10px] font-mono uppercase px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-600"
+                          onClick={() => { void setOutcome(d.id, 'validated'); }}
+                        >
+                          Validated
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[10px] font-mono uppercase px-2 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700"
+                          onClick={() => { void setOutcome(d.id, 'invalidated'); }}
+                        >
+                          Invalidated
+                        </button>
+                        {d.decision === 'rejected' ? (
+                          <button
+                            type="button"
+                            className="text-[10px] font-mono uppercase px-2 py-1 rounded border border-accent/20 bg-accent/5 text-accent"
+                            onClick={() => { void setOutcome(d.id, 'adopted_after_reject'); }}
+                          >
+                            Later adopted
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : null}
         </div>
       </aside>
     </div>
