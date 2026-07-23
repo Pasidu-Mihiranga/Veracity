@@ -1,10 +1,14 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import {
   Plus, History, Trash2, PanelLeft, PanelLeftClose,
 } from 'lucide-react';
 import type { ChatSession } from '@/lib/conversations';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
+import { SidebarAgentRow } from '@/components/ui/SidebarAgentRow';
+import { ALL_DOMAINS, type Domain } from '@/lib/domain-meta';
+import type { AgentRun } from '@/lib/agents/types';
 
 export type SessionSidebarProps = {
   collapsed: boolean;
@@ -15,6 +19,9 @@ export type SessionSidebarProps = {
   currentSessionId: string | null;
   onLoadSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => void;
+  selectedAgents: Record<Domain, boolean>;
+  onToggleAgent: (domain: Domain) => void;
+  getRunForDomain: (domain: Domain) => AgentRun | undefined;
   sidebarBg: string;
   cardBg2: string;
   neuExtrudedSm: string;
@@ -32,6 +39,9 @@ export function SessionSidebar({
   currentSessionId,
   onLoadSession,
   onDeleteSession,
+  selectedAgents,
+  onToggleAgent,
+  getRunForDomain,
   sidebarBg,
   cardBg2,
   neuExtrudedSm,
@@ -39,6 +49,22 @@ export function SessionSidebar({
   textMuted,
   textSubtle,
 }: SessionSidebarProps) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const ROW_HEIGHT = 62;
+  const VIEWPORT_HEIGHT = 360;
+  const OVERSCAN = 6;
+  const totalSessions = sessions.length;
+  const useVirtualList = totalSessions > 80;
+  const visibleRange = useMemo(() => {
+    if (!useVirtualList) return { start: 0, end: totalSessions };
+    const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+    const count = Math.ceil(VIEWPORT_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2;
+    return { start, end: Math.min(totalSessions, start + count) };
+  }, [scrollTop, totalSessions, useVirtualList]);
+  const visibleSessions = useVirtualList
+    ? sessions.slice(visibleRange.start, visibleRange.end)
+    : sessions;
+
   return (
     <aside
       className="sidebar-transition flex-shrink-0 flex flex-col h-full relative"
@@ -102,6 +128,28 @@ export function SessionSidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-3">
+          <div className="neu-extruded overflow-hidden rounded-[20px] mb-3" style={{ background: cardBg2 }}>
+            <div className="px-3 py-2.5 flex items-center justify-between">
+              <span className="ui-section-label" style={{ color: textSubtle }}>
+                Agents
+              </span>
+              <span className="ui-mono" style={{ color: textSubtle, fontSize: 10 }}>
+                {Object.values(selectedAgents).filter(Boolean).length}
+              </span>
+            </div>
+            <div className="px-2 pb-2 flex flex-col gap-1">
+              {ALL_DOMAINS.map((domain) => (
+                <SidebarAgentRow
+                  key={domain}
+                  domain={domain}
+                  run={getRunForDomain(domain)}
+                  selected={selectedAgents[domain]}
+                  onToggle={() => onToggleAgent(domain)}
+                />
+              ))}
+            </div>
+          </div>
+
           <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
             <div className="px-3 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -117,7 +165,11 @@ export function SessionSidebar({
               ) : null}
             </div>
 
-            <div className="py-1 px-1.5 pb-2">
+            <div
+              className="py-1 px-1.5 pb-2 overflow-y-auto"
+              style={{ maxHeight: VIEWPORT_HEIGHT }}
+              onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+            >
               {loadingSessions ? (
                 <div className="px-2 py-3 flex flex-col gap-2">
                   <div className="h-3 rounded skeleton w-4/5" />
@@ -125,8 +177,49 @@ export function SessionSidebar({
                   <div className="h-3 rounded skeleton w-2/3" style={{ animationDelay: '0.4s' }} />
                 </div>
               ) : sessions.length > 0 ? (
-                <div className="flex flex-col gap-0.5">
-                  {sessions.slice(0, 20).map((session) => (
+                <div
+                  className="flex flex-col gap-0.5 relative"
+                  style={useVirtualList ? { height: totalSessions * ROW_HEIGHT } : undefined}
+                >
+                  {useVirtualList ? (
+                    <div
+                      className="absolute left-0 right-0"
+                      style={{ top: visibleRange.start * ROW_HEIGHT }}
+                    >
+                      {visibleSessions.map((session) => (
+                        <div
+                          key={session.id}
+                          className={`session-item group relative flex items-center cursor-pointer ${
+                            currentSessionId === session.id ? 'active' : ''
+                          }`}
+                          onClick={() => onLoadSession(session.id)}
+                          style={{ minHeight: ROW_HEIGHT - 2 }}
+                        >
+                          <div className="flex-1 min-w-0 pr-6">
+                            <p className="session-title truncate" style={{ color: currentSessionId === session.id ? textMain : textMuted }}>
+                              {session.title}
+                            </p>
+                            {session.created_at && (
+                              <p className="ui-mono mt-0.5" style={{ color: textSubtle, fontSize: 10 }}>
+                                {new Date(session.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void onDeleteSession(session.id);
+                            }}
+                            className="absolute right-1.5 w-7 h-7 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                            style={{ color: '#0B1A2E' }}
+                            title="Delete session"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : visibleSessions.map((session) => (
                     <div
                       key={session.id}
                       className={`session-item group relative flex items-center cursor-pointer ${

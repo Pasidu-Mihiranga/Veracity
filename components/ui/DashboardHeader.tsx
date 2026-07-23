@@ -37,8 +37,8 @@ export function DashboardHeader({
   headerBg,
   topTab,
   onTopTabChange,
-  selectedAgents: _selectedAgents,
-  mirofishRunning: _mirofishRunning,
+  selectedAgents,
+  mirofishRunning,
   onOpenMemory,
   isDark,
   onToggleTheme,
@@ -48,8 +48,9 @@ export function DashboardHeader({
   onSignOut,
   textMuted,
   textSubtle,
-  accentInk: _accentInk,
+  accentInk,
 }: DashboardHeaderProps) {
+  const activeAgents = Object.values(selectedAgents).filter(Boolean).length;
   return (
     <div
       className={`shrink-0 z-30 px-3 md:px-5 pt-3 pb-1 ${sidebarCollapsed ? 'pl-12 md:pl-14' : ''}`}
@@ -90,6 +91,16 @@ export function DashboardHeader({
         </div>
 
         <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
+          <div className="header-island-stats hidden md:flex items-center gap-2 shrink-0">
+            <span className="neu-pill ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
+              {activeAgents} agents
+            </span>
+            {mirofishRunning ? (
+              <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
+                forecast live
+              </span>
+            ) : null}
+          </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
