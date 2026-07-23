@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { CompetitiveOutput, CompetitorFeature } from '@/lib/agents/types';
 import { useTheme } from '@/lib/theme-provider';
 
@@ -54,6 +55,8 @@ export function CompetitiveMatrix({ output, product }: Props) {
   const competitorSummary = output.competitorSummary;
   const hiringSignals = output.hiringSignals ?? [];
   const recentMoves = output.recentMoves ?? [];
+  const sources = output.sources ?? [];
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const gapStyle = (direction: CompetitorFeature['gapDirection']) => {
     if (direction === 'advantage') {
@@ -77,10 +80,18 @@ export function CompetitiveMatrix({ output, product }: Props) {
     };
   };
 
+  const hoverSources =
+    hoverIdx !== null && sources.length > 0
+      ? sources.slice(
+          hoverIdx % sources.length,
+          (hoverIdx % sources.length) + 2,
+        )
+      : [];
+
   return (
     <div className="flex flex-col gap-4">
       <div className="text-xs font-mono uppercase tracking-wider" style={{ color: textMuted }}>
-        Feature Comparison Matrix
+        Competitive battlefield
       </div>
 
       {competitorSummary && (
@@ -90,7 +101,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
       )}
 
       {matrix.length > 0 && (
-        <div className="overflow-x-auto rounded-xl results-panel">
+        <div className="overflow-x-auto rounded-xl results-panel relative">
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: isDark ? 'rgba(15,26,40,0.9)' : 'rgba(214,228,240,0.7)' }}>
@@ -123,14 +134,20 @@ export function CompetitiveMatrix({ output, product }: Props) {
                 return (
                   <tr
                     key={i}
-                    className="transition-colors"
+                    className="transition-colors cursor-default"
+                    onMouseEnter={() => setHoverIdx(i)}
+                    onMouseLeave={() => setHoverIdx(null)}
                     style={{
                       background:
-                        i % 2 === 0
-                          ? 'transparent'
-                          : isDark
-                            ? 'rgba(15,26,40,0.45)'
-                            : 'rgba(214,228,240,0.35)',
+                        hoverIdx === i
+                          ? isDark
+                            ? 'rgba(0,82,255,0.12)'
+                            : 'rgba(0,82,255,0.06)'
+                          : i % 2 === 0
+                            ? 'transparent'
+                            : isDark
+                              ? 'rgba(15,26,40,0.45)'
+                              : 'rgba(214,228,240,0.35)',
                     }}
                   >
                     <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--foreground)' }}>
@@ -155,6 +172,37 @@ export function CompetitiveMatrix({ output, product }: Props) {
               })}
             </tbody>
           </table>
+          {hoverIdx !== null ? (
+            <div className="veracity-card m-3 p-3 flex flex-col gap-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Row evidence · {matrix[hoverIdx]?.feature}
+              </span>
+              {output.facts?.[hoverIdx] ? (
+                <p className="text-xs text-muted-foreground">{output.facts[hoverIdx]}</p>
+              ) : null}
+              {hoverSources.map((s) => (
+                <a
+                  key={s.url}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-accent hover:underline truncate"
+                >
+                  {s.title}
+                </a>
+              ))}
+              {hoverSources.length === 0 && sources[0] ? (
+                <a
+                  href={sources[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-accent hover:underline truncate"
+                >
+                  {sources[0].title}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       )}
 
