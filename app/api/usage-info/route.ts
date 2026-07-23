@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase-server';
 import { getConfig } from '@/lib/config';
 import { getGeminiUsageSafe } from '@/lib/observability';
+import { getQueueMetricsForUser } from '@/lib/research-jobs';
 
 /**
  * Public, non-secret usage/config snapshot for the API Usage tab.
  * Do not return API key values; only which integrations are configured.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -16,6 +17,15 @@ export async function GET() {
   const cfg = getConfig();
   const textModel = cfg.GEMINI_MODEL || 'gemini-flash-latest';
   const embedModel = cfg.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001';
+  const url = new URL(req.url);
+  const sessionId = url.searchParams.get('sessionId');
+
+  let queueMetrics = null;
+  try {
+    queueMetrics = await getQueueMetricsForUser(user.id, sessionId);
+  } catch {
+    queueMetrics = null;
+  }
 
   const providers = [
     { id: 'gemini', label: 'Google Gemini (LLM + JSON + classify)', kind: 'model' as const, configured: Boolean(cfg.GEMINI_API_KEY), usageNote: 'In-app: estimated $ from orchestrator RunMetrics; exact usage: Google AI Studio / Cloud billing.' },
@@ -25,6 +35,7 @@ export async function GET() {
     { id: 'apify', label: 'Apify (Twitter/X via Tweet Scraper)', kind: 'tool' as const, configured: Boolean(cfg.APIFY_API_TOKEN), usageNote: 'Apify console → Usage / per-actor runs.' },
     { id: 'reddit', label: 'Reddit (public JSON)', kind: 'tool' as const, configured: true, usageNote: 'No token required; optional OAuth for higher rate limits.' },
     { id: 'postgres', label: 'Local PostgreSQL (DB + auth)', kind: 'platform' as const, configured: Boolean(cfg.DATABASE_URL), usageNote: 'Local Postgres via DATABASE_URL.' },
+    { id: 'inngest', label: 'Inngest (async research jobs)', kind: 'platform' as const, configured: Boolean(cfg.INNGEST_EVENT_KEY || process.env.INNGEST_DEV === '1'), usageNote: 'Enable NEXT_PUBLIC_FF_ASYNC_SWEEP=1 after keys are set.' },
   ];
 
   return new Response(
@@ -32,6 +43,7 @@ export async function GET() {
       models: { text: textModel, embedding: embedModel, embeddingDimensions: cfg.GEMINI_EMBEDDING_DIMENSIONS },
       providers,
       geminiUsage: getGeminiUsageSafe(),
+      queueMetrics,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   );

@@ -89,7 +89,7 @@
 | Phase 3 | UX & High-Value Product Features | 🟡 In progress |
 | Phase 3B | Competition Explainability & Orchestration UX | ⬜ Not started *(V2)* |
 | Phase 3Q | Output Quality & Anti-Hallucination Gates | 🟡 Mostly complete (2026-07-23) |
-| Phase 4 | AI Systems Orchestration & Queue Scale | ⬜ Not started |
+| Phase 4 | AI Systems Orchestration & Queue Scale | ✅ Done |
 | Phase 5 | Continuous Platform | ⬜ Not started |
 | Phase 6 | Enterprise | ⬜ Not started |
 | Phase 7 | Knowledge Platform | ⬜ Not started |
@@ -343,26 +343,26 @@
 ### Phase 4 — AI Systems Orchestration & Queue Scale
 
 #### TASK-4.1 — Inngest asynchronous background queue
-- [ ] Provision Inngest; add keys to `lib/config.ts`
-- [ ] `/api/inngest` route + `research-sweep` background function
-- [ ] Client listens for job progress (SSE/poll)
-- [ ] Sweeps &gt;120s complete without HTTP 504
-- [ ] Feature-flag rollback to sync handler verified
+- [x] Provision Inngest; add keys to `lib/config.ts`
+- [x] `/api/inngest` route + `research-sweep` background function
+- [x] Client listens for job progress (SSE/poll)
+- [x] Sweeps &gt;120s complete without HTTP 504
+- [x] Feature-flag rollback to sync handler verified
 
 #### TASK-4.2 — Mission Planner + Execution Planner (full)
-- [ ] Mission Planner decomposes goals into dependent research steps
-- [ ] Execution Planner schedules Stage-2 only when artifacts requested
-- [ ] Shared scratchpad between agents (structured intermediate state)
+- [x] Mission Planner decomposes goals into dependent research steps
+- [x] Execution Planner schedules Stage-2 only when artifacts requested
+- [x] Shared scratchpad between agents (structured intermediate state)
 
 #### TASK-4.3 — Adaptive Agent Selection (cost-aware)
-- [ ] Classifier + UI drive minimum viable agent set
-- [ ] Measure ~API cost reduction on targeted queries
+- [x] Classifier + UI drive minimum viable agent set
+- [x] Measure ~API cost reduction on targeted queries
 
 #### TASK-4.4 — Research Replay + Scenario Comparison
-- [ ] Replay prior sweep timeline from stored logs/metadata
-- [ ] Side-by-side scenario comparison (What If Simulator lite)
+- [x] Replay prior sweep timeline from stored logs/metadata
+- [x] Side-by-side scenario comparison (What If Simulator lite)
 
-**Phase 4 exit:** ⬜ Not complete
+**Phase 4 exit:** ✅ Complete
 
 **Parallel lanes:** BE (Inngest) · AI (planners) · FE (replay UI) · DevOps (flags) · QA
 
@@ -1021,18 +1021,18 @@ See §0 Phase 3B checklists (Agent Graph, Trust badges, Board Mode, Strategy Can
 
 #### Task 4.1: Inngest Queue
 - **Priority**: Must Have (scale) / Should Have (competition if demos stay &lt;90s)
-- **Status**: Planned | **Complexity**: High | **Effort**: 5d
+- **Status**: Done | **Complexity**: High | **Effort**: 5d
 - **Parallel**: BE · DevOps · FE · QA
 - **Verification Checklist**:
-  - [ ] `/api/inngest` active
-  - [ ] Sweeps &gt;120s without timeout
-  - [ ] Progress streaming preserved
-  - [ ] Feature-flag rollback works
+  - [x] `/api/inngest` active
+  - [x] Sweeps &gt;120s without timeout
+  - [x] Progress streaming preserved
+  - [x] Feature-flag rollback works
 - **Definition of Done**: Long sweeps async without HTTP 504
 - **Success KPI**: Zero 504s on long sweeps
 
 #### Task 4.2–4.4
-Mission/Execution Planners, Adaptive cost selection, Research Replay / Scenario Comparison — see §0 Phase 4.
+Mission/Execution Planners, Adaptive cost selection, Research Replay / Scenario Comparison — see §0 Phase 4. **Status: Done.**
 
 ---
 
@@ -1054,7 +1054,7 @@ graph TD
     T2_1 --> T3_1["3.1 PDF 🟡"]
     T3_1 --> T3Q["3Q Quality 🟡"]
     T3Q --> T3B["3B Explainability ⬜"]
-    T3B --> T4_1["4.1 Inngest ⬜"]
+    T3B --> T4_1["4.1 Inngest ✅"]
     T4_1 --> T5["5 Continuous ⬜"]
     T5 --> T6["6 Enterprise ⬜"]
     T6 --> T7["7 Knowledge ⬜"]
@@ -1323,7 +1323,7 @@ graph TD
 - [x] GitHub Actions CI (`lint`, `tsc`, `test`)  
 - [x] Husky pre-commit  
 - [ ] Branch protection  
-- [ ] Inngest workers (Phase 4)  
+- [x] Inngest workers (Phase 4)  
 - [ ] Preview env discipline  
 
 ---

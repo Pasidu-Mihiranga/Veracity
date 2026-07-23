@@ -21,6 +21,18 @@ type UsageInfo = {
   models: { text: string; embedding: string; embeddingDimensions: number };
   providers: { id: string; label: string; kind: string; configured: boolean; usageNote: string }[];
   geminiUsage?: { totalTokens?: number; estimatedCostUsd?: number; calls?: number } | null;
+  queueMetrics?: {
+    jobsTotal: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+    deadLetter: number;
+    retries: number;
+    avgQueueWaitMs: number | null;
+    avgExecutionMs: number | null;
+    avgAgentRuntimeMs: number | null;
+    lastJob: { id: string; status: string; metrics: Record<string, unknown> } | null;
+  } | null;
 };
 
 type SessionUsage = {
@@ -70,11 +82,15 @@ export function ApiUsagePanel({
   lastLive,
   sessionTotals,
   queryCacheStats,
+  sessionId,
+  agentsSavedVsFull,
 }: {
   lastMetrics?: RunMetrics;
   lastLive?: LiveStreamMetrics;
   sessionTotals: SessionUsage;
   queryCacheStats?: { hits: number; misses: number };
+  sessionId?: string | null;
+  agentsSavedVsFull?: number | null;
 }) {
   const { text, textMuted } = useTheme();
   const [info, setInfo] = useState<UsageInfo | null>(null);
@@ -83,7 +99,8 @@ export function ApiUsagePanel({
   const load = useCallback(async () => {
     setErr(null);
     try {
-      const res = await fetch('/api/usage-info');
+      const qs = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+      const res = await fetch(`/api/usage-info${qs}`);
       if (!res.ok) {
         setErr(res.status === 401 ? 'Sign in to see usage details.' : 'Could not load usage info.');
         return;
@@ -92,7 +109,7 @@ export function ApiUsagePanel({
     } catch {
       setErr('Network error');
     }
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
     void load();
@@ -256,6 +273,60 @@ export function ApiUsagePanel({
             value={cacheHitRatio != null ? `${cacheHitRatio}%` : '—'}
             hint="React Query session cache"
             icon={<Plug size={16} />}
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="ui-section-label mb-3 text-center sm:text-left">Queue & orchestration</p>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <StatCard
+            label="Queue wait"
+            value={
+              info?.queueMetrics?.avgQueueWaitMs != null
+                ? `${(info.queueMetrics.avgQueueWaitMs / 1000).toFixed(1)}s`
+                : '—'
+            }
+            hint="Avg wait before start"
+            icon={<Server size={16} />}
+          />
+          <StatCard
+            label="Execution"
+            value={
+              info?.queueMetrics?.avgExecutionMs != null
+                ? `${(info.queueMetrics.avgExecutionMs / 1000).toFixed(1)}s`
+                : lastMetrics?.totalLatencyMs != null
+                  ? `${(lastMetrics.totalLatencyMs / 1000).toFixed(1)}s`
+                  : '—'
+            }
+            hint="Avg job / last sweep"
+            icon={<Gauge size={16} />}
+          />
+          <StatCard
+            label="Agent runtime"
+            value={
+              info?.queueMetrics?.avgAgentRuntimeMs != null
+                ? `${(info.queueMetrics.avgAgentRuntimeMs / 1000).toFixed(1)}s`
+                : '—'
+            }
+            hint="Avg orchestrate wall time"
+            icon={<Cpu size={16} />}
+          />
+          <StatCard
+            label="Retries / cancels"
+            value={
+              info?.queueMetrics
+                ? `${info.queueMetrics.retries} / ${info.queueMetrics.cancelled}`
+                : '—'
+            }
+            hint={`DLQ ${info?.queueMetrics?.deadLetter ?? 0} · failed ${info?.queueMetrics?.failed ?? 0}`}
+            icon={<RefreshCw size={16} />}
+          />
+          <StatCard
+            label="Agents saved"
+            value={agentsSavedVsFull != null ? String(agentsSavedVsFull) : '—'}
+            hint="Vs full research sweep"
+            icon={<Activity size={16} />}
           />
         </div>
       </div>
