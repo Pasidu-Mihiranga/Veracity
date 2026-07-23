@@ -24,6 +24,10 @@ import {
 } from '@/lib/agents/output-quality';
 import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
 import { computeEvidenceCoverage } from '@/lib/agents/evidence-coverage';
+import { resolveAgentSet } from '@/lib/agents/adaptive-selection';
+import { planMission, missionWaves } from '@/lib/agents/mission-planner';
+import { shouldRunExecution as planExecution } from '@/lib/agents/execution-planner';
+import { buildMissionSummary } from '@/lib/agents/mission-summary';
 import { logger } from '@/lib/logger';
 import type {
   AgentConfig,
@@ -94,8 +98,13 @@ interface OrchestrateOptions {
   forceExecution?: boolean; // force stage-2 execution even when classifier says false
   followUpMode?: 'full' | 'targeted'; // targeted runs only classifier-selected research domains
   selectedAgents?: string[]; // optional UI-selected domains from client
+  forceFullSweep?: boolean; // bypass adaptive cost-aware selection
   /** Live status lines for the UI (e.g. “Reasoning…”, “Orchestrating…”). */
-  onOrchestrationLog?: (message: string) => void;
+  onOrchestrationLog?: (message: string) => void | Promise<void>;
+  /** Fired once mission plan + estimates are ready (pre fan-out). */
+  onMissionSummary?: (summary: import('@/lib/agents/mission-summary').MissionSummary) => void | Promise<void>;
+  /** Async cancel check between mission waves */
+  shouldCancel?: () => boolean | Promise<boolean>;
 }
 
 async function classifyQuery(
@@ -489,9 +498,26 @@ export async function orchestrate(
   if (isPlaceholderProduct(product)) {
     log?.(`Warning: product name looks like a placeholder ("${product}") — search quality may be low.`);
   }
-  const allowedAgents = new Set(options?.selectedAgents?.length ? options.selectedAgents : ALL_AGENTS.map(a => a.id));
-  const executionEnabled = allowedAgents.has('execution-engine');
-  const shouldRunExecution = executionEnabled && (runExecution || options?.forceExecution === true);
+
+  const forceFull = options?.forceFullSweep === true;
+  const resolved = resolveAgentSet({
+    uiSelected: options?.selectedAgents?.length
+      ? options.selectedAgents
+      : ALL_AGENTS.map((a) => a.id),
+    classifierDomains: (classification.domains ?? []) as IntelligenceDomain[],
+    forceFullSweep: forceFull,
+  });
+
+  const execGate = planExecution({
+    query,
+    classifierRunExecution: runExecution,
+    executionAgentSelected: resolved.executionSelected,
+    forceExecution: options?.forceExecution,
+  });
+  const shouldRunExecution = execGate.run;
+  if (!shouldRunExecution) {
+    log?.(execGate.reason);
+  }
 
   // Build prior context string for agents
   const priorContext = history
@@ -507,6 +533,12 @@ export async function orchestrate(
     .filter(Boolean)
     .join('\n\n') || undefined;
 
+  const scratchpad = {
+    productFacts: [] as string[],
+    competitorFacts: [] as string[],
+    openQuestions: [] as string[],
+  };
+
   // Keep the user's original wording for search/synthesis (not only the LLM intent rewrite).
   const agentContext: AgentContext = {
     query,
@@ -517,18 +549,45 @@ export async function orchestrate(
     priorContext: combinedPriorContext || undefined,
     images: images.length > 0 ? images : undefined,
     memoryContext: memoryContext || undefined,
+    scratchpad,
   };
 
-  // Step 2: Select research agents.
-  // Main queries default to full sweep; follow-ups may run targeted domains.
-  const classifiedDomains = new Set(classification.domains ?? []);
-  const availableResearchAgents = ALL_AGENTS.filter(agent => allowedAgents.has(agent.id));
-  const targetedAgents = availableResearchAgents.filter(agent => classifiedDomains.has(agent.id as IntelligenceDomain));
-  const agentsToRun = options?.followUpMode === 'targeted'
-    ? (targetedAgents.length > 0 ? targetedAgents : availableResearchAgents)
-    : availableResearchAgents;
+  // Step 2: Select research agents (cost-aware adaptive, or targeted follow-up)
+  let researchIds = resolved.researchIds;
+  if (options?.followUpMode === 'targeted') {
+    const classifiedDomains = new Set(classification.domains ?? []);
+    const targeted = researchIds.filter((id) => classifiedDomains.has(id));
+    if (targeted.length > 0) researchIds = targeted;
+  }
 
-  const sweepLabel = options?.followUpMode === 'targeted' ? 'targeted follow-up' : 'full research sweep';
+  const agentsToRun = ALL_AGENTS.filter((a) => researchIds.includes(a.id as IntelligenceDomain));
+  const missionSteps = planMission([
+    ...researchIds,
+    ...(shouldRunExecution ? (['execution-engine'] as IntelligenceDomain[]) : []),
+  ]);
+  const missionSummary = buildMissionSummary({
+    steps: missionSteps,
+    product,
+    competitor,
+    includeExecution: shouldRunExecution,
+  });
+  await options?.onMissionSummary?.(missionSummary);
+  log?.(
+    `Mission plan: ${missionSummary.agentCount} agents · ~${missionSummary.estimatedSeconds}s · ~$${missionSummary.estimatedCostUsd}`,
+  );
+  for (const step of missionSummary.steps) {
+    log?.(`• ${step.label}`);
+  }
+  if (resolved.mode === 'adaptive' && resolved.savedVsFull > 0) {
+    log?.(`Adaptive selection saved ${resolved.savedVsFull} agent(s) vs full sweep`);
+  }
+
+  const sweepLabel =
+    options?.followUpMode === 'targeted'
+      ? 'targeted follow-up'
+      : resolved.mode === 'adaptive'
+        ? 'adaptive research sweep'
+        : 'full research sweep';
   log?.(`Dividing work across ${agentsToRun.length} specialist agents (${sweepLabel})…`);
   log?.('Orchestrating parallel research — search, fetch, and extract…');
 
@@ -539,16 +598,20 @@ export async function orchestrate(
     status: 'pending',
   }));
 
-  // Step 3: Fan-out — all selected agents run in parallel
+  // Step 3: Fan-out in mission waves (respect deps + cancel between waves)
   const agentLatencies: Record<string, number> = {};
-  const agentPromises = agentsToRun.map(async (agent, i): Promise<AgentOutput | null> => {
-    // Mark as running
+  const researchOnlySteps = missionSteps.filter((s) => s.agentId !== 'execution-engine');
+  const waves = missionWaves(researchOnlySteps);
+  const outputs: AgentOutput[] = [];
+  const runIndex = new Map(agentsToRun.map((a, i) => [a.id, i]));
+
+  const runOneAgent = async (agent: (typeof agentsToRun)[number]): Promise<AgentOutput | null> => {
+    const i = runIndex.get(agent.id) ?? 0;
     const agentStart = Date.now();
     agentRuns[i] = { ...agentRuns[i], status: 'running', startedAt: new Date().toISOString() };
     onAgentUpdate?.(agentRuns[i]);
-
     try {
-      const output = await agent.run(agentContext);
+      const output = await agent.run({ ...agentContext, scratchpad: { ...scratchpad } });
       agentLatencies[agent.id] = Date.now() - agentStart;
       const synthError = output.interpretation.find((line) => line.startsWith('SYNTHESIS_ERROR:'));
       if (synthError) {
@@ -560,9 +623,12 @@ export async function orchestrate(
         };
       } else {
         agentRuns[i] = { ...agentRuns[i], status: 'completed', completedAt: new Date().toISOString() };
+        for (const f of output.facts.slice(0, 3)) {
+          scratchpad.productFacts.push(f);
+        }
       }
       onAgentUpdate?.(agentRuns[i]);
-      return output;
+      return synthError ? null : output;
     } catch (err) {
       agentLatencies[agent.id] = Date.now() - agentStart;
       const error = err instanceof Error ? err.message : String(err);
@@ -570,20 +636,32 @@ export async function orchestrate(
       onAgentUpdate?.(agentRuns[i]);
       return null;
     }
-  });
+  };
 
-  const settledOutputs = await Promise.allSettled(agentPromises);
-  const outputs: AgentOutput[] = settledOutputs
-    .filter((r): r is PromiseFulfilledResult<AgentOutput> =>
-      r.status === 'fulfilled' && r.value !== null
-    )
-    .map(r => r.value as AgentOutput);
+  for (const wave of waves) {
+    if (options?.shouldCancel && (await options.shouldCancel())) {
+      log?.('Cancel requested — stopping remaining mission waves.');
+      throw new Error('Job cancelled');
+    }
+    const waveAgents = wave
+      .map((s) => agentsToRun.find((a) => a.id === s.agentId))
+      .filter(Boolean) as typeof agentsToRun;
+    if (waveAgents.length === 0) continue;
+    const settled = await Promise.allSettled(waveAgents.map((a) => runOneAgent(a)));
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value) outputs.push(r.value);
+    }
+  }
 
   // Each research agent makes ~1 model call
   modelCallCount += agentsToRun.length;
 
   // ── Stage 2: Execution Engine (only if execution intent detected) ──────────
   if (shouldRunExecution) {
+    if (options?.shouldCancel && (await options.shouldCancel())) {
+      log?.('Cancel requested — skipping execution engine.');
+      throw new Error('Job cancelled');
+    }
     log?.('Execution intent detected — running execution engine for deliverables…');
     const execStart = Date.now();
     const execRun: AgentRun = {
@@ -598,7 +676,8 @@ export async function orchestrate(
     try {
       const executionOutput = await executionEngineAgent.run({
         ...agentContext,
-        researchOutputs: outputs,   // pass stage-1 findings as grounding
+        researchOutputs: outputs,
+        scratchpad,
       });
       agentLatencies['execution-engine'] = Date.now() - execStart;
       execRun.status = 'completed';
@@ -715,6 +794,20 @@ export async function orchestrate(
     metrics,
     quality: guarded.quality,
     evidenceCoverage,
+    missionPlan: {
+      steps: missionSteps.map((s) => ({
+        id: s.id,
+        label: s.label,
+        agentId: s.agentId,
+        dependsOn: s.dependsOn,
+        rationale: s.rationale,
+      })),
+    },
+    selectionMeta: {
+      mode: resolved.mode,
+      savedVsFull: resolved.savedVsFull,
+      researchIds: researchIds as string[],
+    },
   };
 }
 

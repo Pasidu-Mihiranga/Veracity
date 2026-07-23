@@ -238,6 +238,16 @@ export interface OrchestratorOutput {
   quality?: OutputQualityReport;
   /** Per-domain evidence coverage for Coverage Radar */
   evidenceCoverage?: EvidenceCoverageAxis[];
+  /** Mission plan / DAG from Mission Planner */
+  missionPlan?: {
+    steps: Array<{ id: string; label: string; agentId: string; dependsOn?: string[]; rationale?: string }>;
+  };
+  /** Agents planned vs full sweep (adaptive selection) */
+  selectionMeta?: {
+    mode: 'full' | 'adaptive';
+    savedVsFull: number;
+    researchIds: string[];
+  };
 }
 
 export interface Recommendation {
@@ -332,6 +342,12 @@ export interface AgentContext {
   images?: ImageAttachment[];  // optional visual context from user
   memoryContext?: string;      // persistent user memory across all sessions
   researchOutputs?: AgentOutput[];  // stage-1 research findings — populated for Execution Engine only
+  /** Shared intermediate facts across mission waves */
+  scratchpad?: {
+    productFacts: string[];
+    competitorFacts: string[];
+    openQuestions: string[];
+  };
 }
 
 // ─── Execution Engine output shapes (Member 3) ───────────────────────────────
