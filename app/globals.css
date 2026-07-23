@@ -1350,6 +1350,111 @@ button, a { touch-action: manipulation; }
   background: linear-gradient(180deg, #0E1A2A 0%, #070D16 48%, #03060B 100%);
 }
 
+/* ── Agent team converge animation ───────────────────────── */
+@keyframes wf-pulse {
+  0%, 100% { height: var(--wf-min, 15%); }
+  50% { height: var(--wf-max, 100%); }
+}
+
+@keyframes agent-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes agent-status-pop {
+  0% { transform: scale(0.96); opacity: 0.7; }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes agent-converge-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes agent-converge-exit {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+.wf-bar {
+  width: 3px;
+  border-radius: 2px;
+  height: var(--wf-min, 15%);
+  animation-name: wf-pulse;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.spin-slow {
+  animation: agent-spin 1.4s linear infinite;
+}
+
+.agent-status-pop {
+  animation: agent-status-pop 0.45s ease-out;
+}
+
+.agent-converge-fade {
+  animation: agent-converge-fade-in 0.35s ease-out;
+}
+
+.agent-converge-exit {
+  animation: agent-converge-exit 0.3s ease-in forwards;
+}
+
+.agent-converge-row {
+  scroll-snap-type: x proximity;
+}
+
+.agent-converge-slot {
+  flex: 1 1 148px;
+  min-width: 148px;
+  max-width: 220px;
+  transition: flex-basis 280ms ease, opacity 280ms ease, transform 280ms ease, max-width 280ms ease;
+}
+
+.agent-converge-enter {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.agent-converge-leave {
+  opacity: 0;
+  transform: scale(0.96);
+  max-width: 0;
+  min-width: 0;
+  flex-basis: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.agent-converge-card {
+  transition: background 0.3s ease, border-color 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-bar,
+  .spin-slow,
+  .agent-bubble,
+  .agent-converge-fade,
+  .agent-converge-exit,
+  .agent-status-pop,
+  .live-dot,
+  .animate-float {
+    animation: none !important;
+  }
+
+  .wf-bar {
+    height: 40% !important;
+  }
+
+  .agent-converge-slot,
+  .agent-converge-card,
+  .agent-bubble > div {
+    transition: opacity 0.2s ease, background 0.2s ease !important;
+  }
+}
+
 @media (max-width: 640px) {
   .empty-heading { font-size: 20px; }
   .veracity-card { border-radius: 24px; }

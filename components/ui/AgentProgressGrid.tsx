@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { AgentRun, AgentOutput } from '@/lib/agents/types';
 import type { PipelineStage } from '@/types/chat-ui';
-import { ALL_DOMAINS, DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
+import { ALL_DOMAINS, type Domain } from '@/lib/domain-meta';
+import { mapRunsToConvergeAgents } from '@/lib/agent-progress';
+import { AgentTeamConverge, type AgentTeamConvergePhase } from '@/components/ui/AgentTeamConverge';
 
 export type AgentProgressGridProps = {
   queryLabel: string;
@@ -27,18 +29,25 @@ export type AgentProgressGridProps = {
   accentInk: string;
   borderC: string;
   neuExtrudedSm: string;
+  orchestrationLines?: string[];
 };
 
+type GridPhase = 'hidden' | AgentTeamConvergePhase;
+
 /**
- * Loading-only research progress. Hidden after completion so results stay clean.
- * Robot watches a single progress bar; compact agent chips underneath.
+ * Live agent-team converge view while research runs.
+ * Holds a ~1s completion checklist after isLoading flips false, then fades out.
  */
-export function AgentProgressGrid({
+function AgentProgressGridInner({
   queryLabel,
   userImages,
   isLoading,
+  pipelineStages,
+  orchLogLen,
+  orchestrationLines,
   visibleTabDomains,
   getRunForDomain,
+  getOutputForDomain,
   completedCount,
   totalCount,
   isDark,
@@ -48,21 +57,71 @@ export function AgentProgressGrid({
   textSubtle,
   accentInk,
 }: AgentProgressGridProps) {
-  const denom = Math.max(totalCount, visibleTabDomains.length, 1);
-  const pct = Math.min(100, Math.round((completedCount / denom) * 100));
+  const [phase, setPhase] = useState<GridPhase>('hidden');
+  const [tick, setTick] = useState(0);
 
-  const activeLabel = useMemo(() => {
-    const running = visibleTabDomains.find((d) => getRunForDomain(d)?.status === 'running');
-    if (running) return DOMAIN_META[running].short;
-    if (completedCount === 0) return 'Starting research';
-    if (completedCount >= denom) return 'Synthesizing answer';
-    return 'Agents working';
-  }, [visibleTabDomains, getRunForDomain, completedCount, denom]);
+  // Soft progress estimates refresh while running
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [phase]);
 
-  if (!isLoading) return null;
+  useEffect(() => {
+    if (isLoading) {
+      setPhase('running');
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading || phase !== 'running') return;
+    setPhase('complete');
+  }, [isLoading, phase]);
+
+  useEffect(() => {
+    if (phase !== 'complete') return;
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const holdMs = reduce ? 700 : 1000;
+    const fadeMs = reduce ? 0 : 300;
+    const t1 = window.setTimeout(() => setPhase('exiting'), holdMs);
+    const t2 = window.setTimeout(() => setPhase('hidden'), holdMs + fadeMs);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [phase]);
+
+  const domains = visibleTabDomains.length ? visibleTabDomains : [...ALL_DOMAINS];
+
+  const convergeAgents = useMemo(
+    () =>
+      mapRunsToConvergeAgents({
+        domains,
+        getRunForDomain,
+        getOutputForDomain,
+        orchestrationLines,
+        isDark,
+        now: Date.now(),
+      }),
+    // tick forces soft-progress refresh while running
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [domains, getRunForDomain, getOutputForDomain, orchestrationLines, isDark, tick, phase],
+  );
+
+  const denom = Math.max(totalCount, domains.length, 1);
+
+  if (phase === 'hidden') return null;
+
+  const showMeta = phase === 'running';
 
   return (
-    <div className="results-panel p-5 sm:p-6" style={{ background: cardBg }} aria-busy="true">
+    <div
+      className={`results-panel p-5 sm:p-6 ${phase === 'exiting' ? 'agent-converge-exit' : ''}`}
+      style={{ background: cardBg }}
+      aria-busy={phase === 'running'}
+    >
       <div className="flex items-start gap-4 sm:gap-5">
         <div className="shrink-0 flex flex-col items-center gap-1">
           <img
@@ -76,16 +135,23 @@ export function AgentProgressGrid({
         </div>
 
         <div className="min-w-0 flex-1 flex flex-col gap-3">
-          <div>
-            <p className="ui-section-label mb-1.5" style={{ color: textSubtle }}>
-              Researching
-            </p>
-            <p className="ui-title truncate" style={{ color: textMain }}>
-              {queryLabel}
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="ui-section-label mb-1.5" style={{ color: textSubtle }}>
+                {phase === 'running' ? 'Researching' : 'Agents complete'}
+              </p>
+              <p className="ui-title truncate" style={{ color: textMain }}>
+                {queryLabel}
+              </p>
+            </div>
+            {showMeta ? (
+              <span className="ui-mono shrink-0" style={{ color: accentInk, fontSize: 11 }}>
+                {completedCount}/{denom}
+              </span>
+            ) : null}
           </div>
 
-          {userImages && userImages.length > 0 ? (
+          {userImages && userImages.length > 0 && showMeta ? (
             <div className="flex flex-wrap gap-2">
               {userImages.map((img, i) => (
                 <img
@@ -99,70 +165,58 @@ export function AgentProgressGrid({
             </div>
           ) : null}
 
-          {/* Progress track — robot “watches” this bar */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="ui-caption" style={{ color: textMuted }}>
-                {activeLabel}
-              </span>
-              <span className="ui-mono" style={{ color: accentInk }}>
-                {completedCount}/{denom}
-              </span>
-            </div>
-            <div
-              className="h-2.5 w-full rounded-full overflow-hidden"
-              style={{
-                background: isDark ? 'rgba(15,26,40,0.95)' : 'rgba(214,228,240,0.9)',
-                boxShadow: 'var(--shadow-inset-sm)',
-              }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500 ease-out"
-                style={{
-                  width: `${Math.max(pct, completedCount > 0 ? 8 : 4)}%`,
-                  background: `linear-gradient(90deg, ${accentInk} 0%, #3D9EFF 100%)`,
-                }}
-              />
-            </div>
-          </div>
+          <AgentTeamConverge
+            agents={convergeAgents}
+            phase={phase as AgentTeamConvergePhase}
+          />
 
-          {/* Compact agent chips — status only, no COMPLETED chrome wall */}
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {(visibleTabDomains.length ? visibleTabDomains : ALL_DOMAINS).map((domain) => {
-              const status = getRunForDomain(domain)?.status ?? 'idle';
-              const meta = DOMAIN_META[domain];
-              const dAccent = domainAccent(meta, isDark);
-              const live = status === 'running' || status === 'completed';
-              return (
-                <span
-                  key={domain}
-                  className="ui-mono inline-flex items-center gap-1 px-2 py-1 rounded-lg"
-                  style={{
-                    fontSize: 10,
-                    color: live ? dAccent : textSubtle,
-                    background: live
-                      ? isDark
-                        ? 'rgba(0,196,255,0.08)'
-                        : 'rgba(0,82,163,0.06)'
-                      : 'transparent',
-                    border: `1px solid ${live ? `${dAccent}33` : 'transparent'}`,
-                    opacity: status === 'idle' || status === 'pending' ? 0.55 : 1,
-                  }}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{
-                      background: status === 'completed' || status === 'running' ? dAccent : textSubtle,
-                      boxShadow: status === 'running' ? `0 0 6px ${dAccent}` : 'none',
-                    }}
-                  />
-                  {meta.short}
-                </span>
-              );
-            })}
-          </div>
+          {showMeta ? (
+            <>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {pipelineStages.map((stage) => {
+                  const tone =
+                    stage.state === 'completed'
+                      ? 'neu-pill-accent'
+                      : stage.state === 'running'
+                        ? 'neu-pill-positive'
+                        : stage.state === 'failed'
+                          ? 'neu-pill-negative'
+                          : 'neu-pill';
+                  return (
+                    <span
+                      key={stage.id}
+                      className={`${tone} ui-mono px-2.5 py-1 rounded-full`}
+                      style={{ fontSize: 10, color: stage.state === 'pending' ? textSubtle : undefined }}
+                    >
+                      {stage.label}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <div className="neu-inset-sm rounded-2xl px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <span className="ui-section-label" style={{ color: textSubtle }}>
+                    Orchestration log
+                  </span>
+                  <span className="ui-mono" style={{ color: accentInk, fontSize: 10 }}>
+                    {orchLogLen} events
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {(orchestrationLines ?? []).slice(-3).map((line, idx) => (
+                    <p key={`${idx}-${line}`} className="ui-caption" style={{ color: textMuted }}>
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
+
+export const AgentProgressGrid = React.memo(AgentProgressGridInner);

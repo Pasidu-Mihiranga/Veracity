@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildPipelineStages, getRunForDomain } from '@/lib/agent-progress';
+import {
+  buildPipelineStages,
+  getRunForDomain,
+  mapRunsToConvergeAgents,
+} from '@/lib/agent-progress';
 import type { AgentRun } from '@/lib/agents/types';
 
 describe('getRunForDomain', () => {
@@ -33,5 +37,56 @@ describe('buildPipelineStages', () => {
     });
     expect(stages.find((s) => s.id === 'synthesis')?.state).toBe('completed');
     expect(stages.find((s) => s.id === 'research')?.state).toBe('completed');
+  });
+});
+
+describe('mapRunsToConvergeAgents', () => {
+  const runs: AgentRun[] = [
+    {
+      agentId: 'market-trends',
+      name: 'Market',
+      status: 'running',
+      startedAt: new Date().toISOString(),
+    },
+    { agentId: 'competitive', name: 'Competitive', status: 'pending' },
+  ];
+
+  const getRun = (domain: string) => runs.find((r) => r.agentId === domain);
+
+  it('maps running agents with progress and blocks post-research when research incomplete', () => {
+    const agents = mapRunsToConvergeAgents({
+      domains: ['market-trends', 'competitive', 'execution-engine'],
+      getRunForDomain: getRun as never,
+      orchestrationLines: ['Searching 24 sources for market trends'],
+      isDark: true,
+    });
+
+    const market = agents.find((a) => a.id === 'market-trends');
+    const exec = agents.find((a) => a.id === 'execution-engine');
+    expect(market?.status).toBe('running');
+    expect(typeof market?.progressPct).toBe('number');
+    expect(market?.progressPct).toBeLessThan(100);
+    expect(exec?.status).toBe('blocked');
+    expect(exec?.waitingOn).toBe('Research');
+    expect(market?.motionSeed).not.toBe(exec?.motionSeed);
+  });
+
+  it('marks completed agents done with completion summary when output present', () => {
+    const doneRuns: AgentRun[] = [
+      { agentId: 'market-trends', name: 'Market', status: 'completed' },
+    ];
+    const agents = mapRunsToConvergeAgents({
+      domains: ['market-trends'],
+      getRunForDomain: ((d: string) => doneRuns.find((r) => r.agentId === d)) as never,
+      getOutputForDomain: () =>
+        ({
+          facts: ['a', 'b', 'c'],
+          sources: [{ url: 'https://x.com', title: 'x', timestamp: '', tool: 'serpapi' }],
+          confidence: 'high',
+        }) as never,
+      isDark: false,
+    });
+    expect(agents[0].status).toBe('done');
+    expect(agents[0].completionSummary?.stats.some((s) => s.includes('finding'))).toBe(true);
   });
 });
