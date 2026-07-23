@@ -20,6 +20,7 @@ type LiveStreamMetrics = {
 type UsageInfo = {
   models: { text: string; embedding: string; embeddingDimensions: number };
   providers: { id: string; label: string; kind: string; configured: boolean; usageNote: string }[];
+  geminiUsage?: { totalTokens?: number; estimatedCostUsd?: number; calls?: number } | null;
 };
 
 type SessionUsage = {
@@ -68,10 +69,12 @@ export function ApiUsagePanel({
   lastMetrics,
   lastLive,
   sessionTotals,
+  queryCacheStats,
 }: {
   lastMetrics?: RunMetrics;
   lastLive?: LiveStreamMetrics;
   sessionTotals: SessionUsage;
+  queryCacheStats?: { hits: number; misses: number };
 }) {
   const { text, textMuted } = useTheme();
   const [info, setInfo] = useState<UsageInfo | null>(null);
@@ -113,6 +116,20 @@ export function ApiUsagePanel({
     if (!sessionTotals.queries) return null;
     return sessionTotals.totalLatencyMs / sessionTotals.queries;
   }, [sessionTotals]);
+  const avgToolTimeMs = useMemo(() => {
+    if (!lastMetrics?.toolCallCount) return null;
+    return lastMetrics.totalLatencyMs / lastMetrics.toolCallCount;
+  }, [lastMetrics]);
+  const agentCompletionPct = useMemo(() => {
+    if (!lastMetrics?.agentCount) return null;
+    return Math.round((lastMetrics.completedAgentCount / lastMetrics.agentCount) * 100);
+  }, [lastMetrics]);
+  const cacheHitRatio = useMemo(() => {
+    const hits = queryCacheStats?.hits ?? 0;
+    const misses = queryCacheStats?.misses ?? 0;
+    const total = hits + misses;
+    return total ? Math.round((hits / total) * 100) : null;
+  }, [queryCacheStats]);
 
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
@@ -203,6 +220,42 @@ export function ApiUsagePanel({
             value={String(sessionTotals.totalGeminiCalls)}
             hint={`${sessionTotals.totalToolCalls} tool calls`}
             icon={<Cpu size={16} />}
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="ui-section-label mb-3 text-center sm:text-left">Internal performance dashboard</p>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <StatCard
+            label="Avg latency"
+            value={avgLatency != null ? `${(avgLatency / 1000).toFixed(1)}s` : '—'}
+            hint="Across recorded runs"
+            icon={<Gauge size={16} />}
+          />
+          <StatCard
+            label="Avg tool time"
+            value={avgToolTimeMs != null ? `${Math.round(avgToolTimeMs)}ms` : '—'}
+            hint="Last run estimate"
+            icon={<RefreshCw size={16} />}
+          />
+          <StatCard
+            label="Token usage"
+            value={info?.geminiUsage?.totalTokens != null ? `${info.geminiUsage.totalTokens}` : '—'}
+            hint="Server lifetime snapshot"
+            icon={<Cpu size={16} />}
+          />
+          <StatCard
+            label="Agent completion"
+            value={agentCompletionPct != null ? `${agentCompletionPct}%` : '—'}
+            hint="Completed / dispatched"
+            icon={<Activity size={16} />}
+          />
+          <StatCard
+            label="Cache hit ratio"
+            value={cacheHitRatio != null ? `${cacheHitRatio}%` : '—'}
+            hint="React Query session cache"
+            icon={<Plug size={16} />}
           />
         </div>
       </div>

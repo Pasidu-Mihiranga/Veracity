@@ -188,10 +188,10 @@
 - [x] Extract `useChatStream` SSE hook
 - [x] Extract `ChatPanel`, `AgentProgressGrid`, `MemoryDrawer`
 - [x] Extract `DashboardHeader`, `ExpandedDomainPanel`, `IntelligenceResults`
-- [ ] Reduce `page.tsx` to &lt;250 lines *(still hosts send/follow-up/session handlers)*
-- [ ] Mount or remove unused agent UI (`SidebarAgentRow`, `AgentCard`) — wire `selectedAgents`
-- [ ] Regression: SSE streaming, tabs, sessions without state loss
-- [ ] Profile re-renders during active stream
+- [x] Reduce `page.tsx` to &lt;250 lines *(moved shell orchestration into hooks + dashboard workspace component)*
+- [x] Mount or remove unused agent UI (`SidebarAgentRow`, `AgentCard`) — wire `selectedAgents`
+- [x] Regression: SSE streaming, tabs, sessions without state loss
+- [x] Profile re-renders during active stream
 
 **Parallel lanes:** FE (shell split) · QA (SSE regression) · UX (agent picker)
 
@@ -199,12 +199,13 @@
 - [x] Migration: ensure `vector` extension + HNSW index (`db/migrations/0002_pgvector.sql`, `supabase/migrations/005_pgvector_hnsw.sql`)
 - [x] Rewrite `/api/recall` to use native `<=>` (remove JS cosine sort)
 - [x] Update `/api/embed` + `db/schema.sql` to store `vector(768)`
-- [ ] Benchmark: recall query latency &lt;20ms *(run after applying migration on local/prod DB)*
+- [x] Benchmark script: `npm run bench:recall` added for recall latency verification
+- [ ] Benchmark: recall query latency &lt;20ms *(script now runs, but local GEMINI_API_KEY must be valid before measuring)*
 - [ ] Manual QA: semantic recall in chat UI
 
 **Parallel lanes:** DB · BE · QA
 
-**Phase 2 exit:** ⬜ Not complete — modules extracted; shell + agent-picker + recall QA remain
+**Phase 2 exit:** 🟡 Partial — shell + picker landed; recall runtime QA still depends on valid local Gemini credentials
 
 ---
 
@@ -213,11 +214,11 @@
 - [x] Gemini token / dollar cost tracking via `usageMetadata` (`lib/gemini-usage.ts`, wired in `lib/agents/gemini.ts`)
 - [x] Exception + tool latency helpers (`captureException`, `withToolLatency`) — Sentry SDK optional later via DSN
 - [x] `/api/chat` emits correlation id header + structured start/complete logs
-- [ ] Wire `withToolLatency` into production tool call sites
-- [ ] Optional Sentry DSN integration
-- [ ] PostHog (or equivalent) product analytics — replace localStorage stub
+- [x] Wire `withToolLatency` into production tool call sites
+- [x] Optional Sentry DSN integration
+- [x] PostHog (or equivalent) product analytics — replace localStorage stub
 
-**Phase 2B exit:** 🟡 Partial — core logger + Gemini usage live; APM + product analytics open
+**Phase 2B exit:** ✅ Landed — tool latency, Sentry gating, PostHog gating, and request/trace IDs wired
 
 ---
 
@@ -225,10 +226,14 @@
 - [x] Dynamic bundle splitting for heavy panels + artifact charts (`next/dynamic` on dashboard/auth + `ArtifactRenderer`)
 - [x] Component memoization (`AgentProgressGrid`, `ArtifactRenderer`) + stabilized domain getters
 - [x] Skeleton states during SSE start + lazy-load placeholders (`PanelSkeleton`)
-- [ ] Measure bundle delta in CI/build
-- [ ] Render orchestration log / pipeline stages already streamed to client
+- [x] Measure bundle delta in CI/build
+- [x] Render orchestration log / pipeline stages already streamed to client
+- [x] Add internal performance dashboard for latency, tool time, token usage, agent completion, cache hit ratio
+- [x] Wrap high-risk chat surfaces in neumorphic error boundaries
+- [x] Virtualize long session lists in sidebar
+- [x] Introduce TanStack Query for sessions / history / memory reads
 
-**Phase 2C exit:** 🟡 Partial — splitting + skeletons landed; pipeline visibility incomplete
+**Phase 2C exit:** ✅ Landed — pipeline visibility, memoization, virtualization, query cache, and bundle analysis are wired
 
 ---
 
@@ -451,11 +456,11 @@ Vercel-compatible Next.js serverless routes + PostgreSQL (`DATABASE_URL`) + opti
 - [x] Output quality gate + entity source relevance + quality tests
 
 ### Partially Implemented
-- [ ] `page.tsx` fully thin shell (&lt;250 lines)
-- [ ] Agent selection UI mounted (`selectedAgents` state exists; toggles unused)
-- [ ] Orchestration log / pipeline rendered in progress UI
+- [x] `page.tsx` fully thin shell (&lt;250 lines)
+- [x] Agent selection UI mounted (`selectedAgents` state exists; toggles unused)
+- [x] Orchestration log / pipeline rendered in progress UI
 - [ ] Rate limit enforced in prod only when Upstash configured (fail-open otherwise)
-- [ ] Client analytics (localStorage stub; PostHog not wired)
+- [x] Client analytics (localStorage stub; PostHog not wired)
 - [ ] Supabase migrations/RLS exist; runtime auth is local Postgres JWT shims
 - [ ] `planQueries` used by market-trends only; patents / linkedin-ads / url-discovery unused by agents
 - [ ] Quality gate without full claim↔URL Evidence Trail UI

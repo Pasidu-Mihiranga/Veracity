@@ -13,7 +13,7 @@ export async function GET() {
      FROM chat_sessions
      WHERE user_id = $1
      ORDER BY updated_at DESC
-     LIMIT 40`,
+     LIMIT 500`,
     [user.id],
   );
   return NextResponse.json({ sessions: rows });

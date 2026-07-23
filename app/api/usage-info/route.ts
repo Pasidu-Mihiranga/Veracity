@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import { getConfig } from '@/lib/config';
+import { getGeminiUsageSafe } from '@/lib/observability';
 
 /**
  * Public, non-secret usage/config snapshot for the API Usage tab.
@@ -30,6 +31,7 @@ export async function GET() {
     JSON.stringify({
       models: { text: textModel, embedding: embedModel, embeddingDimensions: cfg.GEMINI_EMBEDDING_DIMENSIONS },
       providers,
+      geminiUsage: getGeminiUsageSafe(),
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   );
