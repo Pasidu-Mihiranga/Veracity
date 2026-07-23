@@ -59,10 +59,30 @@ export function ExportReportButton({
         product: data.product,
         sources: data.sources.length,
       });
+      void fetch('/api/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: `${eventBase}_success`,
+          resourceType: 'export',
+          resourceId: String(message.persistedId ?? message.id),
+          metadata: { format, product: data.product, sources: data.sources.length },
+        }),
+      }).catch(() => {});
     } catch (err) {
       trackEvent(`${eventBase}_error`, {
         message: err instanceof Error ? err.message : 'unknown',
       });
+      void fetch('/api/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: `${eventBase}_error`,
+          resourceType: 'export',
+          resourceId: String(message.persistedId ?? message.id),
+          metadata: { format, error: err instanceof Error ? err.message : 'unknown' },
+        }),
+      }).catch(() => {});
     } finally {
       setBusy(null);
     }

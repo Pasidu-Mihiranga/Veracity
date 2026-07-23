@@ -33,6 +33,8 @@ type UsageInfo = {
     avgAgentRuntimeMs: number | null;
     lastJob: { id: string; status: string; metrics: Record<string, unknown> } | null;
   } | null;
+  auditLogs?: { id: string; action: string; resource_type: string; created_at: string }[];
+  feedbackStats?: { up: number; down: number; refineRate: number | null } | null;
 };
 
 type SessionUsage = {
@@ -100,12 +102,20 @@ export function ApiUsagePanel({
     setErr(null);
     try {
       const qs = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
-      const res = await fetch(`/api/usage-info${qs}`);
-      if (!res.ok) {
-        setErr(res.status === 401 ? 'Sign in to see usage details.' : 'Could not load usage info.');
+      const [usageRes, auditRes] = await Promise.all([
+        fetch(`/api/usage-info${qs}`),
+        fetch('/api/audit?limit=10'),
+      ]);
+      if (!usageRes.ok) {
+        setErr(usageRes.status === 401 ? 'Sign in to see usage details.' : 'Could not load usage info.');
         return;
       }
-      setInfo((await res.json()) as UsageInfo);
+      const usage = (await usageRes.json()) as UsageInfo;
+      if (auditRes.ok) {
+        const auditPayload = await auditRes.json() as { logs?: UsageInfo['auditLogs'] };
+        usage.auditLogs = auditPayload.logs ?? [];
+      }
+      setInfo(usage);
     } catch {
       setErr('Network error');
     }
@@ -328,7 +338,34 @@ export function ApiUsagePanel({
             hint="Vs full research sweep"
             icon={<Activity size={16} />}
           />
+          <StatCard
+            label="Feedback"
+            value={
+              info?.feedbackStats
+                ? `↑${info.feedbackStats.up} ↓${info.feedbackStats.down}`
+                : '—'
+            }
+            hint={
+              info?.feedbackStats?.refineRate != null
+                ? `Refine rate ${info.feedbackStats.refineRate}%`
+                : 'Thumbs across sessions'
+            }
+            icon={<Activity size={16} />}
+          />
         </div>
+        {info?.auditLogs && info.auditLogs.length > 0 ? (
+          <div className="mt-4 results-panel p-4" style={{ background: 'var(--surface)' }}>
+            <p className="ui-section-label mb-2">Recent audit</p>
+            <ul className="flex flex-col gap-1.5 m-0 p-0 list-none">
+              {info.auditLogs.slice(0, 8).map((row) => (
+                <li key={row.id} className="text-[11px] font-mono text-muted-foreground flex justify-between gap-2">
+                  <span>{row.action} · {row.resource_type}</span>
+                  <span>{new Date(row.created_at).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       {err ? (

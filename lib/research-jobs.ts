@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { writeAuditLog } from '@/lib/audit';
 import type { ResearchJobStatus } from '@/lib/research-jobs-types';
 
 export type { ResearchJobStatus } from '@/lib/research-jobs-types';
@@ -137,6 +138,23 @@ export async function patchResearchJob(
     `UPDATE research_jobs SET ${sets.join(', ')} WHERE id = $${i}`,
     vals,
   );
+
+  const terminal = ['completed', 'failed', 'cancelled', 'dead_letter'] as const;
+  if (patch.status && (terminal as readonly string[]).includes(patch.status)) {
+    const job = await getResearchJob(jobId);
+    if (job) {
+      await writeAuditLog({
+        userId: job.user_id,
+        action: `job_${patch.status}`,
+        resourceType: 'research_job',
+        resourceId: jobId,
+        metadata: {
+          error: patch.error ?? job.error,
+          attempt: patch.attempt ?? job.attempt,
+        },
+      });
+    }
+  }
 }
 
 export async function requestCancelJob(jobId: string, userId: string): Promise<ResearchJobRow | null> {

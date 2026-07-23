@@ -27,6 +27,14 @@ export async function GET(req: Request) {
     queueMetrics = null;
   }
 
+  let feedbackStats = null;
+  try {
+    const { getFeedbackStats } = await import('@/lib/feedback-learning');
+    feedbackStats = await getFeedbackStats(user.id);
+  } catch {
+    feedbackStats = null;
+  }
+
   const providers = [
     { id: 'gemini', label: 'Google Gemini (LLM + JSON + classify)', kind: 'model' as const, configured: Boolean(cfg.GEMINI_API_KEY), usageNote: 'In-app: estimated $ from orchestrator RunMetrics; exact usage: Google AI Studio / Cloud billing.' },
     { id: 'embed', label: 'Gemini embeddings (recall)', kind: 'model' as const, configured: Boolean(cfg.GEMINI_API_KEY), usageNote: 'Tied to same key as text model.' },
@@ -44,6 +52,7 @@ export async function GET(req: Request) {
       providers,
       geminiUsage: getGeminiUsageSafe(),
       queueMetrics,
+      feedbackStats,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   );
