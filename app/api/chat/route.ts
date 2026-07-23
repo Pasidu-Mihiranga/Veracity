@@ -4,12 +4,15 @@ import { createClient } from '@/lib/supabase-server';
 import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
 import { captureException, getRequestContext, getGeminiUsageSafe, logger, withCorrelation, withSpan } from '@/lib/observability';
 import type { ConversationMessage, AgentRun, OrchestratorOutput, ImageAttachment, AgentOutput } from '../../../lib/agents/types';
+import { featureFlags } from '@/lib/feature-flags';
+import { inngest, inngestConfigured } from '@/lib/inngest/client';
+import { createResearchJob, newExecutionId } from '@/lib/research-jobs';
+import { getConfig } from '@/lib/config';
 
 export const runtime = 'nodejs';
 // Vercel Pro: up to 120s (config). Hobby plan still enforces ~60s wall clock — keep Apify wait (APIFY_MAX_WAIT_SECS) low enough to finish.
 export const maxDuration = 120;
 
-// ── Streaming chunk types ─────────────────────────────────────────────────────
 interface LiveMetrics {
   elapsedMs: number;
   agentCount: number;
@@ -24,14 +27,14 @@ interface LiveMetrics {
 type StreamChunk =
   | { type: 'agent_update'; run: AgentRun; metrics: LiveMetrics }
   | { type: 'orchestration_log'; line: string }
+  | { type: 'progress'; pct: number; label?: string; completedSteps?: number; totalSteps?: number }
+  | { type: 'mission_summary'; summary: Record<string, unknown> }
   | { type: 'result'; output: OrchestratorOutput }
   | { type: 'mirofish_result'; output: AgentOutput }
   | { type: 'mirofish_live_result'; output: AgentOutput }
+  | { type: 'cancelled' }
   | { type: 'error'; message: string };
 
-// Mirror of orchestrator cost model — kept cheap and only used for the
-// live per-chunk cost readout the UI shows while agents are running. The
-// authoritative cost lands in the final `result` chunk.
 const LIVE_COST_PER_AGENT = (2000 * (0.1 / 1_000_000)) + (1000 * (0.4 / 1_000_000));
 
 function encode(chunk: StreamChunk): string {
@@ -43,6 +46,19 @@ function jsonError(message: string, status: number): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+function isAsyncSweepEnabled(): boolean {
+  if (!featureFlags.asyncSweep) return false;
+  try {
+    const cfg = getConfig();
+    if (cfg.INNGEST_EVENT_KEY || process.env.INNGEST_DEV === '1' || process.env.NODE_ENV === 'development') {
+      return inngestConfigured();
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 export async function POST(req: NextRequest) {
@@ -79,6 +95,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
     includeMirofishLive?: boolean;
     followUpMode?: 'full' | 'targeted';
     selectedAgents?: string[];
+    forceFullSweep?: boolean;
     sessionId?: string;
     conversationId?: string;
   };
@@ -91,7 +108,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
 
   const {
     query, history = [], images = [], memoryContext, includeMirofish = false, includeMirofishLive = false,
-    followUpMode = 'full', selectedAgents = [], sessionId, conversationId,
+    followUpMode = 'full', selectedAgents = [], forceFullSweep = false, sessionId, conversationId,
   } = body;
 
   if (!query?.trim()) {
@@ -107,7 +124,63 @@ async function handleChatPost(req: NextRequest, userId: string) {
     followUpMode,
     sessionId,
     conversationId,
+    asyncSweep: isAsyncSweepEnabled(),
   });
+
+  if (isAsyncSweepEnabled()) {
+    try {
+      const executionId = newExecutionId();
+      const job = await createResearchJob({
+        userId,
+        sessionId,
+        executionId,
+        request: {
+          query,
+          history,
+          images,
+          memoryContext,
+          selectedAgents,
+          followUpMode,
+          forceFullSweep,
+          includeMirofish,
+          includeMirofishLive,
+        },
+      });
+      await inngest.send({
+        name: 'research/sweep.requested',
+        data: {
+          jobId: job.id,
+          executionId,
+          userId,
+          sessionId,
+          query,
+          history,
+          images,
+          memoryContext,
+          selectedAgents,
+          followUpMode,
+          forceFullSweep,
+          includeMirofish,
+          includeMirofishLive,
+        },
+      });
+      return new Response(
+        JSON.stringify({ mode: 'async', jobId: job.id, executionId }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(requestCtx?.correlationId ? { 'x-correlation-id': requestCtx.correlationId } : {}),
+          },
+        },
+      );
+    } catch (err) {
+      captureException(err, { route: 'chat-async' });
+      logger.warn('chat.async_fallback_sync', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   const encoder = new TextEncoder();
   let controller!: ReadableStreamDefaultController<Uint8Array>;
@@ -120,10 +193,6 @@ async function handleChatPost(req: NextRequest, userId: string) {
     try { controller.enqueue(encoder.encode(encode(chunk))); } catch { /* stream closed */ }
   };
 
-  // Live metrics accumulator — lets the UI show running cost + latency +
-  // completed-agent count as agents finish. The authoritative RunMetrics
-  // object (with per-agent latencies and Gemini-call totals) lands on the
-  // final `result` chunk.
   const orchestrationStart = Date.now();
   const liveAgentState = new Map<string, AgentRun['status']>();
 
@@ -136,10 +205,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
       else if (status === 'failed') failed += 1;
       else if (status === 'running') running += 1;
     }
-    // Each finished agent (completed or failed) = ~1 Gemini call for the
-    // live readout. The final total also covers classification + synthesis
-    // + mind map, which only land on the `result` chunk.
-    const billedCalls = completed + failed + 1; // +1 classifier call
+    const billedCalls = completed + failed + 1;
     const estimatedToolCalls = (completed + failed) * 3;
     return {
       elapsedMs: Date.now() - orchestrationStart,
@@ -153,11 +219,9 @@ async function handleChatPost(req: NextRequest, userId: string) {
     };
   };
 
-  // Run orchestration in background, stream updates to frontend
   (async () => {
     try {
       write({ type: 'orchestration_log', line: 'Starting orchestration…' });
-      // ── Stage 1+2: 6 research agents (+ execution engine if needed) ────────
       const result = await withSpan(
         'chat.orchestrate',
         { sessionId, conversationId },
@@ -167,20 +231,30 @@ async function handleChatPost(req: NextRequest, userId: string) {
           (agentRun: AgentRun) => {
             liveAgentState.set(agentRun.agentId, agentRun.status);
             write({ type: 'agent_update', run: agentRun, metrics: computeLiveMetrics() });
+            const completed = [...liveAgentState.values()].filter((s) => s === 'completed' || s === 'failed').length;
+            const total = Math.max(liveAgentState.size, 1);
+            write({
+              type: 'progress',
+              pct: Math.min(99, Math.round((completed / total) * 100)),
+              completedSteps: completed,
+              totalSteps: total,
+            });
           },
           images,
           memoryContext,
           {
             followUpMode,
             selectedAgents,
+            forceFullSweep,
             onOrchestrationLog: (line: string) => write({ type: 'orchestration_log', line }),
+            onMissionSummary: (summary) => write({ type: 'mission_summary', summary }),
           },
         ),
       );
-      // Send main result — frontend renders immediately, no need to wait for MiroFish
+
+      write({ type: 'progress', pct: 100, label: 'completed' });
       write({ type: 'result', output: result });
 
-      // ── MiroFish Synthetic (opt-in): runs AFTER main result ────────────────
       if (includeMirofish) {
         try {
           const mirofishOutput = await runMirofishAgent(
@@ -202,7 +276,6 @@ async function handleChatPost(req: NextRequest, userId: string) {
         }
       }
 
-      // ── MiroFish Live VPS (opt-in): runs AFTER main result ─────────────────
       if (includeMirofishLive) {
         try {
           const mirofishLiveOutput = await runMirofishLiveAgent(

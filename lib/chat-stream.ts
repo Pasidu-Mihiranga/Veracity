@@ -21,6 +21,7 @@ export type ChatRequestBody = {
   includeMirofishLive?: boolean;
   followUpMode?: 'full' | 'targeted';
   selectedAgents?: string[];
+  forceFullSweep?: boolean;
   sessionId?: string;
   conversationId?: string;
 };
@@ -200,6 +201,7 @@ export function applyAgentDomainResult(
 
 /**
  * POST /api/chat and invoke onChunk for each SSE event.
+ * Supports async Inngest mode: JSON { mode:'async', jobId } then job events SSE.
  * Throws on HTTP errors (including 429 with server message).
  */
 export async function streamChatRequest(
@@ -230,7 +232,40 @@ export async function streamChatRequest(
     throw new Error(`API error ${res.status}`);
   }
 
-  const reader = res.body.getReader();
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const payload = await res.json() as { mode?: string; jobId?: string };
+    if (payload.mode === 'async' && payload.jobId) {
+      await onChunk({ type: 'job_started', jobId: payload.jobId });
+      await streamJobEvents(payload.jobId, onChunk, options);
+      return;
+    }
+    throw new Error('Unexpected JSON chat response');
+  }
+
+  await consumeSseBody(res.body, onChunk);
+}
+
+async function streamJobEvents(
+  jobId: string,
+  onChunk: (chunk: ChatStreamChunk) => void | Promise<void>,
+  options: StreamChatOptions = {},
+): Promise<void> {
+  const res = await fetch(`/api/jobs/${jobId}/events`, {
+    method: 'GET',
+    signal: options.signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`Job stream error ${res.status}`);
+  }
+  await consumeSseBody(res.body, onChunk);
+}
+
+async function consumeSseBody(
+  body: ReadableStream<Uint8Array>,
+  onChunk: (chunk: ChatStreamChunk) => void | Promise<void>,
+): Promise<void> {
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 

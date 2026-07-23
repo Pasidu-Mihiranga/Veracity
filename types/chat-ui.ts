@@ -35,8 +35,12 @@ export type ChatMessage = {
   agentRuns?: AgentRun[];
   orchestratorOutput?: OrchestratorOutput;
   liveMetrics?: LiveRunMetrics;
-  /** Live backend status lines while the chat stream is open (not persisted). */
+  /** Live backend status lines while the chat stream is open (also persisted after Phase 4). */
   orchestrationLog?: string[];
+  /** 0–100 mission progress while running */
+  progressPct?: number;
+  missionSummary?: Record<string, unknown> | null;
+  activeJobId?: string | null;
 };
 
 export type FollowUp = {
@@ -66,7 +70,11 @@ export type SessionUsage = {
 export type ChatStreamChunk =
   | { type: 'agent_update'; run: AgentRun; metrics: LiveRunMetrics }
   | { type: 'orchestration_log'; line: string }
+  | { type: 'progress'; pct: number; label?: string; completedSteps?: number; totalSteps?: number }
+  | { type: 'mission_summary'; summary: Record<string, unknown> }
+  | { type: 'job_started'; jobId: string }
   | { type: 'result'; output: OrchestratorOutput }
   | { type: 'mirofish_result'; output: import('@/lib/agents/types').AgentOutput }
   | { type: 'mirofish_live_result'; output: import('@/lib/agents/types').AgentOutput }
+  | { type: 'cancelled' }
   | { type: 'error'; message: string };
