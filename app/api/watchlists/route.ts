@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { getCurrentUser } from '@/lib/auth';
 import { featureFlags } from '@/lib/feature-flags';
+import { PermissionError } from '@/lib/rbac';
 import {
   addWatchlistItem,
   createWatchlist,
@@ -8,16 +9,20 @@ import {
   listWatchlists,
 } from '@/lib/watchlists';
 import { query } from '@/lib/db';
+import {
+  requireWorkspaceAccess,
+  resolveTenantFromCookies,
+} from '@/lib/workspace';
 
 export async function GET() {
   if (!featureFlags.watchlists) {
     return NextResponse.json({ watchlists: [] });
   }
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-  const lists = await listWatchlists(user.id);
+  const tenant = await resolveTenantFromCookies(user.id, user.email);
+  const lists = await listWatchlists(user.id, tenant.workspaceId);
   const withItems = await Promise.all(
     lists.map(async (w) => ({
       ...w,
@@ -31,9 +36,20 @@ export async function POST(req: Request) {
   if (!featureFlags.watchlists) {
     return NextResponse.json({ error: 'Watchlists disabled' }, { status: 403 });
   }
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  const tenant = await resolveTenantFromCookies(user.id, user.email);
+  if (featureFlags.workspaces && tenant.workspaceId) {
+    try {
+      await requireWorkspaceAccess(user.id, tenant.workspaceId, 'watchlist.manage');
+    } catch (err) {
+      if (err instanceof PermissionError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      throw err;
+    }
+  }
 
   let body: {
     name?: string;
@@ -49,7 +65,7 @@ export async function POST(req: Request) {
 
   let product = body.product?.trim() || '';
   let competitors = body.competitors ?? [];
-  let name = body.name?.trim() || 'Strategic watchlist';
+  const name = body.name?.trim() || 'Strategic watchlist';
 
   if (body.seedFromMemory || (!product && competitors.length === 0)) {
     const { rows } = await query<{ products: string[]; competitors: string[] }>(
@@ -65,6 +81,7 @@ export async function POST(req: Request) {
 
   const watchlist = await createWatchlist({
     userId: user.id,
+    workspaceId: tenant.workspaceId,
     name,
     product: product || 'Product',
   });

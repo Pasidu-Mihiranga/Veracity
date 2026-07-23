@@ -4,10 +4,13 @@ import {
   nextMondaySweepUtc,
   type HealthStatus,
 } from '@/lib/monitoring/health';
+import { featureFlags } from '@/lib/feature-flags';
+import { withTenantScope } from '@/lib/tenant';
 
 export type WatchlistRow = {
   id: string;
   user_id: string;
+  workspace_id?: string | null;
   name: string;
   product: string;
   enabled: boolean;
@@ -27,10 +30,17 @@ export type WatchlistItemRow = {
   created_at: string;
 };
 
-export async function listWatchlists(userId: string): Promise<WatchlistRow[]> {
+export async function listWatchlists(
+  userId: string,
+  workspaceId?: string | null,
+): Promise<WatchlistRow[]> {
+  const scope = withTenantScope(
+    { userId, workspaceId: workspaceId ?? null },
+    1,
+  );
   const { rows } = await query<WatchlistRow>(
-    `SELECT * FROM watchlists WHERE user_id = $1 ORDER BY created_at DESC`,
-    [userId],
+    `SELECT * FROM watchlists WHERE ${scope.sql} ORDER BY created_at DESC`,
+    scope.params,
   );
   return rows;
 }
@@ -38,22 +48,45 @@ export async function listWatchlists(userId: string): Promise<WatchlistRow[]> {
 export async function getWatchlistForUser(
   id: string,
   userId: string,
+  workspaceId?: string | null,
 ): Promise<WatchlistRow | null> {
+  const scope = withTenantScope(
+    { userId, workspaceId: workspaceId ?? null },
+    2,
+  );
   const { rows } = await query<WatchlistRow>(
-    `SELECT * FROM watchlists WHERE id = $1 AND user_id = $2`,
-    [id, userId],
+    `SELECT * FROM watchlists WHERE id = $1 AND ${scope.sql}`,
+    [id, ...scope.params],
   );
   return rows[0] ?? null;
 }
 
 export async function createWatchlist(input: {
   userId: string;
+  workspaceId?: string | null;
   name: string;
   product: string;
   enabled?: boolean;
 }): Promise<WatchlistRow> {
   const next = nextMondaySweepUtc();
   const enabled = input.enabled !== false;
+  if (featureFlags.workspaces && input.workspaceId) {
+    const { rows } = await query<WatchlistRow>(
+      `INSERT INTO watchlists (user_id, workspace_id, name, product, enabled, next_sweep_at, health_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        input.userId,
+        input.workspaceId,
+        input.name,
+        input.product,
+        enabled,
+        next.toISOString(),
+        enabled ? 'stale' : 'paused',
+      ],
+    );
+    return rows[0];
+  }
   const { rows } = await query<WatchlistRow>(
     `INSERT INTO watchlists (user_id, name, product, enabled, next_sweep_at, health_status)
      VALUES ($1, $2, $3, $4, $5, $6)

@@ -4,6 +4,7 @@ import { featureFlags } from '@/lib/feature-flags';
 export type AuditLogRow = {
   id: string;
   user_id: string;
+  workspace_id?: string | null;
   action: string;
   resource_type: string;
   resource_id: string | null;
@@ -13,6 +14,7 @@ export type AuditLogRow = {
 
 export async function writeAuditLog(input: {
   userId: string;
+  workspaceId?: string | null;
   action: string;
   resourceType: string;
   resourceId?: string | null;
@@ -21,10 +23,11 @@ export async function writeAuditLog(input: {
   if (!featureFlags.auditLogs) return;
   try {
     await query(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, metadata)
-       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      `INSERT INTO audit_logs (user_id, workspace_id, action, resource_type, resource_id, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
       [
         input.userId,
+        input.workspaceId ?? null,
         input.action,
         input.resourceType,
         input.resourceId ?? null,
@@ -39,7 +42,15 @@ export async function writeAuditLog(input: {
 export async function listAuditLogs(
   userId: string,
   limit = 10,
+  workspaceId?: string | null,
 ): Promise<AuditLogRow[]> {
+  if (featureFlags.workspaces && workspaceId) {
+    const { rows } = await query<AuditLogRow>(
+      `SELECT * FROM audit_logs WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT $2`,
+      [workspaceId, Math.min(Math.max(limit, 1), 50)],
+    );
+    return rows;
+  }
   const { rows } = await query<AuditLogRow>(
     `SELECT * FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
     [userId, Math.min(Math.max(limit, 1), 50)],

@@ -86,6 +86,28 @@ async function handleChatPost(req: NextRequest, userId: string) {
     return rateLimitExceededResponse(rate);
   }
 
+  let workspaceId: string | null = null;
+  if (featureFlags.workspaces) {
+    try {
+      const { resolveTenantFromCookies, requireWorkspaceAccess } = await import('@/lib/workspace');
+      const { getCurrentUser } = await import('@/lib/auth');
+      const authUser = await getCurrentUser();
+      if (authUser) {
+        const tenant = await resolveTenantFromCookies(authUser.id, authUser.email);
+        workspaceId = tenant.workspaceId;
+        if (workspaceId) {
+          await requireWorkspaceAccess(authUser.id, workspaceId, 'session.write');
+        }
+      }
+    } catch (err) {
+      const { PermissionError } = await import('@/lib/rbac');
+      if (err instanceof PermissionError) {
+        return jsonError(err.message, err.status);
+      }
+      // tables may not be migrated yet — continue without workspace stamp
+    }
+  }
+
   let body: {
     query: string;
     history: ConversationMessage[];
@@ -141,6 +163,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
       const executionId = newExecutionId();
       const job = await createResearchJob({
         userId,
+        workspaceId,
         sessionId,
         executionId,
         request: {

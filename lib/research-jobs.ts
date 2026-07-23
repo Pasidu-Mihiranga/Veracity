@@ -37,6 +37,7 @@ export function newExecutionId(jobId?: string): string {
 
 export async function createResearchJob(input: {
   userId: string;
+  workspaceId?: string | null;
   sessionId?: string | null;
   executionId: string;
   request: Record<string, unknown>;
@@ -44,12 +45,13 @@ export async function createResearchJob(input: {
 }): Promise<ResearchJobRow> {
   const { rows } = await query<ResearchJobRow>(
     `INSERT INTO research_jobs (
-      execution_id, user_id, session_id, status, request, mission_summary
-    ) VALUES ($1, $2, $3, 'queued', $4::jsonb, $5::jsonb)
+      execution_id, user_id, workspace_id, session_id, status, request, mission_summary
+    ) VALUES ($1, $2, $3, $4, 'queued', $5::jsonb, $6::jsonb)
     RETURNING *`,
     [
       input.executionId,
       input.userId,
+      input.workspaceId ?? null,
       input.sessionId ?? null,
       JSON.stringify(input.request),
       input.missionSummary ? JSON.stringify(input.missionSummary) : null,
