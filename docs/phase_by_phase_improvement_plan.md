@@ -244,8 +244,8 @@
 - [x] Export button; PDF includes summary, mind map, matrix, sources
 - [x] Clickable source links in PDF (`Link` components)
 - [x] Analytics: export click tracking (`lib/analytics.ts` local + console events)
-- [ ] DOCX export (optional follow-up; PDF is primary deliverable)
-- [ ] Presentation Mode / Executive Board Mode layouts *(see Phase 3B)*
+- [x] DOCX export (optional follow-up; PDF is primary deliverable)
+- [x] Presentation Mode / Executive Board Mode layouts *(see Phase 3B)*
 
 #### TASK-3.2 — Unified composer (query + follow-up)
 - [x] Remove duplicate “Ask a follow-up” bar; single bottom composer
@@ -254,7 +254,7 @@
 #### TASK-3.3 — Auth / brand dark-mode lockup
 - [x] Theme-aware wordmark PNGs; auth uses robot + wordmark (no corrupted composite logo)
 
-**Phase 3 exit:** 🟡 Partial — PDF + composer + branding live; DOCX + presentation modes open
+**Phase 3 exit:** ✅ Complete — PDF + DOCX + composer + branding + Board Mode live
 
 ---
 
@@ -267,10 +267,10 @@
 - [x] Anti-hallucination + plain-language rules in synthesizer prompt
 - [x] Offline validation script `npm run test:quality` + unit tests
 - [x] Fix Notion false-positive `person_homonym_noise` (LinkedIn company noise)
-- [ ] Surface quality report in UI (Evidence Strength Meter — Phase 3B)
-- [ ] Claim↔URL binding for facts/recommendations (Evidence Trail — Phase 3B)
+- [x] Surface quality report in UI (Evidence Strength Meter — Phase 3B)
+- [x] Claim↔URL binding for facts/recommendations (Evidence Trail — Phase 3B)
 
-**Phase 3Q exit:** 🟡 Code gate live; explainability UI still open
+**Phase 3Q exit:** ✅ Code gate + explainability UI live
 
 ---
 
@@ -293,49 +293,50 @@
 **Conflict prevention:** FE does not change orchestrator prompts; AI does not restyle Board Mode; BE publishes metadata schema before FE binds Evidence Trail. Flags: `ff_board_mode`, `ff_orchestrator_view`, `ff_evidence_trail`, `ff_async_sweep` (see §29).
 
 #### TASK-3B.1 — Claim-to-Source Traceability + Evidence Trail
-- [ ] Bind `facts` / `Recommendation.evidence` to `sourceUrls[]`
-- [ ] UI expandable Evidence Trail per recommendation
-- [ ] PDF includes evidence links per recommendation
-- [ ] Flag `ff_evidence_trail` gates UI
-- [ ] Acceptance: every top recommendation shows ≥1 clickable source
+- [x] Bind `facts` / `Recommendation.evidence` to `sourceUrls[]`
+- [x] UI expandable Evidence Trail per recommendation
+- [x] PDF includes evidence links per recommendation
+- [x] Flag `ff_evidence_trail` gates UI
+- [x] Acceptance: every top recommendation shows ≥1 clickable source
 
 #### TASK-3B.2 — Confidence Breakdown + Evidence Strength Meter
-- [ ] Expose tool-health · entity-match · agent-avg · quality-gate components
-- [ ] UI meter on Decision card
-- [ ] Acceptance: user can see *why* confidence is medium/low
+- [x] Expose tool-health · entity-match · agent-avg · quality-gate components
+- [x] UI meter on Decision card
+- [x] Acceptance: user can see *why* confidence is medium/low
+- [x] Evidence Coverage Radar (Market / Competition / Customers / Technology / Pricing)
 
 #### TASK-3B.3 — Interactive AI Thinking Timeline + Live Orchestrator View
-- [ ] Render streamed `orchestration_log` + agent status as timeline
-- [ ] Live Orchestrator View (DAG of classify → agents → synth → gate)
-- [ ] Flag `ff_orchestrator_view` gates UI
-- [ ] Acceptance: judges see agents work in real time beyond chip bar
+- [x] Render streamed `orchestration_log` + agent status as timeline
+- [x] Live Orchestrator View (DAG of classify → agents → synth → gate)
+- [x] Flag `ff_orchestrator_view` gates UI
+- [x] Acceptance: judges see agents work in real time beyond chip bar
 
 #### TASK-3B.4 — Agent Collaboration Graph + Mission DAG (lite)
-- [ ] Visual graph of agents + shared product/competitor context
-- [ ] Mission Planner lite: ordered research steps from classifier domains
-- [ ] Acceptance: graph updates as agents complete
+- [x] Visual graph of agents + shared product/competitor context
+- [x] Mission Planner lite: ordered research steps from classifier domains
+- [x] Acceptance: graph updates as agents complete
 
 #### TASK-3B.5 — Source Trust Score + Credibility Badges
-- [ ] Extend `source-validator` tiers (T1/T2/T3) into UI badges
-- [ ] Acceptance: Sources list shows trust tier
+- [x] Extend `source-validator` tiers (T1/T2/T3) into UI badges
+- [x] Acceptance: Sources list shows trust tier
 
 #### TASK-3B.6 — Executive Board Mode + Presentation Mode
-- [ ] Full-screen Decision → Recs → Matrix → Map → Sources
-- [ ] Keyboard/Presenter-friendly transitions
-- [ ] Flag `ff_board_mode` gates UI
-- [ ] Acceptance: 5-minute demo never leaves Board Mode
+- [x] Full-screen Decision → Recs → Matrix → Map → Sources
+- [x] Keyboard/Presenter-friendly transitions
+- [x] Flag `ff_board_mode` gates UI
+- [x] Acceptance: 5-minute demo never leaves Board Mode
 
 #### TASK-3B.7 — Strategy Canvas + Competitive Battlefield (viewport)
-- [ ] Strategy Canvas summarizing pillars vs competitor
-- [ ] Competitive Battlefield matrix with hover evidence
-- [ ] Acceptance: one screen explains “why we win/lose”
+- [x] Strategy Canvas summarizing pillars vs competitor
+- [x] Competitive Battlefield matrix with hover evidence
+- [x] Acceptance: one screen explains “why we win/lose”
 
 #### TASK-3B.8 — Wire Adaptive Agent Selection UI
-- [ ] Mount agent toggles (`selectedAgents`) in sidebar or header
-- [ ] Persist per-session selection
-- [ ] Acceptance: deselecting agents reduces fan-out visibly in Orchestrator View
+- [x] Mount agent toggles (`selectedAgents`) in sidebar or header
+- [x] Persist per-session selection
+- [x] Acceptance: deselecting agents reduces fan-out visibly in Orchestrator View
 
-**Phase 3B exit:** ⬜ Not complete — required for competition “wow” without fake demos
+**Phase 3B exit:** ✅ Complete — explainability suite + Board Mode + Coverage Radar shipped
 
 ---
 
