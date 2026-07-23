@@ -2,11 +2,12 @@
 
 import type { RefObject } from 'react';
 import {
-  BarChart3, Bell, Brain, Crosshair, LogOut, Sparkles, Sun, Moon, User,
+  BarChart3, Bell, Brain, Building2, Crosshair, LogOut, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 import { featureFlags } from '@/lib/feature-flags';
+import { WorkspaceSwitcher } from '@/components/ui/WorkspaceSwitcher';
 
 export type TopTab = 'intelligence' | 'usage' | 'steal';
 
@@ -22,6 +23,8 @@ export type DashboardHeaderProps = {
   onOpenMemory: () => void;
   onOpenAlerts?: () => void;
   alertsUnread?: number;
+  onOpenMembers?: () => void;
+  onOpenOrgIntel?: () => void;
   isDark: boolean;
   onToggleTheme: () => void;
   userEmail: string | null;
@@ -45,6 +48,8 @@ export function DashboardHeader({
   onOpenMemory,
   onOpenAlerts,
   alertsUnread = 0,
+  onOpenMembers,
+  onOpenOrgIntel,
   isDark,
   onToggleTheme,
   userEmail,
@@ -107,6 +112,24 @@ export function DashboardHeader({
             ) : null}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {featureFlags.workspaces ? (
+              <WorkspaceSwitcher
+                onOpenMembers={onOpenMembers}
+                accentInk={accentInk}
+                textMuted={textMuted}
+              />
+            ) : null}
+            {featureFlags.orgIntelligence && onOpenOrgIntel ? (
+              <button
+                type="button"
+                onClick={onOpenOrgIntel}
+                className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ color: textMuted }}
+                title="Organization Intelligence"
+              >
+                <Building2 size={14} />
+              </button>
+            ) : null}
             {featureFlags.alerts && onOpenAlerts ? (
               <button
                 type="button"

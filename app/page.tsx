@@ -19,6 +19,8 @@ import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
 import { AlertsDrawer } from '@/components/ui/AlertsDrawer';
+import { WorkspaceMembersDrawer } from '@/components/ui/WorkspaceMembersDrawer';
+import { OrgIntelligencePanel } from '@/components/ui/OrgIntelligencePanel';
 import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
 import {
@@ -54,6 +56,9 @@ export default function VeracityDashboard() {
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertsUnread, setAlertsUnread] = useState(0);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [orgIntelOpen, setOrgIntelOpen] = useState(false);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -99,6 +104,16 @@ export default function VeracityDashboard() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
   }, [supabase]);
+
+  useEffect(() => {
+    if (!featureFlags.workspaces) return;
+    void fetch('/api/workspaces', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { activeWorkspaceId?: string } | null) => {
+        setActiveWorkspaceId(d?.activeWorkspaceId ?? null);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!featureFlags.alerts) return;
@@ -225,6 +240,8 @@ export default function VeracityDashboard() {
           onOpenMemory={() => setMemoryDrawerOpen(true)}
           onOpenAlerts={() => setAlertsOpen(true)}
           alertsUnread={alertsUnread}
+          onOpenMembers={() => setMembersOpen(true)}
+          onOpenOrgIntel={() => setOrgIntelOpen(true)}
           isDark={isDark}
           onToggleTheme={toggleTheme}
           userEmail={userEmail}
@@ -297,6 +314,12 @@ export default function VeracityDashboard() {
       accentInk={accentInk}
     />
     <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+    <WorkspaceMembersDrawer
+      open={membersOpen}
+      onClose={() => setMembersOpen(false)}
+      workspaceId={activeWorkspaceId}
+    />
+    <OrgIntelligencePanel open={orgIntelOpen} onClose={() => setOrgIntelOpen(false)} />
     </div>
   );
 }
