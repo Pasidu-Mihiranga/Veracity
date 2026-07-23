@@ -85,6 +85,10 @@ const envSchema = z.object({
   // ── Rate limiting (optional locally; enable in production) ─
   UPSTASH_REDIS_REST_URL: optionalUrl,
   UPSTASH_REDIS_REST_TOKEN: optionalString,
+
+  // ── Inngest (optional — async sweeps when ff_async_sweep on) ─
+  INNGEST_EVENT_KEY: optionalString,
+  INNGEST_SIGNING_KEY: optionalString,
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
