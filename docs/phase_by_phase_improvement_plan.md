@@ -91,7 +91,7 @@
 | Phase 3Q | Output Quality & Anti-Hallucination Gates | 🟡 Mostly complete (2026-07-23) |
 | Phase 4 | AI Systems Orchestration & Queue Scale | ✅ Done |
 | Phase 5 | Continuous Platform | ✅ Done |
-| Phase 6 | Enterprise | ⬜ Not started |
+| Phase 6 | Enterprise | ✅ Done |
 | Phase 7 | Knowledge Platform | ⬜ Not started |
 
 ---
@@ -385,12 +385,17 @@
 ---
 
 ### Phase 6 — Enterprise *(roadmap)*
-- [ ] Multi-tenant workspaces + RLS
-- [ ] RBAC
-- [ ] Enterprise SAML SSO
-- [ ] Organization Intelligence Dashboard *(optional platform)*
+- [x] Multi-tenant workspaces + RLS
+- [x] RBAC
+- [x] Enterprise SAML SSO
+- [x] Organization Intelligence Dashboard *(optional platform)*
+- [x] Single tenant helper layer (no mixed user/workspace filters)
+- [x] Invite lifecycle (pending / accepted / expired / revoked)
+- [x] Centralized `assertPermission` + admin audit events
+- [x] Workspace metadata (logo / timezone / industry)
+- [x] Org operational metrics + isolation regression checklist
 
-**Phase 6 exit:** ⬜ Not complete
+**Phase 6 exit:** ✅ Complete
 
 ---
 
@@ -1299,8 +1304,9 @@ graph TD
 ## 19. Enterprise Roadmap
 
 - **Phase 1 ✅**: Rate limiting, header security, config fail-fast  
-- **Phase 5**: Audit logs  
-- **Phase 6**: Multi-tenant RLS, RBAC, SAML  
+- **Phase 5 ✅**: Audit logs  
+- **Phase 6 ✅**: Multi-tenant workspaces + app/RLS tenancy, RBAC (`assertPermission`), demo-safe SAML ACS, Organization Intelligence Monitor  
+- **Isolation**: See [`docs/workspace_isolation_checklist.md`](workspace_isolation_checklist.md) — mandatory for post–Phase 6 tenant features. 
 
 ---
 
