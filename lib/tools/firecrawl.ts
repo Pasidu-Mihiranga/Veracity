@@ -1,4 +1,5 @@
 import { getCached, setCache } from '../supabase';
+import { withToolLatency } from '@/lib/observability';
 import type { ToolResult, ScrapedPage } from './types';
 import { buildToolResult } from './fallback';
 import { assessScrapeQuality } from './scrape-quality';
@@ -65,17 +66,17 @@ async function firecrwlFetch(url: string, extractPrompt: string, apiKey: string,
 }
 
 export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> {
-  const cacheKey = `scrape:${url}`;
-  const cached = await getCached('firecrawl', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<ScrapedPage>), cached: true };
-  }
+  return withToolLatency('firecrawl.scrapePage', async () => {
+    const cacheKey = `scrape:${url}`;
+    const cached = await getCached('firecrawl', cacheKey);
+    if (cached) {
+      return { ...(cached as ToolResult<ScrapedPage>), cached: true };
+    }
 
-  const apiKey = process.env.FIRECRAWL_API_KEY;
-  if (!apiKey) {
-    // Fallback: basic fetch + strip HTML
-    return scrapeBasic(url);
-  }
+    const apiKey = process.env.FIRECRAWL_API_KEY;
+    if (!apiKey) {
+      return scrapeBasic(url);
+    }
 
   const policy = getPolicyForDomain(url);
   const extractPrompt = selectExtractPrompt(url);
@@ -151,8 +152,9 @@ export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> 
     confidenceOverride: confidence,
   });
 
-  await setCache('firecrawl', cacheKey, result_final);
-  return result_final;
+    await setCache('firecrawl', cacheKey, result_final);
+    return result_final;
+  }, { url });
 }
 
 // ── Scrape.do fallback (free tier: 1000 req/month, anti-bot + proxy rotation) ──

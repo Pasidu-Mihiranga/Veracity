@@ -1,4 +1,5 @@
 import { getCached, setCache } from '../supabase';
+import { withToolLatency } from '@/lib/observability';
 import { scrapePage } from './firecrawl';
 import type { ToolResult, MetaAd } from './types';
 import { buildToolResult } from './fallback';
@@ -50,33 +51,31 @@ export async function searchMetaAds(
   _country = 'US',
   _limit = 15,
 ): Promise<ToolResult<MetaAd[]>> {
-  const cacheKey = `meta:browser:${advertiserName}`;
-  const cached = await getCached('meta_ads', cacheKey);
-  if (cached) return { ...(cached as ToolResult<MetaAd[]>), cached: true };
-
-  const url = buildAdLibraryUrl(advertiserName);
-
-  try {
-    const scraped = await scrapePage(url);
-    const ads = parseAdsFromMarkdown(scraped.data.markdown, advertiserName);
-
-    const result = buildToolResult<MetaAd[]>({
-      data: ads,
-      status: ads.length > 0 ? 'degraded' : 'failed',
-      source: 'Meta Ad Library (browser scrape)',
-      sourceUrl: url,
-    });
-
-    await setCache('meta_ads', cacheKey, result);
-    return result;
-  } catch {
-    return buildToolResult<MetaAd[]>({
-      data: [],
-      status: 'failed',
-      source: 'Meta Ad Library (browser scrape)',
-      sourceUrl: url,
-    });
-  }
+  return withToolLatency('meta.searchMetaAds', async () => {
+    const cacheKey = `meta:browser:${advertiserName}`;
+    const cached = await getCached('meta_ads', cacheKey);
+    if (cached) return { ...(cached as ToolResult<MetaAd[]>), cached: true };
+    const url = buildAdLibraryUrl(advertiserName);
+    try {
+      const scraped = await scrapePage(url);
+      const ads = parseAdsFromMarkdown(scraped.data.markdown, advertiserName);
+      const result = buildToolResult<MetaAd[]>({
+        data: ads,
+        status: ads.length > 0 ? 'degraded' : 'failed',
+        source: 'Meta Ad Library (browser scrape)',
+        sourceUrl: url,
+      });
+      await setCache('meta_ads', cacheKey, result);
+      return result;
+    } catch {
+      return buildToolResult<MetaAd[]>({
+        data: [],
+        status: 'failed',
+        source: 'Meta Ad Library (browser scrape)',
+        sourceUrl: url,
+      });
+    }
+  }, { advertiserName });
 }
 
 export async function getAdMessaging(advertiserName: string): Promise<string[]> {

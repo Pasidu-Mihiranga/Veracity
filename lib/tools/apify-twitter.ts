@@ -1,4 +1,5 @@
 import { ApifyClient } from 'apify-client';
+import { withToolLatency } from '@/lib/observability';
 import type { ToolResult } from './types';
 import { buildToolResult } from './fallback';
 
@@ -66,20 +67,20 @@ export async function scrapeTwitterX(
     language?: string;
   } = {},
 ): Promise<ToolResult<ApifyTweet[]>> {
-  const client = makeClient();
-  if (!client) {
-    if (!loggedMissingApifyToken) {
-      loggedMissingApifyToken = true;
-      // High-signal line for Vercel logs — without APIFY_API_TOKEN the client never calls Apify (zero usage in console).
-      console.warn('[apify] APIFY_API_TOKEN is not set; Twitter/X Apify runs are skipped.');
+  return withToolLatency('apify.scrapeTwitterX', async () => {
+    const client = makeClient();
+    if (!client) {
+      if (!loggedMissingApifyToken) {
+        loggedMissingApifyToken = true;
+        console.warn('[apify] APIFY_API_TOKEN is not set; Twitter/X Apify runs are skipped.');
+      }
+      return buildToolResult<ApifyTweet[]>({
+        data: [],
+        status: 'failed',
+        source: 'Apify Twitter/X (missing APIFY_API_TOKEN — set in Vercel / .env to record usage)',
+        sourceUrl: 'https://console.apify.com',
+      });
     }
-    return buildToolResult<ApifyTweet[]>({
-      data: [],
-      status: 'failed',
-      source: 'Apify Twitter/X (missing APIFY_API_TOKEN — set in Vercel / .env to record usage)',
-      sourceUrl: 'https://console.apify.com',
-    });
-  }
 
   const searchTerms = terms.map(t => t.trim()).filter(Boolean).slice(0, 6);
   if (!searchTerms.length) {
@@ -107,7 +108,7 @@ export async function scrapeTwitterX(
     console.log('[apify] starting run', { actor: APIFY_TWITTER_ACTOR_ID, searchTerms, twitterHandles, maxItems, waitSecs });
   }
 
-  try {
+    try {
     const run = await client.actor(APIFY_TWITTER_ACTOR_ID).call(input, { waitSecs });
     if (debugApify) {
       console.log('[apify] run finished', { id: run?.id, status: run?.status, defaultDatasetId: run?.defaultDatasetId });
@@ -162,7 +163,7 @@ export async function scrapeTwitterX(
         : `Apify Twitter/X Scraper (${runLabel}, 0 items — check run log in Apify console)`,
       sourceUrl: `https://console.apify.com/actors/${actorPath}/runs/${run.id}`,
     });
-  } catch (err) {
+    } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[apify] actor call or dataset read failed:', message);
     return buildToolResult<ApifyTweet[]>({
@@ -171,6 +172,7 @@ export async function scrapeTwitterX(
       source: `Apify Twitter/X error: ${message.slice(0, 200)}`,
       sourceUrl: `https://console.apify.com/actors/${encodeURIComponent(APIFY_TWITTER_ACTOR_ID)}`,
     });
-  }
+    }
+  }, { termCount: terms.length });
 }
 

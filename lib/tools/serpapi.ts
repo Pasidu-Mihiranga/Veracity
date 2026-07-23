@@ -1,4 +1,5 @@
 import { getCached, setCache } from '../supabase';
+import { withToolLatency } from '@/lib/observability';
 import type { ToolResult, SearchResult, TrendPoint } from './types';
 import { buildToolResult } from './fallback';
 
@@ -36,75 +37,45 @@ function emptySearchResult(source: string, query: string): ToolResult<SearchResu
 }
 
 export async function searchWeb(query: string): Promise<ToolResult<SearchResult[]>> {
-  const cacheKey = `web:${query}`;
-  const cached = await getCached('serpapi_search', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<SearchResult[]>), cached: true };
-  }
-
-  try {
-    const raw = await serpFetch({ engine: 'google', q: query, num: '10' }) as any;
-
-    const results: SearchResult[] = (raw.organic_results ?? []).slice(0, 8).map((r: any) => ({
-      title: r.title,
-      url: r.link,
-      snippet: r.snippet ?? '',
-      date: r.date,
-    }));
-
-    const result = buildToolResult<SearchResult[]>({
-      data: results,
-      status: results.length > 0 ? 'ok' : 'failed',
-      source: 'SerpAPI / Google',
-      sourceUrl: `https://google.com/search?q=${encodeURIComponent(query)}`,
-    });
-
-    await setCache('serpapi_search', cacheKey, result);
-    return result;
-  } catch {
-    return emptySearchResult('SerpAPI / Google', query);
-  }
+  return withToolLatency('serpapi.searchWeb', async () => {
+    const cacheKey = `web:${query}`;
+    const cached = await getCached('serpapi_search', cacheKey);
+    if (cached) return { ...(cached as ToolResult<SearchResult[]>), cached: true };
+    try {
+      const raw = await serpFetch({ engine: 'google', q: query, num: '10' }) as any;
+      const results: SearchResult[] = (raw.organic_results ?? []).slice(0, 8).map((r: any) => ({ title: r.title, url: r.link, snippet: r.snippet ?? '', date: r.date }));
+      const result = buildToolResult<SearchResult[]>({ data: results, status: results.length > 0 ? 'ok' : 'failed', source: 'SerpAPI / Google', sourceUrl: `https://google.com/search?q=${encodeURIComponent(query)}` });
+      await setCache('serpapi_search', cacheKey, result);
+      return result;
+    } catch {
+      return emptySearchResult('SerpAPI / Google', query);
+    }
+  }, { query });
 }
 
 export async function searchNews(query: string): Promise<ToolResult<SearchResult[]>> {
-  const cacheKey = `news:${query}`;
-  const cached = await getCached('serpapi_news', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<SearchResult[]>), cached: true };
-  }
-
-  try {
-    const raw = await serpFetch({ engine: 'google', q: query, tbm: 'nws', num: '10' }) as any;
-
-    const results: SearchResult[] = (raw.news_results ?? []).slice(0, 8).map((r: any) => ({
-      title: r.title,
-      url: r.link,
-      snippet: r.snippet ?? '',
-      date: r.date,
-    }));
-
-    const result = buildToolResult<SearchResult[]>({
-      data: results,
-      status: results.length > 0 ? 'ok' : 'failed',
-      source: 'SerpAPI / Google News',
-      sourceUrl: `https://news.google.com/search?q=${encodeURIComponent(query)}`,
-    });
-
-    await setCache('serpapi_news', cacheKey, result);
-    return result;
-  } catch {
-    return emptySearchResult('SerpAPI / Google News', query);
-  }
+  return withToolLatency('serpapi.searchNews', async () => {
+    const cacheKey = `news:${query}`;
+    const cached = await getCached('serpapi_news', cacheKey);
+    if (cached) return { ...(cached as ToolResult<SearchResult[]>), cached: true };
+    try {
+      const raw = await serpFetch({ engine: 'google', q: query, tbm: 'nws', num: '10' }) as any;
+      const results: SearchResult[] = (raw.news_results ?? []).slice(0, 8).map((r: any) => ({ title: r.title, url: r.link, snippet: r.snippet ?? '', date: r.date }));
+      const result = buildToolResult<SearchResult[]>({ data: results, status: results.length > 0 ? 'ok' : 'failed', source: 'SerpAPI / Google News', sourceUrl: `https://news.google.com/search?q=${encodeURIComponent(query)}` });
+      await setCache('serpapi_news', cacheKey, result);
+      return result;
+    } catch {
+      return emptySearchResult('SerpAPI / Google News', query);
+    }
+  }, { query });
 }
 
 export async function searchTrends(keywords: string[]): Promise<ToolResult<TrendPoint[]>> {
-  const cacheKey = `trends:${keywords.join(',')}`;
-  const cached = await getCached('serpapi_trends', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<TrendPoint[]>), cached: true };
-  }
-
-  try {
+  return withToolLatency('serpapi.searchTrends', async () => {
+    const cacheKey = `trends:${keywords.join(',')}`;
+    const cached = await getCached('serpapi_trends', cacheKey);
+    if (cached) return { ...(cached as ToolResult<TrendPoint[]>), cached: true };
+    try {
     const raw = await serpFetch({
       engine: 'google_trends',
       q: keywords.join(','),
@@ -132,48 +103,36 @@ export async function searchTrends(keywords: string[]): Promise<ToolResult<Trend
       sourceUrl: `https://trends.google.com/trends/explore?q=${encodeURIComponent(keywords.join(','))}`,
     });
 
-    await setCache('serpapi_trends', cacheKey, result);
-    return result;
-  } catch {
-    return buildToolResult<TrendPoint[]>({
-      data: [],
-      status: 'failed',
-      source: 'SerpAPI / Google Trends (failed)',
-      sourceUrl: `https://trends.google.com/trends/explore?q=${encodeURIComponent(keywords.join(','))}`,
-    });
-  }
+      await setCache('serpapi_trends', cacheKey, result);
+      return result;
+    } catch {
+      return buildToolResult<TrendPoint[]>({
+        data: [],
+        status: 'failed',
+        source: 'SerpAPI / Google Trends (failed)',
+        sourceUrl: `https://trends.google.com/trends/explore?q=${encodeURIComponent(keywords.join(','))}`,
+      });
+    }
+  }, { keywordCount: keywords.length });
 }
 
 export async function searchAdsTransparency(advertiser: string): Promise<ToolResult<SearchResult[]>> {
-  // Google Ads Transparency via SerpAPI
-  const cacheKey = `ads:${advertiser}`;
-  const cached = await getCached('serpapi_search', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<SearchResult[]>), cached: true };
-  }
-
-  try {
-    const raw = await serpFetch({
-      engine: 'google',
-      q: `"${advertiser}" site:adstransparency.google.com OR "${advertiser}" ads`,
-      num: '5',
-    }) as any;
-
-    const results: SearchResult[] = (raw.organic_results ?? []).slice(0, 5).map((r: any) => ({
-      title: r.title,
-      url: r.link,
-      snippet: r.snippet ?? '',
-    }));
-
-    const result = buildToolResult<SearchResult[]>({
-      data: results,
-      status: results.length > 0 ? 'ok' : 'failed',
-      source: 'SerpAPI / Google Ads Transparency',
-    });
-
-    await setCache('serpapi_search', cacheKey, result);
-    return result;
-  } catch {
-    return emptySearchResult('SerpAPI / Google Ads Transparency', advertiser);
-  }
+  return withToolLatency('serpapi.searchAdsTransparency', async () => {
+    const cacheKey = `ads:${advertiser}`;
+    const cached = await getCached('serpapi_search', cacheKey);
+    if (cached) return { ...(cached as ToolResult<SearchResult[]>), cached: true };
+    try {
+      const raw = await serpFetch({
+        engine: 'google',
+        q: `"${advertiser}" site:adstransparency.google.com OR "${advertiser}" ads`,
+        num: '5',
+      }) as any;
+      const results: SearchResult[] = (raw.organic_results ?? []).slice(0, 5).map((r: any) => ({ title: r.title, url: r.link, snippet: r.snippet ?? '' }));
+      const result = buildToolResult<SearchResult[]>({ data: results, status: results.length > 0 ? 'ok' : 'failed', source: 'SerpAPI / Google Ads Transparency' });
+      await setCache('serpapi_search', cacheKey, result);
+      return result;
+    } catch {
+      return emptySearchResult('SerpAPI / Google Ads Transparency', advertiser);
+    }
+  }, { advertiser });
 }

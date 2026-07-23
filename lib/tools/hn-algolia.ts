@@ -1,4 +1,5 @@
 import { getCached, setCache } from '../supabase';
+import { withToolLatency } from '@/lib/observability';
 import type { ToolResult, HNPost } from './types';
 import { buildToolResult } from './fallback';
 
@@ -6,36 +7,24 @@ import { buildToolResult } from './fallback';
 const BASE_URL = 'https://hn.algolia.com/api/v1';
 
 export async function searchHN(query: string, type: 'story' | 'comment' = 'story'): Promise<ToolResult<HNPost[]>> {
-  const cacheKey = `hn:${type}:${query}`;
-  const cached = await getCached('hn', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<HNPost[]>), cached: true };
-  }
-
-  const url = new URL(`${BASE_URL}/search`);
-  url.searchParams.set('query', query);
-  url.searchParams.set('tags', type);
-  url.searchParams.set('hitsPerPage', '15');
-  // Last 12 months
-  const since = Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60;
-  url.searchParams.set('numericFilters', `created_at_i>${since}`);
-
-  let posts: HNPost[] = [];
-  try {
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      return buildToolResult<HNPost[]>({
-        data: [],
-        status: 'failed',
-        source: 'Hacker News (failed)',
-        sourceUrl: url.toString(),
-      });
-    }
-
-    const raw = await res.json() as any;
-    posts = (raw.hits ?? [])
-      .slice(0, 10)
-      .map((h: any) => ({
+  return withToolLatency('hn.searchHN', async () => {
+    const cacheKey = `hn:${type}:${query}`;
+    const cached = await getCached('hn', cacheKey);
+    if (cached) return { ...(cached as ToolResult<HNPost[]>), cached: true };
+    const url = new URL(`${BASE_URL}/search`);
+    url.searchParams.set('query', query);
+    url.searchParams.set('tags', type);
+    url.searchParams.set('hitsPerPage', '15');
+    const since = Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60;
+    url.searchParams.set('numericFilters', `created_at_i>${since}`);
+    let posts: HNPost[] = [];
+    try {
+      const res = await fetch(url.toString());
+      if (!res.ok) {
+        return buildToolResult<HNPost[]>({ data: [], status: 'failed', source: 'Hacker News (failed)', sourceUrl: url.toString() });
+      }
+      const raw = await res.json() as any;
+      posts = (raw.hits ?? []).slice(0, 10).map((h: any) => ({
         title: h.title ?? h.story_title ?? h.comment_text?.slice(0, 100) ?? '',
         url: h.url ?? `https://news.ycombinator.com/item?id=${h.objectID}`,
         score: h.points ?? 0,
@@ -43,24 +32,18 @@ export async function searchHN(query: string, type: 'story' | 'comment' = 'story
         created: h.created_at,
         commentCount: h.num_comments ?? 0,
       }));
-  } catch {
-    return buildToolResult<HNPost[]>({
-      data: [],
-      status: 'failed',
-      source: 'Hacker News (failed)',
-      sourceUrl: url.toString(),
+    } catch {
+      return buildToolResult<HNPost[]>({ data: [], status: 'failed', source: 'Hacker News (failed)', sourceUrl: url.toString() });
+    }
+    const result = buildToolResult<HNPost[]>({
+      data: posts,
+      status: posts.length > 0 ? 'ok' : 'failed',
+      source: 'Hacker News (Algolia)',
+      sourceUrl: `https://hn.algolia.com/?query=${encodeURIComponent(query)}`,
     });
-  }
-
-  const result = buildToolResult<HNPost[]>({
-    data: posts,
-    status: posts.length > 0 ? 'ok' : 'failed',
-    source: 'Hacker News (Algolia)',
-    sourceUrl: `https://hn.algolia.com/?query=${encodeURIComponent(query)}`,
-  });
-
-  await setCache('hn', cacheKey, result);
-  return result;
+    await setCache('hn', cacheKey, result);
+    return result;
+  }, { query, type });
 }
 
 export async function searchHNComments(query: string): Promise<ToolResult<HNPost[]>> {

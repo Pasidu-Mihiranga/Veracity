@@ -1,4 +1,5 @@
 import { getCached, setCache } from '../supabase';
+import { withToolLatency } from '@/lib/observability';
 import { searchHN } from './hn-algolia';
 import type { ToolResult, RedditPost, HNPost } from './types';
 import { buildToolResult } from './fallback';
@@ -41,65 +42,49 @@ export async function searchReddit(
   query: string,
   subreddit?: string
 ): Promise<ToolResult<RedditPost[]>> {
-  const cacheKey = `reddit:${subreddit ?? 'all'}:${query}`;
-  const cached = await getCached('reddit', cacheKey);
-  if (cached) {
-    return { ...(cached as ToolResult<RedditPost[]>), cached: true };
-  }
+  return withToolLatency('reddit.searchReddit', async () => {
+    const cacheKey = `reddit:${subreddit ?? 'all'}:${query}`;
+    const cached = await getCached('reddit', cacheKey);
+    if (cached) return { ...(cached as ToolResult<RedditPost[]>), cached: true };
 
-  const searchPath = subreddit
-    ? `/r/${subreddit}/search.json`
-    : '/search.json';
+    const searchPath = subreddit ? `/r/${subreddit}/search.json` : '/search.json';
+    const url = new URL(`${BASE_URL}${searchPath}`);
+    url.searchParams.set('q', query);
+    url.searchParams.set('sort', 'relevance');
+    url.searchParams.set('t', 'year');
+    url.searchParams.set('limit', '15');
+    if (subreddit) url.searchParams.set('restrict_sr', '1');
 
-  const url = new URL(`${BASE_URL}${searchPath}`);
-  url.searchParams.set('q', query);
-  url.searchParams.set('sort', 'relevance');
-  url.searchParams.set('t', 'year');
-  url.searchParams.set('limit', '15');
-  if (subreddit) url.searchParams.set('restrict_sr', '1');
-
-  try {
-    const res = await fetch(url.toString(), {
-      headers: { 'User-Agent': 'GrowthIntelBot/1.0 (hackathon demo)' },
-    });
-
-    if (!res.ok) {
+    try {
+      const res = await fetch(url.toString(), {
+        headers: { 'User-Agent': 'GrowthIntelBot/1.0 (hackathon demo)' },
+      });
+      if (!res.ok) return hnFallback(query);
+      const raw = await res.json() as any;
+      const posts: RedditPost[] = (raw.data?.children ?? [])
+        .filter((c: any) => c.kind === 't3')
+        .slice(0, 10)
+        .map((c: any) => {
+          const p = c.data;
+          const text = `${p.title} ${p.selftext ?? ''}`;
+          return {
+            title: p.title,
+            subreddit: p.subreddit_name_prefixed,
+            score: p.score,
+            url: `https://reddit.com${p.permalink}`,
+            snippet: p.selftext ? p.selftext.slice(0, 300) : p.title,
+            created: new Date(p.created_utc * 1000).toISOString(),
+            sentiment: detectSentiment(text),
+          };
+        });
+      if (posts.length === 0) return hnFallback(query);
+      const result = buildToolResult<RedditPost[]>({ data: posts, status: 'ok', source: 'Reddit', sourceUrl: url.toString() });
+      await setCache('reddit', cacheKey, result);
+      return result;
+    } catch {
       return hnFallback(query);
     }
-
-    const raw = await res.json() as any;
-    const posts: RedditPost[] = (raw.data?.children ?? [])
-      .filter((c: any) => c.kind === 't3')
-      .slice(0, 10)
-      .map((c: any) => {
-        const p = c.data;
-        const text = `${p.title} ${p.selftext ?? ''}`;
-        return {
-          title: p.title,
-          subreddit: p.subreddit_name_prefixed,
-          score: p.score,
-          url: `https://reddit.com${p.permalink}`,
-          snippet: p.selftext ? p.selftext.slice(0, 300) : p.title,
-          created: new Date(p.created_utc * 1000).toISOString(),
-          sentiment: detectSentiment(text),
-        };
-      });
-
-    // Reddit returned nothing — fall back to HN
-    if (posts.length === 0) return hnFallback(query);
-
-    const result = buildToolResult<RedditPost[]>({
-      data: posts,
-      status: 'ok',
-      source: 'Reddit',
-      sourceUrl: url.toString(),
-    });
-
-    await setCache('reddit', cacheKey, result);
-    return result;
-  } catch {
-    return hnFallback(query);
-  }
+  }, { query, subreddit });
 }
 
 export async function searchProductReviews(productName: string): Promise<ToolResult<RedditPost[]>> {
