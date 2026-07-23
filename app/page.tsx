@@ -23,6 +23,8 @@ import {
   defaultSelectedAgents,
   loadSelectedAgents,
   saveSelectedAgents,
+  loadForceFullSweep,
+  saveForceFullSweep,
 } from '@/lib/selected-agents-storage';
 const MemoryDrawer = dynamic(
   () => import('@/components/ui/MemoryDrawer').then((m) => m.MemoryDrawer),
@@ -49,17 +51,23 @@ export default function VeracityDashboard() {
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
+  const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [topTab, setTopTab] = useState<'intelligence' | 'usage' | 'steal'>('intelligence');
 
   // Persist / restore adaptive agent selection per session
   useEffect(() => {
     setSelectedAgents(loadSelectedAgents(currentSessionId));
+    setForceFullSweep(loadForceFullSweep(currentSessionId));
   }, [currentSessionId]);
 
   useEffect(() => {
     saveSelectedAgents(currentSessionId, selectedAgents);
   }, [currentSessionId, selectedAgents]);
+
+  useEffect(() => {
+    saveForceFullSweep(currentSessionId, forceFullSweep);
+  }, [currentSessionId, forceFullSweep]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const followUpEndRef = useRef<HTMLDivElement>(null);
@@ -101,9 +109,10 @@ export default function VeracityDashboard() {
   const {
     isLoading, isFollowingUp, mirofishRunning, sessionUsage, handleSend, handleFollowUp,
     handleComposerSend, handleExecutionPlanRefined, resetSessionUsage,
+    activeJobId, compareBaseline, cancelActiveJob, requestFullSweepCompare, clearCompareBaseline,
   } = useChatOrchestration({
     messages, setMessages, followUps, setFollowUps, currentSessionId, setCurrentSessionId,
-    selectedAgentIds, selectedAgents, streamChat, userMemory, refreshUserMemory: async () => { await memoryQuery.refetch(); },
+    selectedAgentIds, selectedAgents, forceFullSweep, streamChat, userMemory, refreshUserMemory: async () => { await memoryQuery.refetch(); },
     refreshSessions, resetDraftInput,
   });
 
@@ -171,6 +180,8 @@ export default function VeracityDashboard() {
         onDeleteSession={(id) => deleteSession(id)}
         selectedAgents={selectedAgents}
         onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+        forceFullSweep={forceFullSweep}
+        onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
         getRunForDomain={getRunFor}
         sidebarBg={sidebarBg}
         cardBg2={cardBg2}
@@ -237,6 +248,15 @@ export default function VeracityDashboard() {
           sessionUsage={sessionUsage}
           queryCacheStats={queryCacheStats}
           selectedAgentIds={selectedAgentIds}
+          progressPct={currentResult?.progressPct}
+          missionSummary={currentResult?.missionSummary}
+          missionSteps={currentResult?.orchestratorOutput?.missionPlan?.steps
+            ?? (currentResult?.missionSummary?.steps as Array<{ id: string; label: string; agentId: string }> | undefined)}
+          activeJobId={activeJobId ?? currentResult?.activeJobId}
+          onCancelJob={() => { void cancelActiveJob(); }}
+          compareBaseline={compareBaseline}
+          onRequestFullSweepCompare={requestFullSweepCompare}
+          onClearCompare={clearCompareBaseline}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
       </div>

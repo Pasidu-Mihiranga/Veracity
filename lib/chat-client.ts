@@ -41,6 +41,30 @@ export function readFileAsBase64(file: File): Promise<string> {
 
 export function hydrateMessage(m: StoredMessage, idx: number): ChatMessage {
   const meta = m.metadata ?? {};
+  const orchestratorOutput = meta.orchestratorOutput as ChatMessage['orchestratorOutput'];
+  // Restore Phase 3B/4 fields onto orchestratorOutput when stored at metadata root
+  if (orchestratorOutput) {
+    if (!orchestratorOutput.missionPlan && meta.missionPlan) {
+      orchestratorOutput.missionPlan = meta.missionPlan as NonNullable<
+        ChatMessage['orchestratorOutput']
+      >['missionPlan'];
+    }
+    if (!orchestratorOutput.quality && meta.quality) {
+      orchestratorOutput.quality = meta.quality as NonNullable<
+        ChatMessage['orchestratorOutput']
+      >['quality'];
+    }
+    if (!orchestratorOutput.evidenceCoverage && meta.evidenceCoverage) {
+      orchestratorOutput.evidenceCoverage = meta.evidenceCoverage as NonNullable<
+        ChatMessage['orchestratorOutput']
+      >['evidenceCoverage'];
+    }
+    if (!orchestratorOutput.selectionMeta && meta.selectionMeta) {
+      orchestratorOutput.selectionMeta = meta.selectionMeta as NonNullable<
+        ChatMessage['orchestratorOutput']
+      >['selectionMeta'];
+    }
+  }
   return {
     id: idx,
     persistedId: m.id,
@@ -52,7 +76,12 @@ export function hydrateMessage(m: StoredMessage, idx: number): ChatMessage {
     suggestions: meta.suggestions as string[] | undefined,
     recommendations: meta.recommendations as ChatMessage['recommendations'],
     agentRuns: meta.agentRuns as ChatMessage['agentRuns'],
-    orchestratorOutput: meta.orchestratorOutput as ChatMessage['orchestratorOutput'],
+    orchestratorOutput,
+    orchestrationLog: meta.orchestrationLog as string[] | undefined,
+    missionSummary: (meta.missionSummary as ChatMessage['missionSummary'])
+      ?? (meta.missionPlan
+        ? { steps: (meta.missionPlan as { steps?: unknown[] }).steps, agentCount: (meta.missionPlan as { steps?: unknown[] }).steps?.length }
+        : undefined),
   };
 }
 

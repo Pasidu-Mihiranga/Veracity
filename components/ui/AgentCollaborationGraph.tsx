@@ -2,11 +2,20 @@
 
 import type { AgentRun } from '@/lib/agents/types';
 
+type MissionStepLite = {
+  id: string;
+  label: string;
+  agentId: string;
+  dependsOn?: string[];
+  rationale?: string;
+};
+
 type Props = {
   product?: string;
   competitor?: string;
   agentRuns: AgentRun[];
   selectedAgentIds?: string[];
+  missionSteps?: MissionStepLite[];
 };
 
 const MISSION_ORDER = [
@@ -20,30 +29,44 @@ const MISSION_ORDER = [
 ] as const;
 
 /**
- * Lite collaboration graph + ordered mission steps from dispatched agents.
+ * Lite collaboration graph + ordered mission steps from Mission Planner (or run fallback).
  */
 export function AgentCollaborationGraph({
   product,
   competitor,
   agentRuns,
   selectedAgentIds,
+  missionSteps,
 }: Props) {
   const selected = selectedAgentIds?.length
     ? new Set(selectedAgentIds)
     : null;
 
   const byId = new Map(agentRuns.map((r) => [r.agentId, r]));
-  const steps = MISSION_ORDER.filter((id) => byId.has(id) || (selected?.has(id) ?? false))
-    .map((id, index) => {
-      const run = byId.get(id);
-      const skipped = selected ? !selected.has(id) : false;
+
+  const steps = missionSteps?.length
+    ? missionSteps.map((s, index) => {
+      const run = byId.get(s.agentId);
       return {
-        id,
+        id: s.id,
         step: index + 1,
-        name: run?.name ?? id,
-        status: skipped ? 'skipped' : run?.status ?? 'pending',
+        name: s.label || run?.name || s.agentId,
+        status: run?.status ?? 'pending',
+        dependsOn: s.dependsOn ?? [],
       };
-    });
+    })
+    : MISSION_ORDER.filter((id) => byId.has(id) || (selected?.has(id) ?? false))
+      .map((id, index) => {
+        const run = byId.get(id);
+        const skipped = selected ? !selected.has(id) : false;
+        return {
+          id,
+          step: index + 1,
+          name: run?.name ?? id,
+          status: skipped ? 'skipped' : run?.status ?? 'pending',
+          dependsOn: [] as string[],
+        };
+      });
 
   if (steps.length === 0 && !product) return null;
 
@@ -74,6 +97,7 @@ export function AgentCollaborationGraph({
                       ? 'bg-red-50 border-red-200'
                       : 'bg-muted border-border'
               }`}
+              title={s.dependsOn?.length ? `Depends on: ${s.dependsOn.join(', ')}` : undefined}
             >
               <div className="text-[9px] font-mono uppercase text-muted-foreground">
                 Step {s.step}

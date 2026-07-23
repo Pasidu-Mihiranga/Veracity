@@ -82,6 +82,14 @@ type Props = {
   sessionUsage: { queries: number; totalCostUsd: number; totalLatencyMs: number; totalGeminiCalls: number; totalToolCalls: number };
   queryCacheStats: { hits: number; misses: number };
   selectedAgentIds?: string[];
+  progressPct?: number;
+  missionSummary?: Record<string, unknown> | null;
+  missionSteps?: Array<{ id: string; label: string; agentId: string; dependsOn?: string[]; rationale?: string }>;
+  activeJobId?: string | null;
+  onCancelJob?: () => void;
+  compareBaseline?: ChatMessage | null;
+  onRequestFullSweepCompare?: () => void;
+  onClearCompare?: () => void;
   chrome: {
     cardBg: string;
     cardBg2: string;
@@ -129,6 +137,14 @@ export function DashboardWorkspace({
   sessionUsage,
   queryCacheStats,
   selectedAgentIds,
+  progressPct,
+  missionSummary,
+  missionSteps,
+  activeJobId,
+  onCancelJob,
+  compareBaseline,
+  onRequestFullSweepCompare,
+  onClearCompare,
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
@@ -148,6 +164,8 @@ export function DashboardWorkspace({
               lastLive={currentResult?.liveMetrics}
               sessionTotals={sessionUsage}
               queryCacheStats={queryCacheStats}
+              sessionId={currentSessionId}
+              agentsSavedVsFull={currentResult?.orchestratorOutput?.selectionMeta?.savedVsFull ?? null}
             />
           )}
           {topTab === 'steal' && <StealStrategyPanel />}
@@ -181,6 +199,11 @@ export function DashboardWorkspace({
                   selectedAgentIds={selectedAgentIds}
                   product={currentResult?.orchestratorOutput?.product}
                   competitor={currentResult?.orchestratorOutput?.competitor}
+                  progressPct={progressPct}
+                  missionSummary={missionSummary}
+                  missionSteps={missionSteps}
+                  activeJobId={activeJobId}
+                  onCancelJob={onCancelJob}
                   {...chrome}
                 />
               </AppErrorBoundary>
@@ -210,6 +233,9 @@ export function DashboardWorkspace({
                     isFollowingUp={isFollowingUp}
                     isLoading={isLoading}
                     onFollowUpSuggestion={onFollowUpSuggestion}
+                    compareBaseline={compareBaseline}
+                    onRequestFullSweepCompare={onRequestFullSweepCompare}
+                    onClearCompare={onClearCompare}
                     isDark={chrome.isDark}
                     cardBg={chrome.cardBg}
                     cardBg2={chrome.cardBg2}

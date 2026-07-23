@@ -16,6 +16,9 @@ import { EvidenceTrail } from '@/components/ui/EvidenceTrail';
 import { SourceTrustBadge } from '@/components/ui/SourceTrustBadge';
 import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
 import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
+import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
+import { ResearchReplay } from '@/components/ui/ResearchReplay';
+import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
 import {
   rateRecommendation, recommendationKey, type RecommendationRating,
@@ -113,6 +116,9 @@ export type IntelligenceResultsProps = {
   isFollowingUp: boolean;
   isLoading: boolean;
   onFollowUpSuggestion: (suggestion: string) => void;
+  compareBaseline?: ChatMessage | null;
+  onRequestFullSweepCompare?: () => void;
+  onClearCompare?: () => void;
   isDark: boolean;
   cardBg: string;
   cardBg2: string;
@@ -133,6 +139,9 @@ export function IntelligenceResults({
   isFollowingUp,
   isLoading,
   onFollowUpSuggestion,
+  compareBaseline,
+  onRequestFullSweepCompare,
+  onClearCompare,
   isDark,
   cardBg,
   cardBg2,
@@ -216,12 +225,56 @@ export function IntelligenceResults({
               variant="primary"
             />
             <ExecutiveBoardMode message={currentResult} />
+            {onRequestFullSweepCompare ? (
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={onRequestFullSweepCompare}
+                className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded border border-accent/20 bg-accent/5 text-accent disabled:opacity-50"
+              >
+                Compare with full sweep
+              </button>
+            ) : null}
             <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
               Includes decision, recommendations, visuals, and sources
             </span>
           </div>
         </div>
       </section>
+
+      {(currentResult.missionSummary || currentResult.orchestratorOutput?.missionPlan) ? (
+        <MissionSummaryCard
+          summary={
+            currentResult.missionSummary
+            ?? {
+              steps: currentResult.orchestratorOutput?.missionPlan?.steps ?? [],
+              agentCount: currentResult.orchestratorOutput?.missionPlan?.steps?.length ?? 0,
+            }
+          }
+        />
+      ) : null}
+
+      {compareBaseline && currentResult.id !== compareBaseline.id ? (
+        <div className="flex flex-col gap-2">
+          <ScenarioCompare
+            left={compareBaseline}
+            right={currentResult}
+            leftLabel="Adaptive / prior"
+            rightLabel="Full sweep"
+          />
+          {onClearCompare ? (
+            <button
+              type="button"
+              onClick={onClearCompare}
+              className="self-start text-[10px] font-mono uppercase text-muted-foreground"
+            >
+              Clear comparison
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <ResearchReplay message={currentResult} />
 
       <StrategyCanvas message={currentResult} />
 

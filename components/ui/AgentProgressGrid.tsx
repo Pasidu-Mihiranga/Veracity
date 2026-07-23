@@ -9,6 +9,7 @@ import { AgentTeamConverge, type AgentTeamConvergePhase } from '@/components/ui/
 import { ThinkingTimeline } from '@/components/ui/ThinkingTimeline';
 import { LiveOrchestratorView } from '@/components/ui/LiveOrchestratorView';
 import { AgentCollaborationGraph } from '@/components/ui/AgentCollaborationGraph';
+import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
 import { featureFlags } from '@/lib/feature-flags';
 
 export type AgentProgressGridProps = {
@@ -37,6 +38,11 @@ export type AgentProgressGridProps = {
   selectedAgentIds?: string[];
   product?: string;
   competitor?: string;
+  progressPct?: number;
+  missionSummary?: Record<string, unknown> | null;
+  missionSteps?: Array<{ id: string; label: string; agentId: string; dependsOn?: string[]; rationale?: string }>;
+  activeJobId?: string | null;
+  onCancelJob?: () => void;
 };
 
 type GridPhase = 'hidden' | AgentTeamConvergePhase;
@@ -66,6 +72,11 @@ function AgentProgressGridInner({
   selectedAgentIds,
   product,
   competitor,
+  progressPct,
+  missionSummary,
+  missionSteps,
+  activeJobId,
+  onCancelJob,
 }: AgentProgressGridProps) {
   const [phase, setPhase] = useState<GridPhase>('hidden');
   const [tick, setTick] = useState(0);
@@ -163,9 +174,22 @@ function AgentProgressGridInner({
               </p>
             </div>
             {showMeta ? (
-              <span className="ui-mono shrink-0" style={{ color: accentInk, fontSize: 11 }}>
-                {completedCount}/{denom}
-              </span>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span className="ui-mono" style={{ color: accentInk, fontSize: 11 }}>
+                  {typeof progressPct === 'number'
+                    ? `${progressPct}% · ${completedCount}/${denom}`
+                    : `${completedCount}/${denom}`}
+                </span>
+                {activeJobId && onCancelJob ? (
+                  <button
+                    type="button"
+                    onClick={onCancelJob}
+                    className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-red-200 bg-red-50 text-red-600"
+                  >
+                    Cancel job
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
 
@@ -188,6 +212,10 @@ function AgentProgressGridInner({
             phase={phase as AgentTeamConvergePhase}
           />
 
+          {missionSummary && showMeta ? (
+            <MissionSummaryCard summary={missionSummary} />
+          ) : null}
+
           {featureFlags.orchestratorView ? (
             <div className="grid grid-cols-1 gap-3 pt-1">
               <LiveOrchestratorView
@@ -202,6 +230,7 @@ function AgentProgressGridInner({
                 competitor={competitor}
                 agentRuns={agentRuns}
                 selectedAgentIds={selectedAgentIds}
+                missionSteps={missionSteps}
               />
             </div>
           ) : null}

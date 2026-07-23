@@ -21,6 +21,8 @@ export type SessionSidebarProps = {
   onDeleteSession: (sessionId: string) => void;
   selectedAgents: Record<Domain, boolean>;
   onToggleAgent: (domain: Domain) => void;
+  forceFullSweep?: boolean;
+  onToggleForceFullSweep?: () => void;
   getRunForDomain: (domain: Domain) => AgentRun | undefined;
   sidebarBg: string;
   cardBg2: string;
@@ -41,6 +43,8 @@ export function SessionSidebar({
   onDeleteSession,
   selectedAgents,
   onToggleAgent,
+  forceFullSweep = false,
+  onToggleForceFullSweep,
   getRunForDomain,
   sidebarBg,
   cardBg2,
@@ -147,6 +151,29 @@ export function SessionSidebar({
                   onToggle={() => onToggleAgent(domain)}
                 />
               ))}
+              {onToggleForceFullSweep ? (
+                <button
+                  type="button"
+                  onClick={onToggleForceFullSweep}
+                  className="mt-1 mx-1 flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left"
+                  style={{
+                    background: forceFullSweep
+                      ? 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                      : 'transparent',
+                    border: `1px solid ${forceFullSweep ? 'color-mix(in srgb, var(--accent) 28%, transparent)' : 'var(--border)'}`,
+                  }}
+                >
+                  <span className="text-[11px] font-mono" style={{ color: textMuted }}>
+                    Force full sweep
+                  </span>
+                  <span
+                    className="text-[10px] font-mono uppercase"
+                    style={{ color: forceFullSweep ? 'var(--accent)' : textSubtle }}
+                  >
+                    {forceFullSweep ? 'On' : 'Auto'}
+                  </span>
+                </button>
+              ) : null}
             </div>
           </div>
 

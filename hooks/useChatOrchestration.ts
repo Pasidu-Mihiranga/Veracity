@@ -52,6 +52,7 @@ type UseChatOrchestrationArgs = {
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   selectedAgentIds: Domain[];
   selectedAgents: Record<Domain, boolean>;
+  forceFullSweep?: boolean;
   streamChat: StreamChunkHandler;
   userMemory: UserMemory | null;
   refreshUserMemory: () => Promise<void>;
@@ -76,6 +77,7 @@ export function useChatOrchestration({
   setCurrentSessionId,
   selectedAgentIds,
   selectedAgents,
+  forceFullSweep = false,
   streamChat,
   userMemory,
   refreshUserMemory,
@@ -86,6 +88,8 @@ export function useChatOrchestration({
   const [isFollowingUp, setIsFollowingUp] = useState(false);
   const [mirofishRunning, setMirofishRunning] = useState(false);
   const [sessionUsage, setSessionUsage] = useState<SessionUsage>(EMPTY_USAGE);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [compareBaseline, setCompareBaseline] = useState<ChatMessage | null>(null);
 
   const handleExecutionPlanRefined = useCallback((result: {
     plan: ExecutionPlanOutput;
@@ -140,9 +144,14 @@ export function useChatOrchestration({
     }));
   }, [currentSessionId, setMessages]);
 
-  const handleSend = useCallback(async (text: string, images: AttachedImage[] = []) => {
+  const handleSend = useCallback(async (
+    text: string,
+    images: AttachedImage[] = [],
+    opts?: { forceFullSweep?: boolean },
+  ) => {
     const effectiveText = text.trim() || (images.length > 0 ? 'Analyse the attached image(s).' : '');
     if (!effectiveText || isLoading) return;
+    const sweepFull = opts?.forceFullSweep ?? forceFullSweep;
     if (selectedAgentIds.length === 0) {
       setMessages((prev) => [...prev, {
         id: Date.now(),
@@ -174,7 +183,10 @@ export function useChatOrchestration({
       { id: assistantId, role: 'assistant', type: 'intelligence', content: '', agentRuns: [], orchestrationLog: [] },
     ]);
 
-    const streamState: { finalOutput: OrchestratorOutput | null } = { finalOutput: null };
+    const streamState: {
+      finalOutput: OrchestratorOutput | null;
+      orchestrationLog: string[];
+    } = { finalOutput: null, orchestrationLog: [] };
     const recalledContext = currentSessionId
       ? await recallContextForSession(currentSessionId, effectiveText)
       : '';
@@ -191,10 +203,18 @@ export function useChatOrchestration({
           includeMirofish: selectedAgents.mirofish,
           includeMirofishLive: selectedAgents['mirofish-live'],
           selectedAgents: selectedAgentIds,
+          forceFullSweep: sweepFull,
           sessionId: currentSessionId ?? undefined,
           conversationId: currentSessionId ?? undefined,
         } as ChatRequestBody & { sessionId?: string; conversationId?: string },
         (chunk) => {
+          if (chunk.type === 'job_started') {
+            setActiveJobId(chunk.jobId);
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId ? { ...m, activeJobId: chunk.jobId } : m,
+            ));
+            return;
+          }
           if (chunk.type === 'agent_update') {
             setMessages((prev) => prev.map((m) =>
               m.id === assistantId ? applyAgentUpdate(m, chunk.run, chunk.metrics) : m,
@@ -202,8 +222,34 @@ export function useChatOrchestration({
             return;
           }
           if (chunk.type === 'orchestration_log' && typeof chunk.line === 'string') {
+            streamState.orchestrationLog = [...streamState.orchestrationLog, chunk.line].slice(-48);
             setMessages((prev) => prev.map((m) =>
               m.id === assistantId ? applyOrchestrationLog(m, chunk.line) : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'progress') {
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, progressPct: chunk.pct }
+                : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'mission_summary') {
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, missionSummary: chunk.summary }
+                : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'cancelled') {
+            setActiveJobId(null);
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: m.content || 'Sweep cancelled.', type: 'text' as const, activeJobId: null }
+                : m,
             ));
             return;
           }
@@ -214,10 +260,14 @@ export function useChatOrchestration({
             if (selectedAgents.mirofish) setMirofishRunning(true);
             setMessages((prev) => prev.map((m) =>
               m.id === assistantId
-                ? applyResultToAssistant(m, out, {
-                  includeMirofish: selectedAgents.mirofish,
-                  includeMirofishLive: selectedAgents['mirofish-live'],
-                })
+                ? {
+                  ...applyResultToAssistant(m, out, {
+                    includeMirofish: selectedAgents.mirofish,
+                    includeMirofishLive: selectedAgents['mirofish-live'],
+                  }),
+                  activeJobId: null,
+                  progressPct: 100,
+                }
                 : m,
             ));
             return;
@@ -267,8 +317,9 @@ export function useChatOrchestration({
             return;
           }
           if (chunk.type === 'error') {
+            setActiveJobId(null);
             setMessages((prev) => prev.map((m) =>
-              m.id === assistantId ? { ...m, content: `Analysis failed: ${chunk.message}`, type: 'text' } : m,
+              m.id === assistantId ? { ...m, content: `Analysis failed: ${chunk.message}`, type: 'text', activeJobId: null } : m,
             ));
           }
         },
@@ -279,9 +330,7 @@ export function useChatOrchestration({
         m.id === assistantId ? { ...m, content: message } : m,
       ));
     } finally {
-      setMessages((prev) => prev.map((m) =>
-        m.id === assistantId ? { ...m, orchestrationLog: undefined } : m,
-      ));
+      setActiveJobId(null);
       setIsLoading(false);
       setMirofishRunning(false);
     }
@@ -314,11 +363,26 @@ export function useChatOrchestration({
           sources,
           suggestions: finalOutput.suggestedFollowUps?.slice(0, 3),
           agentRuns: finalOutput.agentRuns,
+          orchestrationLog: streamState.orchestrationLog,
+          missionPlan: finalOutput.missionPlan,
+          missionSummary: {
+            steps: finalOutput.missionPlan?.steps ?? [],
+            agentCount: finalOutput.missionPlan?.steps?.length ?? finalOutput.agentRuns?.length ?? 0,
+          },
+          quality: finalOutput.quality,
+          evidenceCoverage: finalOutput.evidenceCoverage,
+          selectionMeta: finalOutput.selectionMeta,
         });
 
         if (persistedAssistantId) {
           setMessages((prev) => prev.map((m) =>
-            m.id === assistantId ? { ...m, persistedId: persistedAssistantId } : m,
+            m.id === assistantId
+              ? {
+                ...m,
+                persistedId: persistedAssistantId,
+                orchestrationLog: streamState.orchestrationLog,
+              }
+              : m,
           ));
         }
 
@@ -339,6 +403,7 @@ export function useChatOrchestration({
     resetDraftInput,
     selectedAgentIds,
     selectedAgents,
+    forceFullSweep,
     setCurrentSessionId,
     setFollowUps,
     setMessages,
@@ -434,6 +499,24 @@ export function useChatOrchestration({
     void handleSend(text, images);
   }, [handleFollowUp, handleSend]);
 
+  const cancelActiveJob = useCallback(async () => {
+    if (!activeJobId) return;
+    try {
+      await fetch(`/api/jobs/${activeJobId}/cancel`, { method: 'POST' });
+    } catch {
+      // ignore; job stream will surface status
+    }
+  }, [activeJobId]);
+
+  const requestFullSweepCompare = useCallback(() => {
+    const latest = [...messages].reverse().find((m) => m.role === 'assistant' && m.orchestratorOutput);
+    if (!latest) return;
+    setCompareBaseline(latest);
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser?.content) return;
+    void handleSend(lastUser.content, lastUser.images ?? [], { forceFullSweep: true });
+  }, [handleSend, messages]);
+
   const resetSessionUsage = useCallback(() => setSessionUsage(EMPTY_USAGE), []);
 
   return useMemo(() => ({
@@ -442,12 +525,20 @@ export function useChatOrchestration({
     mirofishRunning,
     sessionUsage,
     setSessionUsage,
+    activeJobId,
+    compareBaseline,
     handleSend,
     handleFollowUp,
     handleComposerSend,
     handleExecutionPlanRefined,
     resetSessionUsage,
+    cancelActiveJob,
+    requestFullSweepCompare,
+    clearCompareBaseline: () => setCompareBaseline(null),
   }), [
+    activeJobId,
+    cancelActiveJob,
+    compareBaseline,
     handleComposerSend,
     handleExecutionPlanRefined,
     handleFollowUp,
@@ -455,6 +546,7 @@ export function useChatOrchestration({
     isFollowingUp,
     isLoading,
     mirofishRunning,
+    requestFullSweepCompare,
     resetSessionUsage,
     sessionUsage,
   ]);
