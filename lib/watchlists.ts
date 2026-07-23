@@ -1,0 +1,207 @@
+import { query } from '@/lib/db';
+import {
+  computeHealthStatus,
+  nextMondaySweepUtc,
+  type HealthStatus,
+} from '@/lib/monitoring/health';
+
+export type WatchlistRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  product: string;
+  enabled: boolean;
+  last_sweep_at: string | null;
+  next_sweep_at: string | null;
+  health_status: HealthStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WatchlistItemRow = {
+  id: string;
+  watchlist_id: string;
+  competitor: string;
+  competitor_url: string | null;
+  enabled: boolean;
+  created_at: string;
+};
+
+export async function listWatchlists(userId: string): Promise<WatchlistRow[]> {
+  const { rows } = await query<WatchlistRow>(
+    `SELECT * FROM watchlists WHERE user_id = $1 ORDER BY created_at DESC`,
+    [userId],
+  );
+  return rows;
+}
+
+export async function getWatchlistForUser(
+  id: string,
+  userId: string,
+): Promise<WatchlistRow | null> {
+  const { rows } = await query<WatchlistRow>(
+    `SELECT * FROM watchlists WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function createWatchlist(input: {
+  userId: string;
+  name: string;
+  product: string;
+  enabled?: boolean;
+}): Promise<WatchlistRow> {
+  const next = nextMondaySweepUtc();
+  const enabled = input.enabled !== false;
+  const { rows } = await query<WatchlistRow>(
+    `INSERT INTO watchlists (user_id, name, product, enabled, next_sweep_at, health_status)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      input.userId,
+      input.name,
+      input.product,
+      enabled,
+      next.toISOString(),
+      enabled ? 'stale' : 'paused',
+    ],
+  );
+  return rows[0];
+}
+
+export async function updateWatchlist(
+  id: string,
+  userId: string,
+  patch: Partial<{
+    name: string;
+    product: string;
+    enabled: boolean;
+    last_sweep_at: string | null;
+    next_sweep_at: string | null;
+    health_status: HealthStatus;
+  }>,
+): Promise<WatchlistRow | null> {
+  const current = await getWatchlistForUser(id, userId);
+  if (!current) return null;
+
+  const enabled = patch.enabled ?? current.enabled;
+  const last = patch.last_sweep_at !== undefined ? patch.last_sweep_at : current.last_sweep_at;
+  const health = patch.health_status
+    ?? computeHealthStatus({
+      enabled,
+      lastSweepAt: last,
+      lastSucceeded: patch.health_status === 'degraded' ? false : undefined,
+    });
+  const next = patch.next_sweep_at ?? (enabled ? nextMondaySweepUtc().toISOString() : current.next_sweep_at);
+
+  const { rows } = await query<WatchlistRow>(
+    `UPDATE watchlists SET
+       name = COALESCE($1, name),
+       product = COALESCE($2, product),
+       enabled = $3,
+       last_sweep_at = $4,
+       next_sweep_at = $5,
+       health_status = $6,
+       updated_at = now()
+     WHERE id = $7 AND user_id = $8
+     RETURNING *`,
+    [
+      patch.name ?? null,
+      patch.product ?? null,
+      enabled,
+      last,
+      next,
+      health,
+      id,
+      userId,
+    ],
+  );
+  return rows[0] ?? null;
+}
+
+export async function deleteWatchlist(id: string, userId: string): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM watchlists WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function listWatchlistItems(watchlistId: string): Promise<WatchlistItemRow[]> {
+  const { rows } = await query<WatchlistItemRow>(
+    `SELECT * FROM watchlist_items WHERE watchlist_id = $1 ORDER BY created_at ASC`,
+    [watchlistId],
+  );
+  return rows;
+}
+
+export async function addWatchlistItem(input: {
+  watchlistId: string;
+  competitor: string;
+  competitorUrl?: string | null;
+}): Promise<WatchlistItemRow> {
+  const { rows } = await query<WatchlistItemRow>(
+    `INSERT INTO watchlist_items (watchlist_id, competitor, competitor_url)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [input.watchlistId, input.competitor, input.competitorUrl ?? null],
+  );
+  return rows[0];
+}
+
+export async function deleteWatchlistItem(
+  itemId: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM watchlist_items wi
+     USING watchlists w
+     WHERE wi.id = $1 AND wi.watchlist_id = w.id AND w.user_id = $2`,
+    [itemId, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function listEnabledMonitoringTargets(limitPerUser = 3): Promise<Array<{
+  userId: string;
+  watchlistId: string;
+  product: string;
+  competitor: string;
+}>> {
+  const { rows } = await query<{
+    user_id: string;
+    watchlist_id: string;
+    product: string;
+    competitor: string;
+    rn: number;
+  }>(
+    `SELECT * FROM (
+       SELECT w.user_id, w.id AS watchlist_id, w.product, wi.competitor,
+         ROW_NUMBER() OVER (PARTITION BY w.user_id ORDER BY wi.created_at ASC) AS rn
+       FROM watchlists w
+       JOIN watchlist_items wi ON wi.watchlist_id = w.id
+       WHERE w.enabled = true AND wi.enabled = true
+     ) t WHERE rn <= $1`,
+    [limitPerUser],
+  );
+  return rows.map((r) => ({
+    userId: r.user_id,
+    watchlistId: r.watchlist_id,
+    product: r.product,
+    competitor: r.competitor,
+  }));
+}
+
+export async function markWatchlistSweepResult(input: {
+  watchlistId: string;
+  userId: string;
+  succeeded: boolean;
+}): Promise<void> {
+  const now = new Date();
+  await updateWatchlist(input.watchlistId, input.userId, {
+    last_sweep_at: now.toISOString(),
+    next_sweep_at: nextMondaySweepUtc(now).toISOString(),
+    health_status: input.succeeded ? 'healthy' : 'degraded',
+  });
+}

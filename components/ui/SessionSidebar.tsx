@@ -7,8 +7,10 @@ import {
 import type { ChatSession } from '@/lib/conversations';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 import { SidebarAgentRow } from '@/components/ui/SidebarAgentRow';
+import { WatchlistsPanel } from '@/components/ui/WatchlistsPanel';
 import { ALL_DOMAINS, type Domain } from '@/lib/domain-meta';
 import type { AgentRun } from '@/lib/agents/types';
+import { featureFlags } from '@/lib/feature-flags';
 
 export type SessionSidebarProps = {
   collapsed: boolean;
@@ -176,6 +178,8 @@ export function SessionSidebar({
               ) : null}
             </div>
           </div>
+
+          {featureFlags.watchlists ? <WatchlistsPanel /> : null}
 
           <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
             <div className="px-3 py-2.5 flex items-center justify-between">
