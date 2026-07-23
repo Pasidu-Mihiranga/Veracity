@@ -247,6 +247,33 @@ export function ExecutivePdfDocument({ data }: Props) {
         <Text style={styles.h2}>Executive decision</Text>
         <Text style={styles.body}>{data.summary || 'No summary available for this sweep.'}</Text>
 
+        {(data.evidenceCoverage?.length ?? 0) > 0 && (
+          <>
+            <Text style={styles.h2}>Evidence coverage</Text>
+            {data.evidenceCoverage!.map((axis) => {
+              const widthPct = Math.max(4, Math.round(axis.score * 100));
+              return (
+                <View key={axis.id} style={styles.trendRow} wrap={false}>
+                  <View style={styles.trendLabelRow}>
+                    <Text style={styles.trendKeyword}>{axis.label}</Text>
+                    <Text style={styles.trendPct}>
+                      {Math.round(axis.score * 100)}% · {axis.sourceCount} src
+                    </Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        { width: `${widthPct}%`, backgroundColor: colors.accent },
+                      ]}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+
         {data.recommendations.length > 0 && (
           <>
             <Text style={styles.h2}>Strategic recommendations</Text>
@@ -257,6 +284,18 @@ export function ExecutivePdfDocument({ data }: Props) {
                 </Text>
                 <Text style={styles.cardTitle}>{rec.title}</Text>
                 <Text style={styles.body}>{rec.rationale}</Text>
+                {(rec.sourceUrls?.length ?? 0) > 0 ? (
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={styles.cardMeta}>Evidence links</Text>
+                    {rec.sourceUrls!.map((url, ui) => (
+                      <View key={`${url}-${ui}`} style={styles.sourceRow}>
+                        <Link src={url} style={styles.link}>
+                          {url}
+                        </Link>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ))}
           </>

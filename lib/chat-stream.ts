@@ -71,6 +71,7 @@ export function recommendationsFromOutput(out: OrchestratorOutput) {
     confidence: r.confidence,
     evidence: r.evidence,
     priority: r.priority,
+    sourceUrls: r.sourceUrls ?? [],
   }));
 }
 

@@ -45,6 +45,8 @@ export type ExecutiveReportData = {
     rationale: string;
     priority: string;
     confidence: string;
+    evidence?: string[];
+    sourceUrls?: string[];
   }>;
   domainHighlights: Array<{
     domain: string;
@@ -62,6 +64,12 @@ export type ExecutiveReportData = {
     branches: ReportMindBranch[];
   } | null;
   sources: ReportSource[];
+  evidenceCoverage?: Array<{
+    id: string;
+    label: string;
+    score: number;
+    sourceCount: number;
+  }>;
 };
 
 function flattenMindChildren(nodes: MindMapNode[] | undefined, limit = 6): string[] {
@@ -108,6 +116,8 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
     rationale: String(rec.rationale ?? ''),
     priority: String(rec.priority ?? 'strategic'),
     confidence: String(rec.confidence ?? 'medium'),
+    evidence: Array.isArray(rec.evidence) ? rec.evidence.map(String) : [],
+    sourceUrls: Array.isArray(rec.sourceUrls) ? rec.sourceUrls.map(String) : [],
   }));
 
   return {
@@ -158,6 +168,12 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
         }
       : null,
     sources: collectSources(outputs, message.sources),
+    evidenceCoverage: (out?.evidenceCoverage ?? []).map((a) => ({
+      id: a.id,
+      label: a.label,
+      score: a.score,
+      sourceCount: a.sourceCount,
+    })),
   };
 }
 

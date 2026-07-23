@@ -10,6 +10,12 @@ import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
 import { ResultsInsightCharts } from '@/components/artifacts/ResultsInsightCharts';
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
 import { ExportReportButton } from '@/components/export/ExportReportButton';
+import { EvidenceStrengthMeter } from '@/components/ui/EvidenceStrengthMeter';
+import { EvidenceCoverageRadar } from '@/components/ui/EvidenceCoverageRadar';
+import { EvidenceTrail } from '@/components/ui/EvidenceTrail';
+import { SourceTrustBadge } from '@/components/ui/SourceTrustBadge';
+import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
+import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
 import {
   rateRecommendation, recommendationKey, type RecommendationRating,
@@ -190,6 +196,16 @@ export function IntelligenceResults({
         </div>
         <div className="p-6 lg:p-8 flex flex-col gap-5">
           <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
+          {(currentResult.orchestratorOutput?.quality || currentResult.orchestratorOutput?.evidenceCoverage) ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {currentResult.orchestratorOutput?.quality ? (
+                <EvidenceStrengthMeter quality={currentResult.orchestratorOutput.quality} />
+              ) : null}
+              {currentResult.orchestratorOutput?.evidenceCoverage ? (
+                <EvidenceCoverageRadar axes={currentResult.orchestratorOutput.evidenceCoverage} />
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <ExportReportButton
               message={currentResult}
@@ -199,12 +215,15 @@ export function IntelligenceResults({
               neuExtrudedSm={neuExtrudedSm}
               variant="primary"
             />
+            <ExecutiveBoardMode message={currentResult} />
             <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
               Includes decision, recommendations, visuals, and sources
             </span>
           </div>
         </div>
       </section>
+
+      <StrategyCanvas message={currentResult} />
 
       {/* 2. Recommendations */}
       {currentResult.recommendations && currentResult.recommendations.length > 0 ? (
@@ -214,7 +233,7 @@ export function IntelligenceResults({
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentResult.recommendations.map((rec: {
-              title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[];
+              title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[]; sourceUrls?: string[];
             }, i: number) => {
               const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
               const current = ratedRecs[rk];
@@ -257,15 +276,11 @@ export function IntelligenceResults({
                   </div>
                   <h4 className="rec-title">{rec.title}</h4>
                   <p className="rec-body">{rec.rationale}</p>
-                  {(rec.evidence?.length ?? 0) > 0 && (
-                    <ul className="flex flex-col gap-1 mt-1">
-                      {rec.evidence!.map((e, ei) => (
-                        <li key={ei} className="text-[12px] flex items-start gap-1.5" style={{ color: textMuted }}>
-                          <span className="font-mono mt-0.5 shrink-0" style={{ color: accentInk }}>›</span>{e}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <EvidenceTrail
+                    evidence={rec.evidence}
+                    sourceUrls={rec.sourceUrls}
+                    sources={currentResult.sources}
+                  />
                   {currentSessionId && (
                     <div className="flex items-center gap-1.5 mt-1 pt-2">
                       <button
@@ -440,8 +455,9 @@ export function IntelligenceResults({
                   href={source.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="source-chip"
+                  className="source-chip inline-flex items-center gap-1.5"
                 >
+                  <SourceTrustBadge url={source.url} />
                   {source.title} <ArrowUpRight size={9} />
                 </a>
               ))}
