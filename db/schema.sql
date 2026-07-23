@@ -259,3 +259,82 @@ CREATE TABLE IF NOT EXISTS decision_memory (
 );
 CREATE INDEX IF NOT EXISTS decision_memory_user_idx ON decision_memory(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS decision_memory_key_idx ON decision_memory(user_id, source_recommendation_key);
+
+-- Phase 6: Enterprise tenancy
+CREATE TABLE IF NOT EXISTS workspaces (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  slug text NOT NULL UNIQUE,
+  created_by uuid NOT NULL,
+  logo_url text,
+  timezone text,
+  industry text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS workspaces_created_by_idx ON workspaces(created_by);
+
+CREATE TABLE IF NOT EXISTS workspace_members (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  role text NOT NULL DEFAULT 'member'
+    CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS workspace_members_user_idx ON workspace_members(user_id);
+CREATE INDEX IF NOT EXISTS workspace_members_workspace_idx ON workspace_members(workspace_id);
+
+CREATE TABLE IF NOT EXISTS workspace_invites (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  email text NOT NULL,
+  role text NOT NULL DEFAULT 'member'
+    CHECK (role IN ('admin', 'member', 'viewer')),
+  token text NOT NULL UNIQUE,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'accepted', 'expired', 'revoked')),
+  invited_by uuid NOT NULL,
+  expires_at timestamptz NOT NULL,
+  accepted_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS workspace_invites_workspace_idx ON workspace_invites(workspace_id);
+CREATE INDEX IF NOT EXISTS workspace_invites_token_idx ON workspace_invites(token);
+
+CREATE TABLE IF NOT EXISTS workspace_sso_configs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL UNIQUE REFERENCES workspaces(id) ON DELETE CASCADE,
+  enabled boolean NOT NULL DEFAULT false,
+  idp_entity_id text,
+  idp_sso_url text,
+  idp_x509_cert text,
+  sp_entity_id text,
+  acs_path text NOT NULL DEFAULT '/api/auth/saml/acs',
+  allowed_email_domains text[] NOT NULL DEFAULT '{}',
+  metadata jsonb NOT NULL DEFAULT '{}',
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE user_memory ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE recommendation_feedback ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE recommendation_actions ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE variant_results ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE research_jobs ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE alert_events ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE competitive_events ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+ALTER TABLE decision_memory ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id);
+
+CREATE INDEX IF NOT EXISTS chat_sessions_workspace_idx ON chat_sessions(workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS research_jobs_workspace_idx ON research_jobs(workspace_id, status);
+CREATE INDEX IF NOT EXISTS audit_logs_workspace_idx ON audit_logs(workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS watchlists_workspace_idx ON watchlists(workspace_id);
+CREATE INDEX IF NOT EXISTS alert_events_workspace_idx ON alert_events(workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS competitive_events_workspace_idx ON competitive_events(workspace_id, event_date DESC);
+CREATE INDEX IF NOT EXISTS decision_memory_workspace_idx ON decision_memory(workspace_id, created_at DESC);

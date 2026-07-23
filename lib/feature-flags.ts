@@ -33,6 +33,14 @@ export const featureFlags = {
   competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', false),
   /** Phase 5 — cross-session feedback learning injection */
   feedbackLearning: envFlag('NEXT_PUBLIC_FF_FEEDBACK_LEARNING', false),
+  /** Phase 6 — multi-tenant workspaces */
+  workspaces: envFlag('NEXT_PUBLIC_FF_WORKSPACES', false),
+  /** Phase 6 — RBAC enforcement UI + assertPermission */
+  rbac: envFlag('NEXT_PUBLIC_FF_RBAC', false),
+  /** Phase 6 — SAML SSO ACS + config */
+  samlSso: envFlag('NEXT_PUBLIC_FF_SAML_SSO', false),
+  /** Phase 6 — Organization Intelligence Monitor */
+  orgIntelligence: envFlag('NEXT_PUBLIC_FF_ORG_INTELLIGENCE', false),
 } as const;
 
 export type FeatureFlagKey = keyof typeof featureFlags;
