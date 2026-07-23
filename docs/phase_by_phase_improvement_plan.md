@@ -90,7 +90,7 @@
 | Phase 3B | Competition Explainability & Orchestration UX | ⬜ Not started *(V2)* |
 | Phase 3Q | Output Quality & Anti-Hallucination Gates | 🟡 Mostly complete (2026-07-23) |
 | Phase 4 | AI Systems Orchestration & Queue Scale | ✅ Done |
-| Phase 5 | Continuous Platform | ⬜ Not started |
+| Phase 5 | Continuous Platform | ✅ Done |
 | Phase 6 | Enterprise | ⬜ Not started |
 | Phase 7 | Knowledge Platform | ⬜ Not started |
 
@@ -369,14 +369,18 @@
 ---
 
 ### Phase 5 — Continuous Platform *(roadmap)*
-- [ ] Weekly competitive alerts cron
-- [ ] Audit logs table for exports/sweeps
-- [ ] Feedback learning loop hardening
-- [ ] Strategic Watchlists + Market Monitoring
-- [ ] Competitive Timeline viewport
-- [ ] Decision Memory store (durable decisions + rationale)
+- [x] Weekly competitive alerts cron
+- [x] Audit logs table for exports/sweeps
+- [x] Feedback learning loop hardening
+- [x] Strategic Watchlists + Market Monitoring
+- [x] Competitive Timeline viewport
+- [x] Decision Memory store (durable decisions + rationale)
+- [x] Deterministic alert severity + dedupe + inbox filters
+- [x] Timeline clustering + Competitive Trend Summary
+- [x] Monitoring health (last / next / status)
+- [x] Decision explanations + outcome confidence over time
 
-**Phase 5 exit:** ⬜ Not complete
+**Phase 5 exit:** ✅ Complete
 
 ---
 
