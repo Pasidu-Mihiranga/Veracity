@@ -5,8 +5,10 @@ export {
   captureException,
   getCorrelationId,
   getLogContext,
+  getRequestContext,
   logger,
   withCorrelation,
+  withSpan,
   withToolLatency,
 } from '@/lib/logger';
 

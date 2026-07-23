@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { orchestrate, runMirofishAgent, runMirofishLiveAgent } from '../../../lib/agents/orchestrator';
 import { createClient } from '@/lib/supabase-server';
 import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
-import { captureException, getCorrelationId, getGeminiUsageSafe, logger, withCorrelation } from '@/lib/observability';
+import { captureException, getRequestContext, getGeminiUsageSafe, logger, withCorrelation, withSpan } from '@/lib/observability';
 import type { ConversationMessage, AgentRun, OrchestratorOutput, ImageAttachment, AgentOutput } from '../../../lib/agents/types';
 
 export const runtime = 'nodejs';
@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
   return withCorrelation(
     {
       correlationId: req.headers.get('x-correlation-id'),
+      requestId: req.headers.get('x-request-id'),
+      sessionId: req.headers.get('x-session-id'),
+      conversationId: req.headers.get('x-conversation-id'),
       userId: user.id,
     },
     () => handleChatPost(req, user.id),
@@ -76,6 +79,8 @@ async function handleChatPost(req: NextRequest, userId: string) {
     includeMirofishLive?: boolean;
     followUpMode?: 'full' | 'targeted';
     selectedAgents?: string[];
+    sessionId?: string;
+    conversationId?: string;
   };
 
   try {
@@ -84,23 +89,27 @@ async function handleChatPost(req: NextRequest, userId: string) {
     return jsonError('Invalid JSON body', 400);
   }
 
-  const { query, history = [], images = [], memoryContext, includeMirofish = false, includeMirofishLive = false, followUpMode = 'full', selectedAgents = [] } = body;
+  const {
+    query, history = [], images = [], memoryContext, includeMirofish = false, includeMirofishLive = false,
+    followUpMode = 'full', selectedAgents = [], sessionId, conversationId,
+  } = body;
 
   if (!query?.trim()) {
     return jsonError('query is required', 400);
   }
 
-  const correlationId = getCorrelationId();
+  const requestCtx = getRequestContext();
   logger.info('chat.started', {
     queryPreview: query.slice(0, 120),
     selectedAgents,
     includeMirofish,
     includeMirofishLive,
     followUpMode,
+    sessionId,
+    conversationId,
   });
 
   const encoder = new TextEncoder();
-  // eslint-disable-next-line prefer-const
   let controller!: ReadableStreamDefaultController<Uint8Array>;
 
   const readable = new ReadableStream<Uint8Array>({
@@ -149,20 +158,24 @@ async function handleChatPost(req: NextRequest, userId: string) {
     try {
       write({ type: 'orchestration_log', line: 'Starting orchestration…' });
       // ── Stage 1+2: 6 research agents (+ execution engine if needed) ────────
-      const result = await orchestrate(
-        query,
-        history,
-        (agentRun: AgentRun) => {
-          liveAgentState.set(agentRun.agentId, agentRun.status);
-          write({ type: 'agent_update', run: agentRun, metrics: computeLiveMetrics() });
-        },
-        images,
-        memoryContext,
-        {
-          followUpMode,
-          selectedAgents,
-          onOrchestrationLog: (line: string) => write({ type: 'orchestration_log', line }),
-        },
+      const result = await withSpan(
+        'chat.orchestrate',
+        { sessionId, conversationId },
+        () => orchestrate(
+          query,
+          history,
+          (agentRun: AgentRun) => {
+            liveAgentState.set(agentRun.agentId, agentRun.status);
+            write({ type: 'agent_update', run: agentRun, metrics: computeLiveMetrics() });
+          },
+          images,
+          memoryContext,
+          {
+            followUpMode,
+            selectedAgents,
+            onOrchestrationLog: (line: string) => write({ type: 'orchestration_log', line }),
+          },
+        ),
       );
       // Send main result — frontend renders immediately, no need to wait for MiroFish
       write({ type: 'result', output: result });
@@ -217,6 +230,8 @@ async function handleChatPost(req: NextRequest, userId: string) {
         geminiCalls: usage?.calls,
         geminiCostUsd: usage?.estimatedCostUsd,
         totalTokens: usage?.totalTokens,
+        sessionId,
+        conversationId,
       });
     } catch (err) {
       captureException(err, { route: 'chat' });
@@ -233,7 +248,9 @@ async function handleChatPost(req: NextRequest, userId: string) {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
-      ...(correlationId ? { 'x-correlation-id': correlationId } : {}),
+      ...(requestCtx?.correlationId ? { 'x-correlation-id': requestCtx.correlationId } : {}),
+      ...(requestCtx?.requestId ? { 'x-request-id': requestCtx.requestId } : {}),
+      ...(requestCtx?.traceId ? { 'x-trace-id': requestCtx.traceId } : {}),
     },
   });
 }

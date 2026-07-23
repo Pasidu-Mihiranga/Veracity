@@ -1,7 +1,20 @@
-/**
- * Lightweight client analytics until PostHog (or similar) is wired.
- * Events are logged + kept in localStorage for later flush.
- */
+let posthogLoaded = false;
+
+async function ensurePostHog() {
+  if (typeof window === 'undefined' || posthogLoaded) return;
+  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (!key) return;
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+  const posthog = (await import('posthog-js')).default;
+  posthog.init(key, {
+    api_host: host,
+    capture_pageview: false,
+    autocapture: false,
+    persistence: 'localStorage',
+  });
+  posthogLoaded = true;
+}
+
 export function trackEvent(event: string, props: Record<string, unknown> = {}): void {
   const payload = { event, ...props, ts: Date.now() };
   try {
@@ -10,6 +23,11 @@ export function trackEvent(event: string, props: Record<string, unknown> = {}): 
     // ignore
   }
   if (typeof window === 'undefined') return;
+  void ensurePostHog().then(async () => {
+    if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
+    const posthog = (await import('posthog-js')).default;
+    posthog.capture(event, props);
+  }).catch(() => {});
   try {
     const key = 'veracity_analytics';
     const raw = window.localStorage.getItem(key);

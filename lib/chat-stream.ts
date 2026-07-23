@@ -21,6 +21,8 @@ export type ChatRequestBody = {
   includeMirofishLive?: boolean;
   followUpMode?: 'full' | 'targeted';
   selectedAgents?: string[];
+  sessionId?: string;
+  conversationId?: string;
 };
 
 export type StreamChatOptions = {
@@ -204,9 +206,17 @@ export async function streamChatRequest(
   onChunk: (chunk: ChatStreamChunk) => void | Promise<void>,
   options: StreamChatOptions = {},
 ): Promise<void> {
+  const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-request-id': requestId,
+      ...(body.sessionId ? { 'x-session-id': body.sessionId } : {}),
+      ...(body.conversationId ? { 'x-conversation-id': body.conversationId } : {}),
+    },
     body: JSON.stringify(body),
     signal: options.signal,
   });
