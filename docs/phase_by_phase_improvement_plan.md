@@ -92,7 +92,7 @@
 | Phase 4 | AI Systems Orchestration & Queue Scale | ✅ Done |
 | Phase 5 | Continuous Platform | ✅ Done |
 | Phase 6 | Enterprise | ✅ Done |
-| Phase 7 | Knowledge Platform | ⬜ Not started |
+| Phase 7 | Knowledge Platform | ✅ Done |
 
 ---
 
@@ -400,13 +400,17 @@
 ---
 
 ### Phase 7 — Knowledge Platform *(roadmap)*
-- [ ] Evidence knowledge graph (first-class)
-- [ ] Competitor profiles + historical timeline
-- [ ] Knowledge Graph Explorer UI
-- [ ] Cross-Agent Memory service
-- [ ] Public REST API (if still prioritized)
+- [x] Evidence knowledge graph (first-class)
+- [x] Competitor profiles + historical timeline
+- [x] Knowledge Graph Explorer UI
+- [x] Cross-Agent Memory service
+- [ ] Public REST API (if still prioritized) — **deferred to Phase 8** (stabilize graph first)
+- [x] Graph versioning + confidence propagation + temporal as-of
+- [x] Typed relationships + provenance
+- [x] Event-sourced profiles + hybrid search + analytics
+- [x] Memory aging + entity-resolution maintenance
 
-**Phase 7 exit:** ⬜ Not complete
+**Phase 7 exit:** ✅ Complete (Public REST API postponed to Phase 8)
 
 ---
 
@@ -1294,10 +1298,15 @@ graph TD
     Timeline --> Learn["Feedback Learning Loop"]
 ```
 
-- [ ] Seed trail schema in 3B  
-- [ ] Full Evidence Graph in Phase 7  
-- [ ] Competitor profiles + timeline  
-- [ ] Knowledge Graph Explorer UI  
+- [x] Seed trail schema in 3B  
+- [x] Full Evidence Graph in Phase 7 (Postgres versioned temporal nodes/edges)  
+- [x] Competitor profiles + timeline (event-sourced projections)  
+- [x] Knowledge Graph Explorer UI (hybrid search + analytics)  
+- [x] Cross-Agent Memory (confidence-based TTL)  
+- [x] Graph maintenance (normalize / alias / merge / archive)  
+- [ ] Public REST API — **Phase 8** after graph model stabilizes  
+
+**Storage decision:** Postgres `kg_nodes` / `kg_node_versions` / `kg_edges` / `kg_aliases` / `kg_domain_events` (not Neo4j). 
 
 ---
 

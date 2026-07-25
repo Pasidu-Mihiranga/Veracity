@@ -42,6 +42,26 @@ export async function buildLearningContext(userId: string): Promise<string> {
     }
   }
 
+  if (featureFlags.crossAgentMemory) {
+    try {
+      const { resolveKgWorkspace } = await import('@/lib/kg/context');
+      const { listAgentMemory, formatAgentMemoryPreamble } = await import('@/lib/kg/agent-memory');
+      const { query: dbQuery } = await import('@/lib/db');
+      const { rows } = await dbQuery<{ email: string }>(
+        `SELECT email FROM users WHERE id = $1 LIMIT 1`,
+        [userId],
+      );
+      if (rows[0]?.email) {
+        const { workspaceId } = await resolveKgWorkspace(userId, rows[0].email);
+        const mem = await listAgentMemory({ workspaceId, limit: 10 });
+        const block = formatAgentMemoryPreamble(mem);
+        if (block) parts.push(block);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return parts.join('\n\n');
 }
 

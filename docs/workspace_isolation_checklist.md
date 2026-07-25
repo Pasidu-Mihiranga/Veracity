@@ -17,7 +17,8 @@ Every feature that reads or writes tenant data **must** pass this gate before me
 - [ ] Cross-workspace negative test added or covered
 - [ ] Flag-off path verified
 - [ ] No new App Router pages (single-page product)
+- [ ] Phase 7 KG tables (`kg_*`, `competitor_profiles`, `agent_memory_entries`) scoped by `workspace_id`
 
 ## Regression suite
 
-See `__tests__/phase6-enterprise.test.ts` — tenant scope and RBAC matrix must stay green.
+See `__tests__/phase6-enterprise.test.ts` and `__tests__/phase7-knowledge.test.ts` — tenant scope, RBAC, and KG pure helpers must stay green.
