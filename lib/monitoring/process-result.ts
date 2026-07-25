@@ -89,4 +89,54 @@ export async function processMonitoringJobResult(input: {
       clusterKey,
     });
   }
+
+  if (featureFlags.evidenceGraph) {
+    try {
+      const { resolveKgWorkspace } = await import('@/lib/kg/context');
+      const { ingestCompetitiveSignal, ingestOrchestratorOutput } = await import('@/lib/kg/ingest');
+      const { projectCompetitorProfile } = await import('@/lib/kg/profiles');
+      // Prefer workspace from job if stamped; else resolve personal
+      const { rows } = await query<{ workspace_id: string | null; email: string }>(
+        `SELECT j.workspace_id, u.email
+         FROM research_jobs j
+         JOIN users u ON u.id = j.user_id
+         WHERE j.id = $1
+         LIMIT 1`,
+        [input.jobId],
+      );
+      let workspaceId = rows[0]?.workspace_id ?? null;
+      if (!workspaceId && rows[0]?.email) {
+        workspaceId = (await resolveKgWorkspace(input.userId, rows[0].email)).workspaceId;
+      }
+      if (workspaceId) {
+        const provenance = {
+          createdBy: input.userId,
+          jobId: input.jobId,
+          sourceAgent: 'monitoring',
+        };
+        await ingestCompetitiveSignal({
+          workspaceId,
+          product: input.product,
+          competitor: input.competitor,
+          title: diff.title,
+          summary: diff.summary,
+          category: diff.category,
+          jobId: input.jobId,
+          provenance,
+        });
+        await ingestOrchestratorOutput({
+          workspaceId,
+          output: input.output,
+          product: input.product,
+          competitor: input.competitor,
+          provenance,
+        });
+        if (featureFlags.competitorProfiles) {
+          await projectCompetitorProfile(workspaceId, input.competitor);
+        }
+      }
+    } catch {
+      // never block monitoring on KG failure
+    }
+  }
 }

@@ -287,6 +287,59 @@ async function handleChatPost(req: NextRequest, userId: string) {
       write({ type: 'progress', pct: 100, label: 'completed' });
       write({ type: 'result', output: result });
 
+      if (featureFlags.evidenceGraph) {
+        void (async () => {
+          try {
+            const { resolveKgWorkspace } = await import('@/lib/kg/context');
+            const { ingestOrchestratorOutput } = await import('@/lib/kg/ingest');
+            const { getCurrentUser } = await import('@/lib/auth');
+            const authUser = await getCurrentUser();
+            if (!authUser) return;
+            const { workspaceId } = await resolveKgWorkspace(authUser.id, authUser.email);
+            await ingestOrchestratorOutput({
+              workspaceId,
+              output: result,
+              provenance: {
+                createdBy: authUser.id,
+                sessionId: sessionId ?? null,
+                sourceAgent: 'orchestrator',
+              },
+            });
+          } catch {
+            /* ignore kg ingest errors */
+          }
+        })();
+      }
+
+      if (featureFlags.crossAgentMemory) {
+        void (async () => {
+          try {
+            const { resolveKgWorkspace } = await import('@/lib/kg/context');
+            const { putAgentMemory } = await import('@/lib/kg/agent-memory');
+            const { getCurrentUser } = await import('@/lib/auth');
+            const authUser = await getCurrentUser();
+            if (!authUser) return;
+            const { workspaceId } = await resolveKgWorkspace(authUser.id, authUser.email);
+            const product = result.product;
+            if (product) {
+              await putAgentMemory({
+                workspaceId,
+                scope: 'product',
+                key: `last-sweep:${product.slice(0, 80)}`,
+                value: {
+                  text: `Last intel on ${product}: ${(result.synthesizedAnswer ?? '').slice(0, 240)}`,
+                },
+                confidence: 0.7,
+                sessionId: sessionId ?? null,
+                provenance: { createdBy: authUser.id, sourceAgent: 'orchestrator' },
+              });
+            }
+          } catch {
+            /* ignore */
+          }
+        })();
+      }
+
       if (includeMirofish) {
         try {
           const mirofishOutput = await runMirofishAgent(
