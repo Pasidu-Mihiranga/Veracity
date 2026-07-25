@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react';
 import {
-  BarChart3, Bell, Brain, Building2, Crosshair, LogOut, Sparkles, Sun, Moon, User,
+  BarChart3, Bell, Brain, Building2, Crosshair, LogOut, Network, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
@@ -25,6 +25,7 @@ export type DashboardHeaderProps = {
   alertsUnread?: number;
   onOpenMembers?: () => void;
   onOpenOrgIntel?: () => void;
+  onOpenKgExplorer?: () => void;
   isDark: boolean;
   onToggleTheme: () => void;
   userEmail: string | null;
@@ -50,6 +51,7 @@ export function DashboardHeader({
   alertsUnread = 0,
   onOpenMembers,
   onOpenOrgIntel,
+  onOpenKgExplorer,
   isDark,
   onToggleTheme,
   userEmail,
@@ -128,6 +130,17 @@ export function DashboardHeader({
                 title="Organization Intelligence"
               >
                 <Building2 size={14} />
+              </button>
+            ) : null}
+            {featureFlags.kgExplorer && onOpenKgExplorer ? (
+              <button
+                type="button"
+                onClick={onOpenKgExplorer}
+                className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ color: textMuted }}
+                title="Knowledge Graph"
+              >
+                <Network size={14} />
               </button>
             ) : null}
             {featureFlags.alerts && onOpenAlerts ? (

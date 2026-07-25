@@ -21,6 +21,7 @@ import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
 import { AlertsDrawer } from '@/components/ui/AlertsDrawer';
 import { WorkspaceMembersDrawer } from '@/components/ui/WorkspaceMembersDrawer';
 import { OrgIntelligencePanel } from '@/components/ui/OrgIntelligencePanel';
+import { KnowledgeGraphExplorer } from '@/components/ui/KnowledgeGraphExplorer';
 import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
 import {
@@ -58,6 +59,7 @@ export default function VeracityDashboard() {
   const [alertsUnread, setAlertsUnread] = useState(0);
   const [membersOpen, setMembersOpen] = useState(false);
   const [orgIntelOpen, setOrgIntelOpen] = useState(false);
+  const [kgExplorerOpen, setKgExplorerOpen] = useState(false);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
@@ -242,6 +244,7 @@ export default function VeracityDashboard() {
           alertsUnread={alertsUnread}
           onOpenMembers={() => setMembersOpen(true)}
           onOpenOrgIntel={() => setOrgIntelOpen(true)}
+          onOpenKgExplorer={() => setKgExplorerOpen(true)}
           isDark={isDark}
           onToggleTheme={toggleTheme}
           userEmail={userEmail}
@@ -320,6 +323,7 @@ export default function VeracityDashboard() {
       workspaceId={activeWorkspaceId}
     />
     <OrgIntelligencePanel open={orgIntelOpen} onClose={() => setOrgIntelOpen(false)} />
+    <KnowledgeGraphExplorer open={kgExplorerOpen} onClose={() => setKgExplorerOpen(false)} />
     </div>
   );
 }
