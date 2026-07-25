@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react';
 import {
-  ArrowUpRight, ChevronRight, Layers, MessageSquarePlus, Paperclip,
+  ArrowUpRight, ChevronDown, ChevronRight, Layers, MessageSquarePlus, Paperclip,
   RefreshCw, Search, Send, X,
 } from 'lucide-react';
 import type { AttachedImage, FollowUp } from '@/types/chat-ui';
@@ -30,6 +30,8 @@ export type ChatPanelProps = {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   onTextareaInput: () => void;
+  viewMode?: import('@/types/chat-ui').ProductViewMode;
+  onViewModeChange?: (mode: import('@/types/chat-ui').ProductViewMode) => void;
   headerBg: string;
   cardBg: string;
   cardBg2: string;
@@ -61,6 +63,8 @@ export function ChatPanel({
   onFileChange,
   textareaRef,
   onTextareaInput,
+  viewMode = 'executive',
+  onViewModeChange,
   headerBg,
   cardBg,
   cardBg2,
@@ -212,12 +216,30 @@ export function ChatPanel({
                   }
                 }}
                 placeholder={composerPlaceholder}
-                className="query-textarea w-full pl-11 pr-[96px] py-3.5 bg-transparent outline-none font-sans"
+                className="query-textarea w-full pl-11 pr-[220px] py-3.5 bg-transparent outline-none font-sans"
                 style={{ color: textMain }}
                 disabled={composerBusy}
                 rows={1}
               />
               <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
+                {onViewModeChange ? (
+                  <div className="relative inline-flex items-center">
+                    <select
+                      aria-label="Select Intelligence Mode"
+                      value={viewMode}
+                      onChange={(e) => onViewModeChange(e.target.value as import('@/types/chat-ui').ProductViewMode)}
+                      className="appearance-none ui-mono text-[10.5px] font-medium pl-3 pr-7 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/15 text-accent border border-accent/25 cursor-pointer outline-none capitalize transition-colors"
+                      title="Product View Mode"
+                      disabled={composerBusy}
+                    >
+                      <option value="executive">Mode: Executive</option>
+                      <option value="business">Mode: Business</option>
+                      <option value="analyst">Mode: Analyst</option>
+                      <option value="developer">Mode: Developer</option>
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-accent shrink-0 opacity-80" />
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={onAttachClick}

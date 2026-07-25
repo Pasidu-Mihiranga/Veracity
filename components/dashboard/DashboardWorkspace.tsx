@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
@@ -90,6 +90,8 @@ type Props = {
   compareBaseline?: ChatMessage | null;
   onRequestFullSweepCompare?: () => void;
   onClearCompare?: () => void;
+  viewMode?: import('@/types/chat-ui').ProductViewMode;
+  onViewModeChange?: (mode: import('@/types/chat-ui').ProductViewMode) => void;
   chrome: {
     cardBg: string;
     cardBg2: string;
@@ -145,9 +147,17 @@ export function DashboardWorkspace({
   compareBaseline,
   onRequestFullSweepCompare,
   onClearCompare,
+  viewMode,
+  onViewModeChange,
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
+
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+  }, [currentSessionId, currentResult?.id, mainScrollRef]);
 
   return (
     <>
@@ -155,9 +165,14 @@ export function DashboardWorkspace({
         ref={mainScrollRef}
         onScroll={onMainScroll}
         className="flex-1 overflow-y-auto"
-        style={{ padding: 'clamp(16px, 3vw, 32px)', paddingBottom: 'clamp(24px, 4vw, 40px)' }}
+        style={{
+          paddingTop: hasResult ? '6px' : 'clamp(16px, 3vw, 32px)',
+          paddingRight: 'clamp(16px, 3vw, 32px)',
+          paddingBottom: 'clamp(24px, 4vw, 40px)',
+          paddingLeft: 'clamp(16px, 3vw, 32px)',
+        }}
       >
-        <div className="flex flex-col gap-7 max-w-[1400px] w-full mx-auto">
+        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1400px] w-full mx-auto`}>
           {topTab === 'usage' && (
             <ApiUsagePanel
               lastMetrics={currentResult?.orchestratorOutput?.metrics}
@@ -171,16 +186,18 @@ export function DashboardWorkspace({
           {topTab === 'steal' && <StealStrategyPanel />}
           {topTab === 'intelligence' && (
             <>
-              <ChatPanel
-                showEmptyState={messages.length === 0 && !isLoading}
-                onDemoQuery={onSendDemoQuery}
-                followUps={[]}
-                isFollowingUp={false}
-                isLoading={isLoading}
-                showComposer={false}
-                onSend={onComposerSend}
-                {...composerProps}
-              />
+              {messages.length === 0 && !isLoading && (
+                <ChatPanel
+                  showEmptyState
+                  onDemoQuery={onSendDemoQuery}
+                  followUps={[]}
+                  isFollowingUp={false}
+                  isLoading={isLoading}
+                  showComposer={false}
+                  onSend={onComposerSend}
+                  {...composerProps}
+                />
+              )}
               <AppErrorBoundary label="Agent progress">
                 <AgentProgressGrid
                   queryLabel={recentQuery}
@@ -236,6 +253,7 @@ export function DashboardWorkspace({
                     compareBaseline={compareBaseline}
                     onRequestFullSweepCompare={onRequestFullSweepCompare}
                     onClearCompare={onClearCompare}
+                    viewMode={viewMode}
                     isDark={chrome.isDark}
                     cardBg={chrome.cardBg}
                     cardBg2={chrome.cardBg2}
@@ -279,6 +297,8 @@ export function DashboardWorkspace({
             showComposer
             onSend={onComposerSend}
             composerPlaceholder={hasResult ? 'Ask a follow-up about this analysis…' : 'Ask a growth intelligence question…'}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
             {...composerProps}
           />
         </AppErrorBoundary>

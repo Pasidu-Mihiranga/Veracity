@@ -2,10 +2,10 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import {
-  ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp,
+  ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp, Terminal, ShieldCheck,
 } from 'lucide-react';
 import type { AgentOutput, MindMapOutput } from '@/lib/agents/types';
-import type { ChatMessage } from '@/types/chat-ui';
+import type { ChatMessage, ProductViewMode } from '@/types/chat-ui';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
 import { ResultsInsightCharts } from '@/components/artifacts/ResultsInsightCharts';
 import { ConfidenceBadge } from '@/components/ui/ConfidenceBadge';
@@ -122,6 +122,7 @@ export type IntelligenceResultsProps = {
   compareBaseline?: ChatMessage | null;
   onRequestFullSweepCompare?: () => void;
   onClearCompare?: () => void;
+  viewMode?: ProductViewMode;
   isDark: boolean;
   cardBg: string;
   cardBg2: string;
@@ -145,6 +146,7 @@ export function IntelligenceResults({
   compareBaseline,
   onRequestFullSweepCompare,
   onClearCompare,
+  viewMode = 'executive',
   isDark,
   cardBg,
   cardBg2,
@@ -157,7 +159,8 @@ export function IntelligenceResults({
 }: IntelligenceResultsProps) {
   const [openViz, setOpenViz] = useState(true);
   const [openMap, setOpenMap] = useState(true);
-  const [openDomains, setOpenDomains] = useState(false);
+  const [openAnalyst, setOpenAnalyst] = useState(viewMode === 'analyst' || viewMode === 'developer');
+  const [openDevDiagnostics, setOpenDevDiagnostics] = useState(viewMode === 'developer');
   const [openSources, setOpenSources] = useState(false);
 
   const outputs = currentResult.orchestratorOutput?.outputs ?? [];
@@ -175,9 +178,11 @@ export function IntelligenceResults({
 
   if (!currentResult.content) return null;
 
+  const isDevMode = viewMode === 'developer' || openDevDiagnostics;
+
   return (
     <div className="flex flex-col gap-5">
-      {/* 1. Decision answer (hero) */}
+      {/* Level 1: Hero Section (Direct Answer) */}
       <section className="results-panel overflow-hidden">
         <div
           className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
@@ -185,7 +190,7 @@ export function IntelligenceResults({
         >
           <div className="flex items-center gap-2 min-w-0">
             <Layers size={14} style={{ color: 'var(--accent)' }} />
-            <span className="results-section-title">Decision</span>
+            <span className="results-section-title">Decision Answer</span>
             {product ? (
               <span
                 className="ui-mono px-2 py-0.5 rounded-full truncate"
@@ -199,7 +204,7 @@ export function IntelligenceResults({
                 {product}
               </span>
             ) : null}
-            {latencyLabel ? (
+            {isDevMode && latencyLabel ? (
               <span className="ui-mono" style={{ color: 'var(--foreground-subtle)', fontSize: 11 }}>
                 {latencyLabel}
               </span>
@@ -208,16 +213,6 @@ export function IntelligenceResults({
         </div>
         <div className="p-6 lg:p-8 flex flex-col gap-5">
           <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
-          {(currentResult.orchestratorOutput?.quality || currentResult.orchestratorOutput?.evidenceCoverage) ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {currentResult.orchestratorOutput?.quality ? (
-                <EvidenceStrengthMeter quality={currentResult.orchestratorOutput.quality} />
-              ) : null}
-              {currentResult.orchestratorOutput?.evidenceCoverage ? (
-                <EvidenceCoverageRadar axes={currentResult.orchestratorOutput.evidenceCoverage} />
-              ) : null}
-            </div>
-          ) : null}
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <ExportReportButton
               message={currentResult}
@@ -245,54 +240,11 @@ export function IntelligenceResults({
         </div>
       </section>
 
-      {(currentResult.missionSummary || currentResult.orchestratorOutput?.missionPlan) ? (
-        <MissionSummaryCard
-          summary={
-            currentResult.missionSummary
-            ?? {
-              steps: currentResult.orchestratorOutput?.missionPlan?.steps ?? [],
-              agentCount: currentResult.orchestratorOutput?.missionPlan?.steps?.length ?? 0,
-            }
-          }
-        />
-      ) : null}
-
-      {compareBaseline && currentResult.id !== compareBaseline.id ? (
-        <div className="flex flex-col gap-2">
-          <ScenarioCompare
-            left={compareBaseline}
-            right={currentResult}
-            leftLabel="Adaptive / prior"
-            rightLabel="Full sweep"
-          />
-          {onClearCompare ? (
-            <button
-              type="button"
-              onClick={onClearCompare}
-              className="self-start text-[10px] font-mono uppercase text-muted-foreground"
-            >
-              Clear comparison
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <ResearchReplay message={currentResult} />
-
-      {featureFlags.competitiveTimeline ? (
-        <CompetitiveTimeline
-          product={currentResult.orchestratorOutput?.product}
-          competitor={currentResult.orchestratorOutput?.competitor}
-        />
-      ) : null}
-
-      <StrategyCanvas message={currentResult} />
-
-      {/* 2. Recommendations */}
+      {/* Level 2: Actionable Recommendations */}
       {currentResult.recommendations && currentResult.recommendations.length > 0 ? (
         <section className="results-panel p-5 lg:p-6">
           <p className="results-section-title mb-4 flex items-center gap-2">
-            <Rocket size={13} style={{ color: 'var(--accent)' }} /> Recommendations
+            <Rocket size={13} style={{ color: 'var(--accent)' }} /> Actionable Recommendations
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentResult.recommendations.map((rec: {
@@ -369,30 +321,30 @@ export function IntelligenceResults({
                       <button
                         type="button"
                         onClick={() => rate('up')}
-                        title="Useful"
-                        className="p-1.5 rounded-lg transition-colors"
+                        title="Validate recommendation"
+                        className="p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[11px]"
                         style={{
                           color: current === 'up' ? accentInk : textSubtle,
                           background: current === 'up' ? 'rgba(0,196,255,0.14)' : 'transparent',
                         }}
                       >
-                        <ThumbsUp size={14} />
+                        <ThumbsUp size={13} /> Accept
                       </button>
                       <button
                         type="button"
                         onClick={() => rate('down')}
-                        title="Not useful"
-                        className="p-1.5 rounded-lg transition-colors"
+                        title="Reject recommendation"
+                        className="p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[11px]"
                         style={{
                           color: current === 'down' ? '#FCA5A5' : textSubtle,
                           background: current === 'down' ? 'rgba(252,165,165,0.12)' : 'transparent',
                         }}
                       >
-                        <ThumbsDown size={14} />
+                        <ThumbsDown size={13} /> Reject
                       </button>
                       {current && (
                         <span className="text-[10px] font-mono ml-1" style={{ color: current === 'up' ? accentInk : '#FCA5A5' }}>
-                          {current === 'up' ? 'Validated' : 'Rejected'}
+                          {current === 'up' ? 'Accepted' : 'Rejected'}
                         </span>
                       )}
                     </div>
@@ -404,10 +356,7 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {/* Insight charts — pie + bars when structured data exists */}
-      <ResultsInsightCharts message={currentResult} outputs={outputs} />
-
-      {/* 3. Primary visual */}
+      {/* Level 3: Primary Visual Artifact & Strategy Mind Map */}
       {primaryVisual ? (
         <section className="results-panel p-5 lg:p-6">
           <SectionToggle
@@ -426,11 +375,10 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {/* 4. Strategy mind map */}
       {mindMapOutput?.branches?.length ? (
         <section className="results-panel p-5 lg:p-6">
           <SectionToggle
-            title="Strategy map"
+            title="Strategy mind map"
             icon={<GitBranch size={13} />}
             open={openMap}
             onToggle={() => setOpenMap((v) => !v)}
@@ -445,58 +393,7 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {/* 5. Domain highlights (secondary, collapsed) */}
-      {outputs.filter((o) => o.artifactType !== 'mind-map').length > 0 ? (
-        <section className="results-panel p-5 lg:p-6">
-          <SectionToggle
-            title="Domain details"
-            icon={<Layers size={13} />}
-            open={openDomains}
-            onToggle={() => setOpenDomains((v) => !v)}
-            textMuted={textMuted}
-            accentInk={accentInk}
-          />
-          {openDomains && (
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {outputs
-                .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
-                .slice(0, 6)
-                .map((o, i) => {
-                  const domainMeta = DOMAIN_META[o.domain as Domain];
-                  return (
-                    <div
-                      key={`${o.domain}-${i}`}
-                      className="rounded-xl p-4"
-                      style={{
-                        background: cardBg2,
-                        border: `1px solid ${borderC || 'var(--border)'}`,
-                        boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                          {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
-                          <span
-                            className="text-[12px] font-mono font-bold uppercase tracking-wide"
-                            style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
-                          >
-                            {domainMeta?.short ?? o.domain}
-                          </span>
-                        </div>
-                        <ConfidenceBadge level={o.confidence} />
-                      </div>
-                      <p className="text-[13px] leading-relaxed" style={{ color: textMain }}>
-                        {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
-                      </p>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {/* Dig deeper */}
+      {/* Level 4: Dig Deeper (Follow-up suggestions) */}
       {currentResult.suggestions && currentResult.suggestions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 px-1">
           <span className="results-section-title">Dig deeper</span>
@@ -519,11 +416,11 @@ export function IntelligenceResults({
         </div>
       ) : null}
 
-      {/* 6. Sources (collapsed) */}
+      {/* Level 5: Verified Sources (Collapsed) */}
       {currentResult.sources && currentResult.sources.length > 0 ? (
         <section className="results-panel p-5">
           <SectionToggle
-            title={`Sources (${currentResult.sources.length})`}
+            title={`Verified sources (${currentResult.sources.length})`}
             icon={<ArrowUpRight size={13} />}
             open={openSources}
             onToggle={() => setOpenSources((v) => !v)}
@@ -548,6 +445,132 @@ export function IntelligenceResults({
           )}
         </section>
       ) : null}
+
+      {/* Level 6: Secondary Analyst Accordions */}
+      <section className="results-panel p-5 lg:p-6">
+        <SectionToggle
+          title="Analyst details & domain highlights"
+          icon={<ShieldCheck size={13} />}
+          open={openAnalyst}
+          onToggle={() => setOpenAnalyst((v) => !v)}
+          textMuted={textMuted}
+          accentInk={accentInk}
+        />
+        {openAnalyst && (
+          <div className="mt-4 flex flex-col gap-4">
+            {(currentResult.orchestratorOutput?.quality || currentResult.orchestratorOutput?.evidenceCoverage) ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {currentResult.orchestratorOutput?.quality ? (
+                  <EvidenceStrengthMeter quality={currentResult.orchestratorOutput.quality} />
+                ) : null}
+                {currentResult.orchestratorOutput?.evidenceCoverage ? (
+                  <EvidenceCoverageRadar axes={currentResult.orchestratorOutput.evidenceCoverage} />
+                ) : null}
+              </div>
+            ) : null}
+
+            {featureFlags.competitiveTimeline ? (
+              <CompetitiveTimeline
+                product={currentResult.orchestratorOutput?.product}
+                competitor={currentResult.orchestratorOutput?.competitor}
+              />
+            ) : null}
+
+            <StrategyCanvas message={currentResult} />
+
+            {outputs.filter((o) => o.artifactType !== 'mind-map').length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {outputs
+                  .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
+                  .slice(0, 6)
+                  .map((o, i) => {
+                    const domainMeta = DOMAIN_META[o.domain as Domain];
+                    return (
+                      <div
+                        key={`${o.domain}-${i}`}
+                        className="rounded-xl p-4"
+                        style={{
+                          background: cardBg2,
+                          border: `1px solid ${borderC || 'var(--border)'}`,
+                          boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
+                            <span
+                              className="text-[12px] font-mono font-bold uppercase tracking-wide"
+                              style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
+                            >
+                              {domainMeta?.short ?? o.domain}
+                            </span>
+                          </div>
+                          <ConfidenceBadge level={o.confidence} />
+                        </div>
+                        <p className="text-[13px] leading-relaxed" style={{ color: textMain }}>
+                          {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
+                        </p>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : null}
+
+            {compareBaseline && currentResult.id !== compareBaseline.id ? (
+              <div className="flex flex-col gap-2 pt-2">
+                <ScenarioCompare
+                  left={compareBaseline}
+                  right={currentResult}
+                  leftLabel="Adaptive / prior"
+                  rightLabel="Full sweep"
+                />
+                {onClearCompare ? (
+                  <button
+                    type="button"
+                    onClick={onClearCompare}
+                    className="self-start text-[10px] font-mono uppercase text-muted-foreground"
+                  >
+                    Clear comparison
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      {/* Level 7: Developer Diagnostics (Developer Mode Only) */}
+      {isDevMode ? (
+        <section className="results-panel p-5 lg:p-6 border-dashed border-accent/30">
+          <SectionToggle
+            title="Developer diagnostics & swarm logs"
+            icon={<Terminal size={13} />}
+            open={openDevDiagnostics}
+            onToggle={() => setOpenDevDiagnostics((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openDevDiagnostics && (
+            <div className="mt-4 flex flex-col gap-4">
+              {(currentResult.missionSummary || currentResult.orchestratorOutput?.missionPlan) ? (
+                <MissionSummaryCard
+                  summary={
+                    currentResult.missionSummary
+                    ?? {
+                      steps: currentResult.orchestratorOutput?.missionPlan?.steps ?? [],
+                      agentCount: currentResult.orchestratorOutput?.missionPlan?.steps?.length ?? 0,
+                    }
+                  }
+                />
+              ) : null}
+
+              <ResearchReplay message={currentResult} />
+              <ResultsInsightCharts message={currentResult} outputs={outputs} />
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
+

@@ -1,5 +1,7 @@
 import type { AgentRun, OrchestratorOutput } from '@/lib/agents/types';
 
+export type ProductViewMode = 'executive' | 'business' | 'analyst' | 'developer';
+
 export type SourceLink = { title: string; url: string };
 
 export type AttachedImage = {

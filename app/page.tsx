@@ -65,6 +65,23 @@ export default function VeracityDashboard() {
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [topTab, setTopTab] = useState<'intelligence' | 'usage' | 'steal'>('intelligence');
+  const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('veracity_product_mode') as import('@/types/chat-ui').ProductViewMode | null;
+      if (saved && ['executive', 'business', 'analyst', 'developer'].includes(saved)) {
+        setViewMode(saved);
+      }
+    } catch {}
+  }, []);
+
+  const handleViewModeChange = useCallback((mode: import('@/types/chat-ui').ProductViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('veracity_product_mode', mode);
+    } catch {}
+  }, []);
 
   // Persist / restore adaptive agent selection per session
   useEffect(() => {
@@ -251,6 +268,8 @@ export default function VeracityDashboard() {
           showUserMenu={showUserMenu}
           onToggleUserMenu={() => setShowUserMenu(v => !v)}
           onSignOut={() => { void handleSignOut(); }}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
           textMuted={textMuted}
           textSubtle={textSubtle}
           accentInk={accentInk}
@@ -298,6 +317,8 @@ export default function VeracityDashboard() {
           compareBaseline={compareBaseline}
           onRequestFullSweepCompare={requestFullSweepCompare}
           onClearCompare={clearCompareBaseline}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
       </div>

@@ -32,6 +32,8 @@ export type DashboardHeaderProps = {
   showUserMenu: boolean;
   onToggleUserMenu: () => void;
   onSignOut: () => void;
+  viewMode?: import('@/types/chat-ui').ProductViewMode;
+  onViewModeChange?: (mode: import('@/types/chat-ui').ProductViewMode) => void;
   textMuted: string;
   textSubtle: string;
   accentInk: string;
@@ -58,6 +60,8 @@ export function DashboardHeader({
   showUserMenu,
   onToggleUserMenu,
   onSignOut,
+  viewMode = 'executive',
+  onViewModeChange,
   textMuted,
   textSubtle,
   accentInk,
