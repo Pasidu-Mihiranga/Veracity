@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp, Terminal, ShieldCheck,
 } from 'lucide-react';
@@ -162,6 +162,11 @@ export function IntelligenceResults({
   const [openAnalyst, setOpenAnalyst] = useState(viewMode === 'analyst' || viewMode === 'developer');
   const [openDevDiagnostics, setOpenDevDiagnostics] = useState(viewMode === 'developer');
   const [openSources, setOpenSources] = useState(false);
+
+  useEffect(() => {
+    setOpenAnalyst(viewMode === 'analyst' || viewMode === 'developer');
+    setOpenDevDiagnostics(viewMode === 'developer');
+  }, [viewMode]);
 
   const outputs = currentResult.orchestratorOutput?.outputs ?? [];
   const mindMapOutput = outputs.find((o) => o.artifactType === 'mind-map') as MindMapOutput | undefined;

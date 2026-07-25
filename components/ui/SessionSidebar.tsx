@@ -133,56 +133,11 @@ export function SessionSidebar({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
-          <div className="neu-extruded overflow-hidden rounded-[20px] mb-3" style={{ background: cardBg2 }}>
-            <div className="px-3 py-2.5 flex items-center justify-between">
-              <span className="ui-section-label" style={{ color: textSubtle }}>
-                Agents
-              </span>
-              <span className="ui-mono" style={{ color: textSubtle, fontSize: 10 }}>
-                {Object.values(selectedAgents).filter(Boolean).length}
-              </span>
-            </div>
-            <div className="px-2 pb-2 flex flex-col gap-1">
-              {ALL_DOMAINS.map((domain) => (
-                <SidebarAgentRow
-                  key={domain}
-                  domain={domain}
-                  run={getRunForDomain(domain)}
-                  selected={selectedAgents[domain]}
-                  onToggle={() => onToggleAgent(domain)}
-                />
-              ))}
-              {onToggleForceFullSweep ? (
-                <button
-                  type="button"
-                  onClick={onToggleForceFullSweep}
-                  className="mt-1 mx-1 flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left"
-                  style={{
-                    background: forceFullSweep
-                      ? 'color-mix(in srgb, var(--accent) 10%, transparent)'
-                      : 'transparent',
-                    border: `1px solid ${forceFullSweep ? 'color-mix(in srgb, var(--accent) 28%, transparent)' : 'var(--border)'}`,
-                  }}
-                >
-                  <span className="text-[11px] font-mono" style={{ color: textMuted }}>
-                    Force full sweep
-                  </span>
-                  <span
-                    className="text-[10px] font-mono uppercase"
-                    style={{ color: forceFullSweep ? 'var(--accent)' : textSubtle }}
-                  >
-                    {forceFullSweep ? 'On' : 'Auto'}
-                  </span>
-                </button>
-              ) : null}
-            </div>
-          </div>
-
+        <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-3">
           {featureFlags.watchlists ? <WatchlistsPanel /> : null}
 
-          <div className="neu-extruded overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
-            <div className="px-3 py-2.5 flex items-center justify-between">
+          <div className="neu-extruded flex-1 flex flex-col overflow-hidden rounded-[20px]" style={{ background: cardBg2 }}>
+            <div className="px-3 py-2.5 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-1.5">
                 <History size={12} style={{ color: textSubtle }} />
                 <span className="ui-section-label" style={{ color: textSubtle }}>
@@ -197,8 +152,7 @@ export function SessionSidebar({
             </div>
 
             <div
-              className="py-1 px-1.5 pb-2 overflow-y-auto"
-              style={{ maxHeight: VIEWPORT_HEIGHT }}
+              className="py-1 px-1.5 pb-2 overflow-y-auto flex-1"
               onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
             >
               {loadingSessions ? (

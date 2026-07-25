@@ -43,6 +43,7 @@ export type AgentProgressGridProps = {
   missionSteps?: Array<{ id: string; label: string; agentId: string; dependsOn?: string[]; rationale?: string }>;
   activeJobId?: string | null;
   onCancelJob?: () => void;
+  onHidden?: () => void;
 };
 
 type GridPhase = 'hidden' | AgentTeamConvergePhase;
@@ -77,6 +78,7 @@ function AgentProgressGridInner({
   missionSteps,
   activeJobId,
   onCancelJob,
+  onHidden,
 }: AgentProgressGridProps) {
   const [phase, setPhase] = useState<GridPhase>('hidden');
   const [tick, setTick] = useState(0);
@@ -104,8 +106,8 @@ function AgentProgressGridInner({
     const reduce =
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const holdMs = reduce ? 700 : 1000;
-    const fadeMs = reduce ? 0 : 300;
+    const holdMs = reduce ? 200 : 400;
+    const fadeMs = reduce ? 0 : 200;
     const t1 = window.setTimeout(() => setPhase('exiting'), holdMs);
     const t2 = window.setTimeout(() => setPhase('hidden'), holdMs + fadeMs);
     return () => {
@@ -113,6 +115,12 @@ function AgentProgressGridInner({
       window.clearTimeout(t2);
     };
   }, [phase]);
+
+  useEffect(() => {
+    if (phase === 'hidden' && onHidden) {
+      onHidden();
+    }
+  }, [phase, onHidden]);
 
   const domains = visibleTabDomains.length ? visibleTabDomains : [...ALL_DOMAINS];
 

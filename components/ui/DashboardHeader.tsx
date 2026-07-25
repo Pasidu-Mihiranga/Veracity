@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react';
 import {
-  BarChart3, Bell, Brain, Building2, Crosshair, LogOut, Network, Sparkles, Sun, Moon, User,
+  BarChart3, Bell, Bot, Brain, Building2, Crosshair, LogOut, Network, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
@@ -20,6 +20,7 @@ export type DashboardHeaderProps = {
   onTopTabChange: (tab: TopTab) => void;
   selectedAgents: Record<Domain, boolean>;
   mirofishRunning: boolean;
+  onOpenAgents?: () => void;
   onOpenMemory: () => void;
   onOpenAlerts?: () => void;
   alertsUnread?: number;
@@ -48,6 +49,7 @@ export function DashboardHeader({
   onTopTabChange,
   selectedAgents,
   mirofishRunning,
+  onOpenAgents,
   onOpenMemory,
   onOpenAlerts,
   alertsUnread = 0,
@@ -108,9 +110,22 @@ export function DashboardHeader({
 
         <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
           <div className="header-island-stats hidden md:flex items-center gap-2 shrink-0">
-            <span className="neu-pill ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
-              {activeAgents} agents
-            </span>
+            {onOpenAgents ? (
+              <button
+                type="button"
+                onClick={onOpenAgents}
+                className="neu-pill ui-mono px-2.5 py-1 flex items-center gap-1.5 hover:opacity-80 transition-all cursor-pointer"
+                style={{ color: accentInk, fontSize: 10 }}
+                title="Configure Swarm Agents"
+              >
+                <Bot size={12} />
+                <span>{activeAgents} agents</span>
+              </button>
+            ) : (
+              <span className="neu-pill ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
+                {activeAgents} agents
+              </span>
+            )}
             {mirofishRunning ? (
               <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
                 forecast live

@@ -92,6 +92,7 @@ type Props = {
   onClearCompare?: () => void;
   viewMode?: import('@/types/chat-ui').ProductViewMode;
   onViewModeChange?: (mode: import('@/types/chat-ui').ProductViewMode) => void;
+  onResetHeader?: () => void;
   chrome: {
     cardBg: string;
     cardBg2: string;
@@ -149,6 +150,7 @@ export function DashboardWorkspace({
   onClearCompare,
   viewMode,
   onViewModeChange,
+  onResetHeader,
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
@@ -157,7 +159,7 @@ export function DashboardWorkspace({
     if (mainScrollRef.current) {
       mainScrollRef.current.scrollTop = 0;
     }
-  }, [currentSessionId, currentResult?.id, mainScrollRef]);
+  }, [currentSessionId, mainScrollRef]);
 
   return (
     <>
@@ -221,6 +223,11 @@ export function DashboardWorkspace({
                   missionSteps={missionSteps}
                   activeJobId={activeJobId}
                   onCancelJob={onCancelJob}
+                  onHidden={() => {
+                    if (mainScrollRef.current && mainScrollRef.current.scrollTop < 60) {
+                      mainScrollRef.current.scrollTop = 0;
+                    }
+                  }}
                   {...chrome}
                 />
               </AppErrorBoundary>

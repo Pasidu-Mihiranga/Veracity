@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export function useHeaderCompress() {
   const mainScrollRef = useRef<HTMLDivElement>(null);
@@ -31,7 +31,7 @@ export function useHeaderCompress() {
     }
   }
 
-  const onMainScroll = () => {
+  const onMainScroll = useCallback(() => {
     const el = mainScrollRef.current;
     if (!el) return;
     const raw = Math.min(1, Math.max(0, el.scrollTop / 96));
@@ -39,7 +39,7 @@ export function useHeaderCompress() {
     if (!headerRaf.current) {
       headerRaf.current = requestAnimationFrame(tickHeaderCompress);
     }
-  };
+  }, []);
 
   useEffect(
     () => () => {
@@ -54,10 +54,29 @@ export function useHeaderCompress() {
     island.style.setProperty('--hc', headerCompress.current.toFixed(4));
   });
 
+  const resetHeaderCompress = useCallback(() => {
+    headerCompress.current = 0;
+    headerTarget.current = 0;
+    if (headerRaf.current) {
+      cancelAnimationFrame(headerRaf.current);
+      headerRaf.current = 0;
+    }
+    const island = headerIslandRef.current;
+    if (island) {
+      island.style.setProperty('--hc', '0');
+      island.classList.remove('header-island--compact');
+    }
+    setHeaderCompact(false);
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+  }, []);
+
   return {
     mainScrollRef,
     headerIslandRef,
     headerCompact,
     onMainScroll,
+    resetHeaderCompress,
   };
 }

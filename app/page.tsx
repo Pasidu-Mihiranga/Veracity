@@ -19,6 +19,7 @@ import { DashboardHeader } from '@/components/ui/DashboardHeader';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
 import { AlertsDrawer } from '@/components/ui/AlertsDrawer';
+import { AgentsDrawer } from '@/components/ui/AgentsDrawer';
 import { WorkspaceMembersDrawer } from '@/components/ui/WorkspaceMembersDrawer';
 import { OrgIntelligencePanel } from '@/components/ui/OrgIntelligencePanel';
 import { KnowledgeGraphExplorer } from '@/components/ui/KnowledgeGraphExplorer';
@@ -41,7 +42,7 @@ export default function VeracityDashboard() {
   const supabase = createClient();
   const { streamChat } = useChatStream();
   const { isDark, toggle: toggleTheme, surface, surface2, text, textMuted, textSubtle, accent, border } = useTheme();
-  const { mainScrollRef, headerIslandRef, headerCompact, onMainScroll } = useHeaderCompress();
+  const { mainScrollRef, headerIslandRef, headerCompact, onMainScroll, resetHeaderCompress } = useHeaderCompress();
   const {
     sessions, loadingSessions, currentSessionId, setCurrentSessionId, messages, setMessages,
     followUps, setFollowUps, refreshSessions, loadSession, deleteSession, resetConversation, queryCacheStats,
@@ -55,6 +56,7 @@ export default function VeracityDashboard() {
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+  const [agentsDrawerOpen, setAgentsDrawerOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertsUnread, setAlertsUnread] = useState(0);
   const [membersOpen, setMembersOpen] = useState(false);
@@ -66,6 +68,12 @@ export default function VeracityDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [topTab, setTopTab] = useState<'intelligence' | 'usage' | 'steal'>('intelligence');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
+
+  const currentResult = [...messages].reverse().find((m) => m.role === 'assistant');
+
+  useEffect(() => {
+    resetHeaderCompress();
+  }, [currentSessionId, resetHeaderCompress]);
 
   useEffect(() => {
     try {
@@ -110,7 +118,6 @@ export default function VeracityDashboard() {
 
   useEffect(() => { autoResizeTextarea(); }, [inputValue, autoResizeTextarea]);
 
-  const currentResult = [...messages].reverse().find(m => m.role === 'assistant');
   const recentQueries = messages.filter(m => m.role === 'user').map(m => m.content);
   const hasResult = !!(currentResult?.orchestratorOutput);
   const completedCount = currentResult?.agentRuns?.filter(r => r.status === 'completed').length ?? 0;
@@ -256,6 +263,7 @@ export default function VeracityDashboard() {
           onTopTabChange={setTopTab}
           selectedAgents={selectedAgents}
           mirofishRunning={mirofishRunning}
+          onOpenAgents={() => setAgentsDrawerOpen(true)}
           onOpenMemory={() => setMemoryDrawerOpen(true)}
           onOpenAlerts={() => setAlertsOpen(true)}
           alertsUnread={alertsUnread}
@@ -319,6 +327,7 @@ export default function VeracityDashboard() {
           onClearCompare={clearCompareBaseline}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
+          onResetHeader={resetHeaderCompress}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
       </div>
@@ -345,6 +354,19 @@ export default function VeracityDashboard() {
     />
     <OrgIntelligencePanel open={orgIntelOpen} onClose={() => setOrgIntelOpen(false)} />
     <KnowledgeGraphExplorer open={kgExplorerOpen} onClose={() => setKgExplorerOpen(false)} />
+    <AgentsDrawer
+      open={agentsDrawerOpen}
+      onClose={() => setAgentsDrawerOpen(false)}
+      selectedAgents={selectedAgents}
+      onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+      forceFullSweep={forceFullSweep}
+      onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
+      getRunForDomain={getRunFor}
+      textMain={textMain}
+      textMuted={textMuted}
+      textSubtle={textSubtle}
+      accentInk={accentInk}
+    />
     </div>
   );
 }
