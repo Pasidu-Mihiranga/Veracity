@@ -338,3 +338,141 @@ CREATE INDEX IF NOT EXISTS watchlists_workspace_idx ON watchlists(workspace_id);
 CREATE INDEX IF NOT EXISTS alert_events_workspace_idx ON alert_events(workspace_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS competitive_events_workspace_idx ON competitive_events(workspace_id, event_date DESC);
 CREATE INDEX IF NOT EXISTS decision_memory_workspace_idx ON decision_memory(workspace_id, created_at DESC);
+
+-- Phase 7: Knowledge Platform
+CREATE TABLE IF NOT EXISTS kg_nodes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  kind text NOT NULL
+    CHECK (kind IN ('claim', 'source', 'competitor', 'product', 'decision', 'event', 'agent_fact')),
+  label text NOT NULL,
+  key text NOT NULL,
+  props jsonb NOT NULL DEFAULT '{}',
+  confidence real NOT NULL DEFAULT 0.5 CHECK (confidence >= 0 AND confidence <= 1),
+  valid_from timestamptz NOT NULL DEFAULT now(),
+  valid_until timestamptz,
+  archived_at timestamptz,
+  created_by uuid,
+  source_agent text,
+  job_id text,
+  session_id text,
+  model_version text,
+  embedding vector(768),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kg_nodes_ws_kind_key_active_idx
+  ON kg_nodes (workspace_id, kind, key) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS kg_nodes_workspace_kind_idx ON kg_nodes (workspace_id, kind);
+
+CREATE TABLE IF NOT EXISTS kg_node_versions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_id uuid NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+  workspace_id uuid NOT NULL,
+  version int NOT NULL,
+  label text NOT NULL,
+  props jsonb NOT NULL DEFAULT '{}',
+  confidence_snapshot real NOT NULL DEFAULT 0.5,
+  created_by uuid,
+  source_agent text,
+  job_id text,
+  session_id text,
+  model_version text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (node_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS kg_edges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  from_node_id uuid NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+  to_node_id uuid NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+  rel text NOT NULL
+    CHECK (rel IN (
+      'supports', 'about', 'derived_from', 'mentions', 'decides', 'timed_as',
+      'acquired', 'owns', 'competes_with', 'replaces', 'depends_on', 'launched',
+      'targets', 'uses', 'invested_in', 'partner_of', 'same_as'
+    )),
+  weight real NOT NULL DEFAULT 1.0,
+  trust real NOT NULL DEFAULT 0.7 CHECK (trust >= 0 AND trust <= 1),
+  props jsonb NOT NULL DEFAULT '{}',
+  valid_from timestamptz NOT NULL DEFAULT now(),
+  valid_until timestamptz,
+  created_by uuid,
+  source_agent text,
+  job_id text,
+  session_id text,
+  model_version text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kg_edges_active_uniq
+  ON kg_edges (workspace_id, from_node_id, to_node_id, rel) WHERE valid_until IS NULL;
+CREATE INDEX IF NOT EXISTS kg_edges_from_idx ON kg_edges (workspace_id, from_node_id);
+CREATE INDEX IF NOT EXISTS kg_edges_to_idx ON kg_edges (workspace_id, to_node_id);
+
+CREATE TABLE IF NOT EXISTS kg_aliases (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  alias_key text NOT NULL,
+  canonical_node_id uuid NOT NULL REFERENCES kg_nodes(id) ON DELETE CASCADE,
+  source text NOT NULL DEFAULT 'ingest'
+    CHECK (source IN ('ingest', 'manual', 'resolver')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, alias_key)
+);
+
+CREATE TABLE IF NOT EXISTS kg_domain_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  aggregate_type text NOT NULL
+    CHECK (aggregate_type IN ('competitor', 'product', 'claim', 'decision', 'other')),
+  aggregate_key text NOT NULL,
+  event_type text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}',
+  created_by uuid,
+  source_agent text,
+  job_id text,
+  session_id text,
+  model_version text,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS kg_domain_events_agg_idx
+  ON kg_domain_events (workspace_id, aggregate_type, aggregate_key, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS competitor_profiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  competitor_key text NOT NULL,
+  display_name text NOT NULL,
+  summary text NOT NULL DEFAULT '',
+  website_url text,
+  trend_headline text,
+  first_seen_at timestamptz,
+  last_seen_at timestamptz,
+  props jsonb NOT NULL DEFAULT '{}',
+  projected_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, competitor_key)
+);
+
+CREATE TABLE IF NOT EXISTS agent_memory_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id uuid NOT NULL,
+  session_id text,
+  scope text NOT NULL
+    CHECK (scope IN ('product', 'competitor', 'domain', 'global')),
+  key text NOT NULL,
+  value jsonb NOT NULL DEFAULT '{}',
+  source_agent text,
+  confidence real NOT NULL DEFAULT 0.5 CHECK (confidence >= 0 AND confidence <= 1),
+  expires_at timestamptz,
+  created_by uuid,
+  job_id text,
+  model_version text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (workspace_id, scope, key)
+);
+CREATE INDEX IF NOT EXISTS agent_memory_expires_idx ON agent_memory_entries (workspace_id, expires_at);

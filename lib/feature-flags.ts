@@ -41,6 +41,18 @@ export const featureFlags = {
   samlSso: envFlag('NEXT_PUBLIC_FF_SAML_SSO', false),
   /** Phase 6 — Organization Intelligence Monitor */
   orgIntelligence: envFlag('NEXT_PUBLIC_FF_ORG_INTELLIGENCE', false),
+  /** Phase 7 — Evidence knowledge graph */
+  evidenceGraph: envFlag('NEXT_PUBLIC_FF_EVIDENCE_GRAPH', false),
+  /** Phase 7 — competitor profiles + timeline */
+  competitorProfiles: envFlag('NEXT_PUBLIC_FF_COMPETITOR_PROFILES', false),
+  /** Phase 7 — Knowledge Graph Explorer UI */
+  kgExplorer: envFlag('NEXT_PUBLIC_FF_KG_EXPLORER', false),
+  /** Phase 7 — Cross-Agent Memory */
+  crossAgentMemory: envFlag('NEXT_PUBLIC_FF_CROSS_AGENT_MEMORY', false),
+  /** Phase 7 — entity resolution / maintenance */
+  kgMaintenance: envFlag('NEXT_PUBLIC_FF_KG_MAINTENANCE', false),
+  /** Phase 7 — graph analytics widgets */
+  kgAnalytics: envFlag('NEXT_PUBLIC_FF_KG_ANALYTICS', false),
 } as const;
 
 export type FeatureFlagKey = keyof typeof featureFlags;

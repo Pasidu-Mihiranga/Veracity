@@ -14,7 +14,10 @@ export type Permission =
   | 'member.invite'
   | 'member.role_change'
   | 'sso.configure'
-  | 'org.read';
+  | 'org.read'
+  | 'kg.read'
+  | 'kg.write'
+  | 'kg.maintain';
 
 const ROLE_RANK: Record<WorkspaceRole, number> = {
   viewer: 1,
@@ -26,15 +29,18 @@ const ROLE_RANK: Record<WorkspaceRole, number> = {
 const PERMISSION_MIN_ROLE: Record<Permission, WorkspaceRole> = {
   'workspace.read': 'viewer',
   'org.read': 'viewer',
+  'kg.read': 'viewer',
   'session.write': 'member',
   'sweep.run': 'member',
   'watchlist.manage': 'member',
   'alert.write': 'member',
   'decision.write': 'member',
+  'kg.write': 'member',
   'workspace.write': 'admin',
   'member.invite': 'admin',
   'member.role_change': 'admin',
   'sso.configure': 'admin',
+  'kg.maintain': 'admin',
   'workspace.delete': 'owner',
 };
 
