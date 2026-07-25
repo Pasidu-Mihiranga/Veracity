@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Building2, X } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
 import type { OrgIntelligence } from '@/lib/org-intelligence';
+import { CompetitorProfileCard } from '@/components/ui/CompetitorProfileCard';
 
 type Props = {
   open: boolean;
@@ -64,6 +65,14 @@ export function OrgIntelligencePanel({ open, onClose }: Props) {
 
         {data && (
           <>
+            {featureFlags.competitorProfiles ? (
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+                  Competitor profiles
+                </div>
+                <CompetitorProfileCard compact />
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-2">
               <MetricCard label="Active watchlists" value={String(data.watchlists.active)} />
               <MetricCard label="Unread alerts" value={String(data.alerts.unread)} />
