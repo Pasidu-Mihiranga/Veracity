@@ -815,12 +815,20 @@ textarea.neu-input:focus {
 
 .query-bar-glow::before { display: none; }
 
-.query-bar-glow:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-inset-deep), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+/* No rectangular outline/stroke — keep only the pill border */
+.query-bar-glow *:focus,
+.query-bar-glow *:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
 }
 
-/* Floating composer — lifted off the bottom with soft elevation & high-contrast outline */
+.query-bar-glow:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-inset-deep);
+}
+
+/* Floating composer — lifted off the bottom with soft elevation */
 .query-bar-float {
   border-radius: 9999px;
   border: 1.5px solid var(--border-strong, rgba(0, 196, 255, 0.25));
@@ -833,12 +841,18 @@ textarea.neu-input:focus {
   transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease, background 200ms ease;
 }
 
+.query-bar-float *:focus,
+.query-bar-float *:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
 .query-bar-float:focus-within {
   border-color: var(--accent);
   box-shadow:
     0 16px 48px rgba(15, 23, 42, 0.16),
-    0 6px 16px rgba(15, 23, 42, 0.1),
-    0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+    0 6px 16px rgba(15, 23, 42, 0.1);
   transform: translateY(-8px);
 }
 
@@ -847,16 +861,14 @@ textarea.neu-input:focus {
   background: #FFFFFF !important;
   box-shadow:
     0 8px 30px rgba(6, 20, 36, 0.08),
-    0 2px 8px rgba(6, 20, 36, 0.04),
-    0 0 0 1px rgba(6, 20, 36, 0.06);
+    0 2px 8px rgba(6, 20, 36, 0.04);
 }
 
 .light .query-bar-float:hover,
 .light .query-bar-float:focus-within {
   border-color: #0088C2 !important;
   box-shadow:
-    0 12px 36px rgba(6, 20, 36, 0.12),
-    0 0 0 3px rgba(0, 136, 194, 0.2) !important;
+    0 12px 36px rgba(6, 20, 36, 0.12) !important;
 }
 
 .dark .query-bar-float {
