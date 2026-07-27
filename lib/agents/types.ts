@@ -247,6 +247,8 @@ export interface OrchestratorOutput {
     mode: 'full' | 'adaptive';
     savedVsFull: number;
     researchIds: string[];
+    tier?: number;
+    tierLabel?: string;
   };
 }
 

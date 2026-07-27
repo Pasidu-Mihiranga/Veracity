@@ -371,5 +371,20 @@ export async function generateHuggingFaceJson<T = Record<string, unknown>>(
     }
   }
 
-  throw lastError || new Error('Gemini JSON generateContent failed: no key/model candidates left');
+  try {
+    throw lastError || new Error('Gemini JSON generateContent failed: no key/model candidates left');
+  } catch (err) {
+    // Secondary fallback: retry via generateHuggingFaceText with JSON extraction
+    try {
+      const jsonPrompt = `${systemPrompt}\n\n${userPrompt}\n\nIMPORTANT: Output valid raw JSON only. Do not wrap in backticks or markdown fences.`;
+      const rawText = await generateHuggingFaceText(jsonPrompt, options);
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (match) {
+        return JSON.parse(match[0]) as T;
+      }
+    } catch {
+      // ignore secondary fallback error and rethrow primary error
+    }
+    throw err;
+  }
 }

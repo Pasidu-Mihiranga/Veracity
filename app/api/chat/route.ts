@@ -340,7 +340,11 @@ async function handleChatPost(req: NextRequest, userId: string) {
         })();
       }
 
-      if (includeMirofish) {
+      const isTier0 =
+        result.selectionMeta?.tier === 0 ||
+        (result.outputs.length === 0 && (!result.topRecommendations || result.topRecommendations.length === 0));
+
+      if (includeMirofish && !isTier0) {
         try {
           const mirofishOutput = await runMirofishAgent(
             query,
@@ -361,7 +365,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
         }
       }
 
-      if (includeMirofishLive) {
+      if (includeMirofishLive && !isTier0) {
         try {
           const mirofishLiveOutput = await runMirofishLiveAgent(
             query,
