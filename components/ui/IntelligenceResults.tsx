@@ -181,6 +181,10 @@ export function IntelligenceResults({
     return `${(ms / 1000).toFixed(1)}s`;
   })();
 
+  const isTier0 =
+    currentResult.orchestratorOutput?.selectionMeta?.tier === 0 ||
+    (outputs.length === 0 && (!currentResult.recommendations || currentResult.recommendations.length === 0));
+
   if (!currentResult.content) return null;
 
   const isDevMode = viewMode === 'developer' || openDevDiagnostics;
@@ -218,30 +222,32 @@ export function IntelligenceResults({
         </div>
         <div className="p-6 lg:p-8 flex flex-col gap-5">
           <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <ExportReportButton
-              message={currentResult}
-              accentInk={accentInk}
-              textSubtle={textSubtle}
-              cardBg2={cardBg2}
-              neuExtrudedSm={neuExtrudedSm}
-              variant="primary"
-            />
-            <ExecutiveBoardMode message={currentResult} />
-            {onRequestFullSweepCompare ? (
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={onRequestFullSweepCompare}
-                className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded border border-accent/20 bg-accent/5 text-accent disabled:opacity-50"
-              >
-                Compare with full sweep
-              </button>
-            ) : null}
-            <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
-              Includes decision, recommendations, visuals, and sources
-            </span>
-          </div>
+          {!isTier0 ? (
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <ExportReportButton
+                message={currentResult}
+                accentInk={accentInk}
+                textSubtle={textSubtle}
+                cardBg2={cardBg2}
+                neuExtrudedSm={neuExtrudedSm}
+                variant="primary"
+              />
+              <ExecutiveBoardMode message={currentResult} />
+              {onRequestFullSweepCompare ? (
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={onRequestFullSweepCompare}
+                  className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-1.5 rounded border border-accent/20 bg-accent/5 text-accent disabled:opacity-50"
+                >
+                  Compare with full sweep
+                </button>
+              ) : null}
+              <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
+                Includes decision, recommendations, visuals, and sources
+              </span>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -452,108 +458,110 @@ export function IntelligenceResults({
       ) : null}
 
       {/* Level 6: Secondary Analyst Accordions */}
-      <section className="results-panel p-5 lg:p-6">
-        <SectionToggle
-          title="Analyst details & domain highlights"
-          icon={<ShieldCheck size={13} />}
-          open={openAnalyst}
-          onToggle={() => setOpenAnalyst((v) => !v)}
-          textMuted={textMuted}
-          accentInk={accentInk}
-        />
-        {openAnalyst && (
-          <div className="mt-4 flex flex-col gap-4">
-            {(currentResult.orchestratorOutput?.quality || currentResult.orchestratorOutput?.evidenceCoverage) ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {currentResult.orchestratorOutput?.quality ? (
-                  <EvidenceStrengthMeter quality={currentResult.orchestratorOutput.quality} />
-                ) : null}
-                {currentResult.orchestratorOutput?.evidenceCoverage ? (
-                  <EvidenceCoverageRadar axes={currentResult.orchestratorOutput.evidenceCoverage} />
-                ) : null}
-              </div>
-            ) : null}
+      {!isTier0 ? (
+        <section className="results-panel p-5 lg:p-6">
+          <SectionToggle
+            title="Analyst details & domain highlights"
+            icon={<ShieldCheck size={13} />}
+            open={openAnalyst}
+            onToggle={() => setOpenAnalyst((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openAnalyst && (
+            <div className="mt-4 flex flex-col gap-4">
+              {(currentResult.orchestratorOutput?.quality || currentResult.orchestratorOutput?.evidenceCoverage) ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {currentResult.orchestratorOutput?.quality ? (
+                    <EvidenceStrengthMeter quality={currentResult.orchestratorOutput.quality} />
+                  ) : null}
+                  {currentResult.orchestratorOutput?.evidenceCoverage ? (
+                    <EvidenceCoverageRadar axes={currentResult.orchestratorOutput.evidenceCoverage} />
+                  ) : null}
+                </div>
+              ) : null}
 
-            {featureFlags.competitiveTimeline ? (
-              <CompetitiveTimeline
-                product={currentResult.orchestratorOutput?.product}
-                competitor={currentResult.orchestratorOutput?.competitor}
-              />
-            ) : null}
-
-            <StrategyCanvas message={currentResult} />
-
-            {outputs.filter((o) => o.artifactType !== 'mind-map').length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {outputs
-                  .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
-                  .map((o, i) => {
-                    const domainMeta = DOMAIN_META[o.domain as Domain];
-                    return (
-                      <div
-                        key={`${o.domain}-${i}`}
-                        className="rounded-xl p-4 flex flex-col justify-between gap-2"
-                        style={{
-                          background: cardBg2,
-                          border: `1px solid ${borderC || 'var(--border)'}`,
-                          boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
-                        }}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-1.5">
-                              {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
-                              <span
-                                className="text-[12px] font-mono font-bold uppercase tracking-wide"
-                                style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
-                              >
-                                {domainMeta?.short ?? o.domain}
-                              </span>
-                            </div>
-                            <ConfidenceBadge level={o.confidence} />
-                          </div>
-                          <p className="text-[13px] leading-relaxed font-medium" style={{ color: textMain }}>
-                            {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
-                          </p>
-                          {o.facts && o.facts.length > 1 && (
-                            <ul className="mt-2 text-[12px] space-y-1 opacity-90 border-t border-border/40 pt-2">
-                              {o.facts.slice(1, 4).map((f, idx) => (
-                                <li key={idx} className="flex items-start gap-1.5 leading-snug" style={{ color: textMuted }}>
-                                  <span style={{ color: domainMeta?.color ?? accentInk }}>•</span>
-                                  <span>{f}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : null}
-
-            {compareBaseline && currentResult.id !== compareBaseline.id ? (
-              <div className="flex flex-col gap-2 pt-2">
-                <ScenarioCompare
-                  left={compareBaseline}
-                  right={currentResult}
-                  leftLabel="Adaptive / prior"
-                  rightLabel="Full sweep"
+              {featureFlags.competitiveTimeline ? (
+                <CompetitiveTimeline
+                  product={currentResult.orchestratorOutput?.product}
+                  competitor={currentResult.orchestratorOutput?.competitor}
                 />
-                {onClearCompare ? (
-                  <button
-                    type="button"
-                    onClick={onClearCompare}
-                    className="self-start text-[10px] font-mono uppercase text-muted-foreground"
-                  >
-                    Clear comparison
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        )}
-      </section>
+              ) : null}
+
+              <StrategyCanvas message={currentResult} />
+
+              {outputs.filter((o) => o.artifactType !== 'mind-map').length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {outputs
+                    .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
+                    .map((o, i) => {
+                      const domainMeta = DOMAIN_META[o.domain as Domain];
+                      return (
+                        <div
+                          key={`${o.domain}-${i}`}
+                          className="rounded-xl p-4 flex flex-col justify-between gap-2"
+                          style={{
+                            background: cardBg2,
+                            border: `1px solid ${borderC || 'var(--border)'}`,
+                            boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
+                          }}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-1.5">
+                                {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
+                                <span
+                                  className="text-[12px] font-mono font-bold uppercase tracking-wide"
+                                  style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
+                                >
+                                  {domainMeta?.short ?? o.domain}
+                                </span>
+                              </div>
+                              <ConfidenceBadge level={o.confidence} />
+                            </div>
+                            <p className="text-[13px] leading-relaxed font-medium" style={{ color: textMain }}>
+                              {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
+                            </p>
+                            {o.facts && o.facts.length > 1 && (
+                              <ul className="mt-2 text-[12px] space-y-1 opacity-90 border-t border-border/40 pt-2">
+                                {o.facts.slice(1, 4).map((f, idx) => (
+                                  <li key={idx} className="flex items-start gap-1.5 leading-snug" style={{ color: textMuted }}>
+                                    <span style={{ color: domainMeta?.color ?? accentInk }}>•</span>
+                                    <span>{f}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : null}
+
+              {compareBaseline && currentResult.id !== compareBaseline.id ? (
+                <div className="flex flex-col gap-2 pt-2">
+                  <ScenarioCompare
+                    left={compareBaseline}
+                    right={currentResult}
+                    leftLabel="Adaptive / prior"
+                    rightLabel="Full sweep"
+                  />
+                  {onClearCompare ? (
+                    <button
+                      type="button"
+                      onClick={onClearCompare}
+                      className="self-start text-[10px] font-mono uppercase text-muted-foreground"
+                    >
+                      Clear comparison
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {/* Level 7: Developer Diagnostics (Developer Mode Only) */}
       {isDevMode ? (

@@ -1340,10 +1340,7 @@ button, a { touch-action: manipulation; }
   min-width: 3.5px;
   border-radius: 9999px;
   height: var(--wf-min, 20%);
-  animation-name: wf-equalize;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
+  animation: wf-equalize 0.7s ease-in-out infinite alternate;
   will-change: height;
   transition: opacity 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
 }

@@ -177,13 +177,13 @@ function AgentProgressGridInner({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="ui-section-label mb-1 uppercase tracking-wider text-[11px] font-semibold" style={{ color: textSubtle }}>
-                {phase === 'running' ? 'RESEARCHING' : 'ANALYSIS COMPLETE'}
+                {totalCount === 0 ? 'THINKING' : phase === 'running' ? 'RESEARCHING' : 'ANALYSIS COMPLETE'}
               </p>
               <p className="ui-title truncate font-semibold text-base sm:text-lg" style={{ color: textMain }}>
                 {queryLabel}
               </p>
             </div>
-            {showMeta ? (
+            {showMeta && totalCount > 0 ? (
               <div className="flex items-center gap-2 shrink-0">
                 <span
                   className="ui-mono px-2.5 py-1 rounded-full text-xs font-medium"
@@ -224,11 +224,32 @@ function AgentProgressGridInner({
             </div>
           ) : null}
 
-          {/* Running Agent Swarm Animation */}
-          <AgentTeamConverge
-            agents={convergeAgents}
-            phase={phase as AgentTeamConvergePhase}
-          />
+          {/* Running Animation */}
+          {totalCount === 0 || convergeAgents.filter(a => a.status === 'running' || a.status === 'done' || a.status === 'failed').length === 0 ? (
+            <div className="flex items-center gap-3 py-3 px-4 rounded-xl bg-accent/5 border border-accent/15 mt-1">
+              <div className="wf-track flex items-end gap-1 h-5">
+                {[40, 75, 30, 90, 50, 85, 45, 95, 60, 30, 80, 50, 70, 40].map((h, i) => (
+                  <span
+                    key={i}
+                    className="wf-bar bg-accent rounded-full"
+                    style={{
+                      width: 3,
+                      height: `${h}%`,
+                      animationDelay: `${(i % 5) * 0.15}s`,
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-xs font-mono font-medium text-accent animate-pulse">
+                Thinking and drafting direct response...
+              </span>
+            </div>
+          ) : (
+            <AgentTeamConverge
+              agents={convergeAgents}
+              phase={phase as AgentTeamConvergePhase}
+            />
+          )}
         </div>
       </div>
     </div>
