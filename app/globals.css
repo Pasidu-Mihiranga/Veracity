@@ -625,6 +625,8 @@ textarea.neu-input:focus {
   margin: 0 auto;
   padding: 8px 12px;
   border-radius: 22px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow:
     0 10px 32px rgba(15, 23, 42, 0.1),
     0 2px 8px rgba(15, 23, 42, 0.06),
@@ -667,6 +669,8 @@ textarea.neu-input:focus {
   padding: 6px 14px;
   border-radius: 9999px;
   transform: translate3d(0, 0, 0) scale(0.99);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow:
     0 10px 30px rgba(15, 23, 42, 0.12),
     0 2px 8px rgba(15, 23, 42, 0.06),

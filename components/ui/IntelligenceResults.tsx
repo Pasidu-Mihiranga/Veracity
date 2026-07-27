@@ -26,6 +26,7 @@ import {
   rateRecommendation, recommendationKey, type RecommendationRating,
 } from '@/lib/feedback';
 import { confidenceFromRecLevel } from '@/lib/decision-policy';
+import { selectReportTemplate } from '@/lib/agents/report-templates';
 
 const VIZ_PRIORITY = [
   'competitive-matrix',
@@ -200,19 +201,21 @@ export function IntelligenceResults({
           <div className="flex items-center gap-2 min-w-0">
             <Layers size={14} style={{ color: 'var(--accent)' }} />
             <span className="results-section-title">Decision Answer</span>
-            {product ? (
-              <span
-                className="ui-mono px-2 py-0.5 rounded-full truncate"
-                style={{
-                  fontSize: 11,
-                  color: 'var(--accent)',
-                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
-                }}
-              >
-                {product}
-              </span>
-            ) : null}
+            {(() => {
+              const template = selectReportTemplate(currentResult.content || product);
+              return (
+                <span
+                  className="ui-mono px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                  style={{
+                    color: 'var(--accent)',
+                    background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
+                  }}
+                >
+                  {template.badge}
+                </span>
+              );
+            })()}
             {isDevMode && latencyLabel ? (
               <span className="ui-mono" style={{ color: 'var(--foreground-subtle)', fontSize: 11 }}>
                 {latencyLabel}
