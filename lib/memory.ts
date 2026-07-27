@@ -11,8 +11,8 @@ export interface UserMemory {
 
 export interface MemoryFact {
   fact: string;
-  source_session: string;
-  created_at: string;
+  source_session?: string;
+  created_at?: string;
 }
 
 const EMPTY_MEMORY: UserMemory = {
@@ -27,10 +27,10 @@ const EMPTY_MEMORY: UserMemory = {
 };
 
 export async function getUserMemory(): Promise<UserMemory> {
-  const res = await fetch('/api/memory', { credentials: 'include' });
-  if (!res.ok) return EMPTY_MEMORY;
-  const json = await res.json();
-  return (json.memory as UserMemory) ?? EMPTY_MEMORY;
+  const res = await fetch('/api/memory', { credentials: 'include' }).catch(() => null);
+  if (!res || !res.ok) return EMPTY_MEMORY;
+  const json = await res.json().catch(() => null);
+  return (json?.memory as UserMemory) ?? EMPTY_MEMORY;
 }
 
 export async function extractAndUpdateMemory(
@@ -51,7 +51,36 @@ export async function extractAndUpdateMemory(
   }
 }
 
+export async function updateUserMemoryFacts(facts: MemoryFact[]): Promise<void> {
+  try {
+    await fetch('/api/memory', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ facts }),
+    });
+  } catch (err) {
+    console.error('updateUserMemoryFacts failed:', err);
+  }
+}
+
 import { loadUserProfile } from '@/lib/user-profile';
+
+export function getFactText(item: unknown): string {
+  if (typeof item === 'string') return item;
+  if (item && typeof item === 'object') {
+    if ('fact' in item && typeof (item as { fact: unknown }).fact === 'string') {
+      return (item as { fact: string }).fact;
+    }
+    if ('text' in item && typeof (item as { text: unknown }).text === 'string') {
+      return (item as { text: string }).text;
+    }
+    if ('content' in item && typeof (item as { content: unknown }).content === 'string') {
+      return (item as { content: string }).content;
+    }
+  }
+  return String(item);
+}
 
 export function buildMemoryContext(memory: UserMemory | null): string {
   const profile = typeof window !== 'undefined' ? loadUserProfile() : null;
@@ -76,7 +105,10 @@ export function buildMemoryContext(memory: UserMemory | null): string {
   if (memory?.raw_summary) lines.push(`User Summary: ${memory.raw_summary}`);
   if (facts.length > 0) {
     lines.push('Durable Facts:');
-    facts.slice(-8).forEach((f) => lines.push(`  - ${f.fact}`));
+    facts.slice(-12).forEach((f) => {
+      const txt = getFactText(f);
+      if (txt) lines.push(`  - ${txt}`);
+    });
   }
 
   return lines.join('\n');

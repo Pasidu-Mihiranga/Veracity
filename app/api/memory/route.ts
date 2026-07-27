@@ -150,3 +150,44 @@ Return JSON with this exact shape:
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const { facts, role, company, competitors } = body as {
+    facts?: MemoryFact[];
+    role?: string;
+    company?: string;
+    competitors?: string[];
+  };
+
+  await query(
+    `INSERT INTO user_memory (user_id, role, company, competitors, facts, updated_at)
+     VALUES ($1, $2, $3, $4, $5::jsonb, now())
+     ON CONFLICT (user_id) DO UPDATE SET
+       role = COALESCE(EXCLUDED.role, user_memory.role),
+       company = COALESCE(EXCLUDED.company, user_memory.company),
+       competitors = COALESCE(EXCLUDED.competitors, user_memory.competitors),
+       facts = EXCLUDED.facts,
+       updated_at = now()`,
+    [
+      user.id,
+      role ?? null,
+      company ?? null,
+      competitors ?? [],
+      JSON.stringify(facts ?? []),
+    ],
+  );
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
+  await query(`UPDATE user_memory SET facts = '[]'::jsonb, updated_at = now() WHERE user_id = $1`, [user.id]);
+  return NextResponse.json({ ok: true });
+}

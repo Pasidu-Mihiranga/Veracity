@@ -60,13 +60,8 @@ export function SessionSidebar({
   textSubtle,
 }: SessionSidebarProps) {
   const [scrollTop, setScrollTop] = useState(0);
-  const [folders, setFolders] = useState<string[]>(['Competitive Strategy', 'Pricing Review', 'GTM Outbound']);
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    'Competitive Strategy': true,
-    'Pricing Review': true,
-    'GTM Outbound': true,
-    Recent: true,
-  });
+  const [folders, setFolders] = useState<string[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({ Recent: true });
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -77,9 +72,7 @@ export function SessionSidebar({
 
   useEffect(() => {
     listFolders().then((remoteFolders) => {
-      if (remoteFolders.length > 0) {
-        setFolders((prev) => [...new Set([...prev, ...remoteFolders])]);
-      }
+      setFolders(remoteFolders);
     });
   }, []);
 
