@@ -168,6 +168,8 @@ html {
   -webkit-overflow-scrolling: touch;
   margin-bottom: 1rem;
 }
+
+body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
