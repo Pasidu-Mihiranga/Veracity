@@ -134,23 +134,23 @@ export function DashboardHeader({
         </div>
 
         <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
-          <div className="header-island-stats hidden md:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {onOpenAgents ? (
               <button
                 type="button"
                 onClick={onOpenAgents}
-                className="neu-pill ui-mono px-2.5 py-1 flex items-center gap-1.5 hover:opacity-80 transition-all cursor-pointer"
-                style={{ color: accentInk, fontSize: 10 }}
-                title="Configure Swarm Agents"
+                className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative hover:opacity-80 transition-all cursor-pointer"
+                style={{ color: textMuted }}
+                title={`Configure Swarm Agents (${activeAgents} active)`}
               >
-                <Bot size={12} />
-                <span>{activeAgents} agents</span>
+                <Bot size={14} />
+                {activeAgents > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-accent text-accent-foreground text-[9px] font-mono font-bold flex items-center justify-center shadow-xs">
+                    {activeAgents}
+                  </span>
+                )}
               </button>
-            ) : (
-              <span className="neu-pill ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
-                {activeAgents} agents
-              </span>
-            )}
+            ) : null}
             {mirofishRunning ? (
               <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
                 forecast live
