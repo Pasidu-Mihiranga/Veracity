@@ -41,4 +41,4 @@ flowchart LR
 - **LangGraph npm dependency:** **not** added (Phase 3+)
 - **Phase 3:** `LangGraphExecutor` implemented behind `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` (default OFF); shared `run-agents` helpers; parity tests.
 - **Phase 4 (stub):** 109-query corpus + `npm run bench:executors` — **PASS** outcome parity (0/97 mismatches) and absolute overhead (~4ms p50). Report: `docs/architecture/benchmark-langgraph-vs-current.md`.
-- **Phase 5 blocked:** Live Gemini accuracy/evidence/cost ≤+5% benchmark still required before default-on. Flag stays **OFF**.
+- **Phase 5:** ADR-0008 enablement hold — flag stays OFF. Live sample harness: `npm run bench:executors:live` (`BENCH_SAMPLE_SIZE`, default 2).

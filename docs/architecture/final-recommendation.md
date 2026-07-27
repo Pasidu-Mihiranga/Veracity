@@ -21,9 +21,14 @@
 
 ## Kill-switch
 
-If Phase 4 benchmarks fail, production behaviour equals **improved custom + CurrentExecutor** (Option B outcome) while retaining the interface for future attempts.
+If Phase 4/5 live benchmarks fail, production behaviour equals **improved custom + CurrentExecutor** (Option B outcome) while retaining the interface for future attempts.
+
+## Phase 5 status (2026-07-28)
+
+**Accepted: ADR-0008 enablement hold.**  
+Stub Phase 4 PASS; live full-corpus gates open. `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` stays **OFF**. Operators may run `npm run bench:executors:live` for sample checks.
 
 ## Approval
 
 - **Architecture docs:** ready for review on this branch.
-- **Production LangGraph enablement:** not approved until Phase 4 report passes success metrics.
+- **Production LangGraph enablement:** **not approved** (ADR-0008) until live accuracy/evidence/cost/latency gates pass.

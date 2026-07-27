@@ -1,0 +1,48 @@
+{
+  "summary": {
+    "generatedAt": "2026-07-27T21:23:42.492Z",
+    "sampleSize": 1,
+    "crashes": 0,
+    "statusMismatches": 0,
+    "avgLatencyRatio": 0.9906,
+    "gates": {
+      "crashesZero": true,
+      "statusParity": true,
+      "latencyOk": true,
+      "pass": true
+    },
+    "recommendation": "Live sample healthy — still keep flag OFF until larger live corpus meets ≤+5% / accuracy gates (ADR-0008)."
+  },
+  "rows": [
+    {
+      "id": "q013",
+      "category": "tier1_2",
+      "query": "What is Notion pricing?",
+      "domains": [
+        "pricing"
+      ],
+      "current": {
+        "ms": 65132.27250000001,
+        "statuses": [
+          "pricing:failed"
+        ],
+        "completed": 0,
+        "failed": 1,
+        "factCount": 0,
+        "outputIds": []
+      },
+      "langgraph": {
+        "ms": 64519.49375000001,
+        "statuses": [
+          "pricing:failed"
+        ],
+        "completed": 0,
+        "failed": 1,
+        "factCount": 0,
+        "outputIds": []
+      },
+      "statusOk": true,
+      "latencyRatio": 0.9906
+    }
+  ]
+}

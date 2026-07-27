@@ -36,9 +36,13 @@
 
 ## Phase 5 status (2026-07-28)
 
-**Decision: do not enable LangGraph by default.**
+**Decision: do not enable LangGraph by default (ADR-0008).**
 
-Stub Phase 4 passed (parity + absolute overhead). Per ADR-0007, live accuracy/evidence/cost/latency gates remain open. Production continues on `CurrentExecutor` until a live benchmark report updates this section to PASS.
+- Stub Phase 4: PASS  
+- Live sample (`BENCH_SAMPLE_SIZE=1`): PASS — status parity, crashes=0, latency ratio ≈0.99  
+- Full live ≥100 accuracy/evidence/cost gates: still open  
+
+Production continues on `CurrentExecutor`. Opt-in: `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1` for experiments only.
 
 ## Artifacts
 
