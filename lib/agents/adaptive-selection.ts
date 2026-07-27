@@ -38,11 +38,11 @@ export function resolveAgentSet(input: {
   const executionSelected = ui.has('execution-engine');
   const mirofish = ui.has('mirofish');
   const mirofishLive = ui.has('mirofish-live');
-  const minAgents = input.minAgents ?? 3;
+  const minAgents = input.minAgents !== undefined ? input.minAgents : 3;
 
   if (input.forceFullSweep) {
     const researchIds = FULL_RESEARCH.filter((id) => ui.has(id) || ui.size === 0);
-    const finalIds = researchIds.length >= minAgents ? researchIds : FULL_RESEARCH;
+    const finalIds = researchIds.length >= Math.max(1, minAgents) ? researchIds : FULL_RESEARCH;
     return {
       researchIds: finalIds,
       executionSelected,
@@ -59,9 +59,21 @@ export function resolveAgentSet(input: {
   const uiResearch = FULL_RESEARCH.filter((id) => ui.has(id));
   const basePool = uiResearch.length > 0 ? uiResearch : FULL_RESEARCH;
 
-  let researchIds = basePool.filter(
-    (id) => classified.length === 0 || classified.includes(id),
-  );
+  let researchIds = classified.length > 0
+    ? basePool.filter((id) => classified.includes(id))
+    : (minAgents === 0 ? [] : basePool.slice(0, minAgents));
+
+  // If minAgents is 0 (Tier 0 direct response), return empty researchIds
+  if (minAgents === 0) {
+    return {
+      researchIds: [],
+      executionSelected,
+      mirofish,
+      mirofishLive,
+      savedVsFull: FULL_RESEARCH.length,
+      mode: 'adaptive',
+    };
+  }
 
   // Pad to minimum from classifier priority, then full list
   if (researchIds.length < minAgents) {
@@ -73,7 +85,7 @@ export function resolveAgentSet(input: {
     }
   }
 
-  // Still short (e.g. UI only selected 1) — pad from FULL that are in UI or any
+  // Still short — pad from RESEARCH_PRIORITY up to minAgents
   if (researchIds.length < minAgents) {
     for (const id of RESEARCH_PRIORITY) {
       if (researchIds.length >= minAgents) break;

@@ -73,7 +73,8 @@ const ALL_AGENTS: AgentConfig[] = [
 // mirofishAgent is opt-in and runs separately after the main result is sent
 // (see runMirofishAgent below)
 
-// ── Query classifier ──────────────────────────────────────────────────────────
+export type ExecutionTier = 0 | 1 | 2 | 3 | 4 | 5;
+
 interface ClassificationResult {
   product: string;
   competitor?: string;
@@ -81,7 +82,9 @@ interface ClassificationResult {
   competitorUrl?: string;
   domains: IntelligenceDomain[];
   intent: string;
-  runExecution: boolean;  // true when query is execution-intent (write copy, outreach, variants, brief)
+  runExecution: boolean;
+  tier: ExecutionTier;
+  tierReason: string;
 }
 
 const VALID_DOMAINS: IntelligenceDomain[] = [
@@ -107,21 +110,79 @@ interface OrchestrateOptions {
   shouldCancel?: () => boolean | Promise<boolean>;
 }
 
+export function isUnclearOrGibberishPrompt(query: string): boolean {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return true;
+
+  const words = trimmed.split(/\s+/);
+  if (words.length === 1) {
+    const w = words[0].toLowerCase();
+    if (/^(hi|hello|hey|help|cac|nrr|ltv|roi|saas|gtm|sdr|icp|pricing|clay|linear|notion|figma|apollo)$/i.test(w)) {
+      return false;
+    }
+    const vowels = w.match(/[aeiou]/gi);
+    if (!vowels && w.length >= 3) return true;
+    if (vowels && (w.length / vowels.length > 4) && w.length >= 6) return true;
+    if (/(.)\1{3,}/.test(w)) return true;
+    if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(w)) return true;
+  }
+  return false;
+}
+
 async function classifyQuery(
   query: string,
   history: ConversationMessage[],
   images: ImageAttachment[] = [],
   memoryContext?: string,
 ): Promise<ClassificationResult> {
+  const qTrim = query.trim();
+  const qLower = qTrim.toLowerCase();
+
+  if (isUnclearOrGibberishPrompt(query)) {
+    return {
+      product: 'Veracity AI',
+      intent: 'Unclear or typo input',
+      domains: [],
+      runExecution: false,
+      tier: 0,
+      tierReason: 'Layer 1 Match: Gibberish/Typo Input',
+    };
+  }
+
+  const heuristic = extractEntitiesFromQuery(query);
+  const regexExecution = detectExecutionIntent(query);
+
+  // ── Layer 1: Fast Deterministic Rules (0ms Overhead) ──────────────────────
+  const isMetaPlatformQuery =
+    /\b(your|yourself|this app|this platform|veracity|you use|you work|you provide|your api|api provider|api povider|your backend|your model|your LLM|your engine|your stack|your system|your pricing|your features)\b/i.test(qLower) &&
+    !heuristic.product &&
+    !heuristic.competitor;
+
+  const isDirectGreetingOrConcept =
+    (/^(hi|hello|hey|greetings|help|who are you|what can you do|what type of|what do you do|how do you work|what are your|explain what|tell me about|what is cac|what is nrr|explain cac|explain churn)\b/i.test(qLower) ||
+     /(can you|capabilities|help me|features|you provide|your purpose|yourself|api provider|api povider)\b/i.test(qLower) ||
+     isMetaPlatformQuery) &&
+    !heuristic.product &&
+    !heuristic.competitor;
+
+  if (isDirectGreetingOrConcept) {
+    return {
+      product: 'Veracity AI',
+      intent: query,
+      domains: [],
+      runExecution: false,
+      tier: 0,
+      tierReason: 'Layer 1 Deterministic Match: Tier 0 Direct Answer (0ms)',
+    };
+  }
+
   // Build context from prior messages
   const priorContext = history
     .slice(-6) // last 3 turns
     .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
     .join('\n');
 
-  const heuristic = extractEntitiesFromQuery(query);
-  const regexExecution = detectExecutionIntent(query);
-
+  // ── Layer 2: Fast Structured Classifier ───────────────────────────────────
   const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present. Prefer company/product entities over people with the same name. If the query only mentions an ambiguous personal name with no product category, still return the name but keep domains focused and do not invent a competitor.`;
 
   const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}Conversation history:
@@ -139,27 +200,17 @@ Respond with JSON:
   "competitorUrl": string | null,
   "domains": string[],       // Which intelligence domains to activate. Options: market-trends, competitive, win-loss, pricing, positioning, adjacent
   "intent": string,          // One-line description of what the user wants to know
-  "runExecution": boolean    // true if the query is execution-intent (write copy, draft outreach, campaign brief, cold email, LinkedIn post, variants, one-pager, positioning guide, outreach sequence)
+  "runExecution": boolean,   // true if the query is execution-intent (write copy, draft outreach, campaign brief, cold email, LinkedIn post, variants)
+  "tier": number             // Execution tier: 0 (direct chat <1s), 1 (single search ~2.5s), 2 (targeted 2-agent ~5s), 3 (full swarm ~12s), 4 (execution engine ~18s), 5 (persona simulation ~35s)
 }
 
-Domain selection rules:
-- "vs", "compare", "competitive", "compete with" → include competitive, win-loss, positioning
-- "market", "trend", "category", "growing" → include market-trends
-- "pricing", "cost", "expensive" → include pricing
-- "messaging", "positioning", "marketing" → include positioning
-- "disruption", "threat", "outside", "adjacent" → include adjacent
-- "build", "roadmap", "strategy" → include market-trends, competitive, adjacent
-- Vague / broad queries → include all 6 domains
-- Always include at least 3 domains
-
-Execution intent detection (set runExecution: true if ANY of these apply):
-- Generation verbs ("write", "draft", "create", "generate", "produce", "craft", "compose", "build", "make", "give me", "show me", "send me") combined with any marketing or outreach artifact (cold email, email, LinkedIn post, outreach sequence, copy, message, ad, campaign, brief, one-pager, landing page, pitch, CTA, hook, headline, tagline, DM, nurture, outbound)
-- Standalone phrases: "campaign brief", "one-pager", "positioning guide", "strategy doc", "messaging guide", "launch plan", "go-to-market plan", "GTM plan"
-- A/B testing language: "variants", "A/B", "AB test", "hypothesis", "test angles", "message variants", "falsifiable"
-- Deployment verbs ("ship", "launch", "deploy", "roll out") combined with campaign/outreach/sequence/copy/message/post/ad
-- Bare imperatives that start with a generation verb ("Write...", "Draft...", "Generate...", "Create...", "Compose...")
-
-Set runExecution: false for pure research questions ("compare X vs Y", "what is the market for X", "is X growing", "who are the competitors of X").`;
+Domain selection & Tier rules:
+- Tier 0 (Direct Answer, 0 domains): Conversational greetings, meta-questions about Veracity AI or what it can do/capabilities, generic business concept definitions without a specific target company.
+- Tier 1 (1 domain): Single factual metric lookup for 1 company (e.g. pricing).
+- Tier 2 (2-3 domains): Focused comparison or positioning analysis between 2 companies (include competitive, win-loss, positioning).
+- Tier 3 (Full Swarm): Complex multi-domain strategic research prompts (e.g. "What should Vector Agents build?").
+- Tier 4: Deliverable creation prompts (write copy, campaign brief, cold email, variants).
+- Tier 5: Persona panel simulation prompts.`;
 
   try {
     const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
@@ -171,14 +222,34 @@ Set runExecution: false for pure research questions ("compare X vs Y", "what is 
     if (isPlaceholderProduct(product)) {
       logger.warn('classify.placeholder_product', { query, product, heuristic });
     }
+    let rawTier = Number(parsed.tier);
+    if (isNaN(rawTier)) {
+      rawTier = regexExecution ? 4 : 3;
+    }
+
+    // Safety check: Override rawTier to 0 if query asks about "your..." or platform capabilities/providers
+    const hasExplicitBrandInQuery = heuristic.product || heuristic.competitor || /\b(clay|notion|linear|figma|apollo|vector agents|lilian|gong|hubspot|salesforce)\b/i.test(qLower);
+    if (!hasExplicitBrandInQuery && /\b(your|yourself|this app|this platform|you use|you work|api provider|api povider|your model|your engine|backend|system)\b/i.test(qLower)) {
+      rawTier = 0;
+    } else if ((!product || isPlaceholderProduct(product) || product === 'Veracity AI') && !competitor) {
+      if (/^(hi|hello|hey|greetings|help|who are you|what can you do|what type of|what do you do|how do you work)\b/i.test(qLower)) {
+        rawTier = 0;
+      }
+    }
+
+    const tier: ExecutionTier = (rawTier >= 0 && rawTier <= 5) ? (rawTier as ExecutionTier) : (regexExecution ? 4 : 3);
+    const domains = tier === 0 ? [] : normalizeDomains(parsed.domains);
+
     return {
       product,
       competitor,
       productUrl: (parsed.productUrl as string) || undefined,
       competitorUrl: (parsed.competitorUrl as string) || undefined,
-      domains: normalizeDomains(parsed.domains),
+      domains,
       intent: (parsed.intent as string) || query,
       runExecution: Boolean(parsed.runExecution) || regexExecution,
+      tier,
+      tierReason: `Layer 2 LLM Match: Tier ${tier}`,
     };
   } catch (err) {
     logger.error('classify.failed', {
@@ -186,14 +257,15 @@ Set runExecution: false for pure research questions ("compare X vs Y", "what is 
       error: err instanceof Error ? err.message : String(err),
       heuristic,
     });
-    // Fallback: activate all domains. Prefer regex/heuristic entities so
-    // "Notion vs Linear" still searches the right brands when Gemini errors.
+    // Layer 3 Safety Fallback: Default to Tier 3 Full Swarm for 100% quality guarantee
     return {
       product: resolveProductName(undefined, heuristic, 'unknown product'),
       competitor: resolveCompetitorName(undefined, heuristic),
       domains: ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'],
       intent: query,
       runExecution: regexExecution,
+      tier: regexExecution ? 4 : 3,
+      tierReason: 'Layer 3 Safety Fallback: Tier 3 Full Swarm',
     };
   }
 }
@@ -476,6 +548,36 @@ Return JSON:
   }
 }
 
+async function generateDirectAnswer(
+  query: string,
+  history: ConversationMessage[],
+  memoryContext?: string,
+): Promise<string> {
+  if (isUnclearOrGibberishPrompt(query)) {
+    return `I couldn't understand your input ("${query}"). It appears to be a typo or unrecognized prompt.\n\nPlease enter a specific question about your product, competitors, or market strategy (for example: "Compare Notion and Linear pricing" or "What features should Vector Agents build?").`;
+  }
+
+  const priorContext = history
+    .slice(-4)
+    .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 300)}`)
+    .join('\n');
+
+  const systemPrompt = `You are Veracity AI, an authoritative executive growth intelligence consultant. Answer the user's question directly, clearly, and helpfully in plain English prose (<100 words). Do not use buzzwords like "agentic", "cognitive load", or "verticalize".`;
+
+  const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}${priorContext ? `Conversation history:\n${priorContext}\n\n` : ''}User question: "${query}"`;
+  const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+  try {
+    const text = await generateHuggingFaceText(combinedPrompt, {
+      maxNewTokens: 256,
+      temperature: 0.2,
+    });
+    return text.trim();
+  } catch {
+    return `Hello! I am Veracity AI, your executive growth intelligence platform. Ask me any question to analyze competitors, compare positioning, audit pricing, or forecast market trends.`;
+  }
+}
+
 // ── Main orchestrator ─────────────────────────────────────────────────────────
 export async function orchestrate(
   query: string,
@@ -493,19 +595,64 @@ export async function orchestrate(
   const classification = await classifyQuery(query, history, images, memoryContext);
   let modelCallCount = 1;
 
-  const { product, competitor, productUrl, competitorUrl, intent, runExecution } = classification;
-  log?.(`Classified product: ${product}${competitor ? ` vs ${competitor}` : ''} — ${intent}`);
+  const { product, competitor, productUrl, competitorUrl, intent, runExecution, tier } = classification;
+  log?.(`Classified product: ${product}${competitor ? ` vs ${competitor}` : ''} — Tier ${tier} (${intent})`);
   if (isPlaceholderProduct(product)) {
     log?.(`Warning: product name looks like a placeholder ("${product}") — search quality may be low.`);
   }
 
   const forceFull = options?.forceFullSweep === true;
+
+  // Tier 0 Fast-Path Execution (<1.0s latency, 0 search agent runs)
+  if (tier === 0 && !forceFull) {
+    log?.('Tier 0 Direct Answer fast-path — generating instant response…');
+    const directAnswer = await generateDirectAnswer(query, history, memoryContext);
+    const latencyMs = Date.now() - orchestrationStart;
+
+    return {
+      query,
+      product,
+      competitor,
+      agentRuns: [],
+      outputs: [],
+      synthesizedAnswer: directAnswer,
+      topRecommendations: [],
+      suggestedFollowUps: [
+        'What product or competitor would you like to analyze today?',
+        'Compare your product against a key market rival.',
+        'Explore market trends for your industry.',
+      ],
+      totalConfidence: 'high',
+      generatedAt: new Date().toISOString(),
+      selectionMeta: {
+        mode: 'adaptive',
+        savedVsFull: 6,
+        researchIds: [],
+        tier: 0,
+        tierLabel: 'TIER 0 · DIRECT RESPONSE',
+      },
+      metrics: {
+        totalLatencyMs: latencyMs,
+        agentLatencies: {},
+        estimatedCostUsd: EST_COST_PER_MODEL_CALL * 2,
+        toolCallCount: 0,
+        geminiCallCount: 2,
+        agentCount: 0,
+        completedAgentCount: 0,
+        failedAgentCount: 0,
+      },
+    };
+  }
+
+  const minAgents = tier === 1 ? 1 : tier === 2 ? 2 : tier === 0 ? 0 : 3;
+
   const resolved = resolveAgentSet({
     uiSelected: options?.selectedAgents?.length
       ? options.selectedAgents
       : ALL_AGENTS.map((a) => a.id),
     classifierDomains: (classification.domains ?? []) as IntelligenceDomain[],
     forceFullSweep: forceFull,
+    minAgents,
   });
 
   const execGate = planExecution({

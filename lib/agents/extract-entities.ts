@@ -35,6 +35,25 @@ export function extractEntitiesFromQuery(query: string): ExtractedEntities {
     return { product, competitor };
   }
 
+  // Single-product patterns: e.g. "Is Lilian competitive...", "What is Clay's pricing", "How is Notion performing"
+  const singleProductPatterns: RegExp[] = [
+    /\bis\s+([A-Z][A-Za-z0-9\s.-]+?)\s+(?:competitive|growing|leading|popular|good|better|dying|failing|disrupting|expanding)\b/i,
+    /\bwhat\s+is\s+([A-Z][A-Za-z0-9\s.-]+?)(?:'s|\s+)(?:pricing|features|positioning|strategy|roadmap|market|revenue)\b/i,
+    /\bhow\s+is\s+([A-Z][A-Za-z0-9\s.-]+?)\s+(?:doing|performing|competing|positioned)\b/i,
+    /\babout\s+([A-Z][A-Za-z0-9\s.-]+?)(?:\s+in\s+|\s+on\s+|[\?.,!]|$)/i,
+    /\bfor\s+([A-Z][A-Za-z0-9\s.-]+?)(?:\s+in\s+|\s+on\s+|[\?.,!]|$)/i,
+  ];
+
+  for (const re of singleProductPatterns) {
+    const m = q.match(re);
+    if (m?.[1]) {
+      const product = cleanEntityName(m[1]);
+      if (product && !isPlaceholderProduct(product)) {
+        return { product };
+      }
+    }
+  }
+
   return {};
 }
 
