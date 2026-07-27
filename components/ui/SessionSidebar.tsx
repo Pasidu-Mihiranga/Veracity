@@ -121,6 +121,8 @@ export function SessionSidebar({
         />
       )}
       <aside
+        role="navigation"
+        aria-label="Main Navigation"
         className={`sidebar-transition flex-shrink-0 flex flex-col h-full relative z-40 md:z-auto ${
           !collapsed ? 'fixed inset-y-0 left-0 md:relative' : ''
         }`}

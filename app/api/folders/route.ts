@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { apiError, apiSuccess, parseAndValidateJson } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 
+const folderSchema = z.object({
+  name: z.string().min(1, 'Folder name is required').max(100, 'Folder name too long').trim(),
+});
+
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user) return apiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   // Ensure tables exist safely
   await query(`
@@ -27,10 +33,8 @@ export async function GET() {
   const initCheck = await query(`SELECT initialized FROM user_folder_init WHERE user_id = $1`, [user.id]).catch(() => ({ rows: [] }));
   
   if (!initCheck.rows || initCheck.rows.length === 0) {
-    // Record initialized state for this user
     await query(`INSERT INTO user_folder_init (user_id, initialized) VALUES ($1, true) ON CONFLICT DO NOTHING`, [user.id]).catch(() => null);
     
-    // Seed default baseline folders for new user
     const defaultFolders = ['Competitive Strategy', 'Pricing Review', 'GTM Outbound'];
     for (const name of defaultFolders) {
       await query(
@@ -45,18 +49,17 @@ export async function GET() {
     [user.id],
   );
 
-  return NextResponse.json({ folders: rows.map((r) => r.name) });
+  return apiSuccess({ folders: rows.map((r) => r.name) });
 }
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user) return apiError('Not authenticated', 401, 'UNAUTHORIZED');
 
-  const body = await req.json().catch(() => ({}));
-  const name = String(body.name ?? '').trim();
-  if (!name) {
-    return NextResponse.json({ error: 'Folder name is required' }, { status: 400 });
-  }
+  const parsed = await parseAndValidateJson(req, folderSchema);
+  if (!parsed.success) return parsed.response;
+
+  const { name } = parsed.data;
 
   await query(`
     CREATE TABLE IF NOT EXISTS user_folders (
@@ -76,19 +79,19 @@ export async function POST(req: NextRequest) {
     [user.id, name],
   );
 
-  return NextResponse.json({ folder: rows[0]?.name ?? name });
+  return apiSuccess({ folder: rows[0]?.name ?? name }, 201);
 }
 
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user) return apiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const { searchParams } = new URL(req.url);
   const name = searchParams.get('name')?.trim();
-  if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 });
+  if (!name) return apiError('Folder name is required', 400, 'MISSING_PARAM');
 
   await query(`DELETE FROM user_folders WHERE user_id = $1 AND name = $2`, [user.id, name]);
   await query(`UPDATE chat_sessions SET folder_name = NULL WHERE user_id = $1 AND folder_name = $2`, [user.id, name]);
 
-  return NextResponse.json({ ok: true });
+  return apiSuccess({ ok: true, deleted: name });
 }

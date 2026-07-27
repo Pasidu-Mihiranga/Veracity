@@ -137,7 +137,37 @@ html {
   scroll-behavior: smooth;
 }
 
-body {
+/* WCAG Focus Visible Outline Ring for Keyboard Navigation */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(0, 163, 224, 0.3);
+}
+
+/* Skip to Content Accessibility Link */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  transition: top 0.2s ease;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Responsive Table & Matrix Scroll Container */
+.table-responsive-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
