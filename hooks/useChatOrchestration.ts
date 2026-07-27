@@ -58,6 +58,7 @@ type UseChatOrchestrationArgs = {
   refreshUserMemory: () => Promise<void>;
   refreshSessions: () => Promise<unknown>;
   resetDraftInput: () => void;
+  targetFolder?: string | null;
 };
 
 const EMPTY_USAGE: SessionUsage = {
@@ -83,6 +84,7 @@ export function useChatOrchestration({
   refreshUserMemory,
   refreshSessions,
   resetDraftInput,
+  targetFolder,
 }: UseChatOrchestrationArgs) {
   const [isLoading, setIsLoading] = useState(false);
   const [isFollowingUp, setIsFollowingUp] = useState(false);
@@ -340,7 +342,7 @@ export function useChatOrchestration({
 
     if (!sessionId) {
       const title = effectiveText.slice(0, 60) + (effectiveText.length > 60 ? '...' : '');
-      const session = await createSession(title);
+      const session = await createSession(title, targetFolder);
       if (session) {
         sessionId = session.id;
         setCurrentSessionId(session.id);

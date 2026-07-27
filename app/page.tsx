@@ -170,14 +170,17 @@ export default function VeracityDashboard() {
     setAttachedImages([]);
     requestAnimationFrame(autoResizeTextarea);
   }, [autoResizeTextarea]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+
   const {
-    isLoading, isFollowingUp, mirofishRunning, sessionUsage, handleSend, handleFollowUp,
+    isLoading, isFollowingUp, mirofishRunning, sessionUsage,
+    handleSend, handleFollowUp,
     handleComposerSend, handleExecutionPlanRefined, resetSessionUsage,
     activeJobId, compareBaseline, cancelActiveJob, requestFullSweepCompare, clearCompareBaseline,
   } = useChatOrchestration({
     messages, setMessages, followUps, setFollowUps, currentSessionId, setCurrentSessionId,
     selectedAgentIds, selectedAgents, forceFullSweep, streamChat, userMemory, refreshUserMemory: async () => { await memoryQuery.refetch(); },
-    refreshSessions, resetDraftInput,
+    refreshSessions, resetDraftInput, targetFolder: selectedFolder,
   });
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,11 +195,13 @@ export default function VeracityDashboard() {
     setAttachedImages(prev => [...prev, ...imgs]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
-  const handleNewQuery = useCallback(() => {
+  const handleNewQuery = useCallback((folderName?: string) => {
     resetConversation();
     setExpandedDomain(null);
     setAttachedImages([]);
     resetSessionUsage();
+    if (folderName) setSelectedFolder(folderName);
+    else setSelectedFolder(null);
   }, [resetConversation, resetSessionUsage]);
   const getRunFor = (d: Domain) => getRunForDomain(currentResult?.agentRuns, d);
   const getOutputFor = (d: Domain) => getOutputForDomain(currentResult?.orchestratorOutput, d);
@@ -237,6 +242,8 @@ export default function VeracityDashboard() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
         onNewQuery={handleNewQuery}
+        selectedFolder={selectedFolder}
+        onSelectFolder={setSelectedFolder}
         sessions={sessions}
         loadingSessions={loadingSessions}
         currentSessionId={currentSessionId}

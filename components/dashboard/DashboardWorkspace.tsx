@@ -30,6 +30,10 @@ const ProfileSettingsView = dynamic(() => import('@/components/profile/ProfileSe
   loading: () => <PanelSkeleton label="Loading profile" height={320} />,
   ssr: false,
 });
+const WatchlistsView = dynamic(() => import('@/components/watchlists/WatchlistsView').then((m) => m.WatchlistsView), {
+  loading: () => <PanelSkeleton label="Loading watchlists" height={320} />,
+  ssr: false,
+});
 
 type ComposerProps = {
   inputValue: string;
@@ -196,6 +200,7 @@ export function DashboardWorkspace({
             />
           )}
           {topTab === 'steal' && <StealStrategyPanel />}
+          {topTab === 'watchlists' && <WatchlistsView />}
           {topTab === 'profile' && <ProfileSettingsView userEmail={userEmail ?? null} userMemory={userMemory} />}
           {topTab === 'intelligence' && (
             <>
