@@ -39,4 +39,5 @@ flowchart LR
   - Feature flag `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` default **OFF**
   - Tests: `__tests__/workflow-executor.test.ts`
 - **LangGraph npm dependency:** **not** added (Phase 3+)
-- **Still open in Phase 0:** further split of `orchestrator.ts` (classify/synthesize/mind-map modules); prompt extraction; fuller `orchestrate()` env-backed integration tests
+- **Phase 0 continued:** `classify`, `synthesize`, `mind-map`, `direct-answer`, prompt assets, shared cost estimates extracted; `orchestrator.ts` ~531 LOC
+- **Still open in Phase 0:** fuller env-backed `orchestrate()` integration goldens; optional further MiroFish dispatch split

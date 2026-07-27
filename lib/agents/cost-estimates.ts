@@ -1,0 +1,9 @@
+/** Heuristic UI cost estimate per Gemini-style model call (not provider billing). */
+const EST_INPUT_TOKENS_PER_CALL = 2000;
+const EST_OUTPUT_TOKENS_PER_CALL = 1000;
+const COST_PER_INPUT_TOKEN = 0.1 / 1_000_000;
+const COST_PER_OUTPUT_TOKEN = 0.4 / 1_000_000;
+
+export const EST_COST_PER_MODEL_CALL =
+  EST_INPUT_TOKENS_PER_CALL * COST_PER_INPUT_TOKEN +
+  EST_OUTPUT_TOKENS_PER_CALL * COST_PER_OUTPUT_TOKEN;

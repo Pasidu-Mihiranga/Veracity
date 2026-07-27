@@ -8,6 +8,7 @@ import { featureFlags } from '@/lib/feature-flags';
 import { inngest, inngestConfigured } from '@/lib/inngest/client';
 import { createResearchJob, newExecutionId } from '@/lib/research-jobs';
 import { getConfig } from '@/lib/config';
+import { EST_COST_PER_MODEL_CALL } from '@/lib/agents/cost-estimates';
 
 export const runtime = 'nodejs';
 // Vercel Pro: up to 120s (config). Hobby plan still enforces ~60s wall clock — keep Apify wait (APIFY_MAX_WAIT_SECS) low enough to finish.
@@ -34,8 +35,6 @@ type StreamChunk =
   | { type: 'mirofish_live_result'; output: AgentOutput }
   | { type: 'cancelled' }
   | { type: 'error'; message: string };
-
-const LIVE_COST_PER_AGENT = (2000 * (0.1 / 1_000_000)) + (1000 * (0.4 / 1_000_000));
 
 function encode(chunk: StreamChunk): string {
   return `data: ${JSON.stringify(chunk)}\n\n`;
@@ -245,7 +244,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
       completedAgentCount: completed,
       failedAgentCount: failed,
       runningAgentCount: running,
-      estimatedCostUsd: Number.parseFloat((billedCalls * LIVE_COST_PER_AGENT).toFixed(5)),
+      estimatedCostUsd: Number.parseFloat((billedCalls * EST_COST_PER_MODEL_CALL).toFixed(5)),
       geminiCallCount: billedCalls,
       toolCallCount: estimatedToolCalls,
     };
