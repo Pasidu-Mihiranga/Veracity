@@ -50,19 +50,25 @@ export function WatchlistsView() {
     setLoading(true);
     try {
       const [wRes, aRes] = await Promise.all([
-        fetch('/api/watchlists'),
+        fetch('/api/watchlists').catch(() => null),
         fetch('/api/alerts').catch(() => null),
       ]);
 
-      if (wRes.ok) {
-        const wData = (await wRes.json()) as { watchlists: Watchlist[] };
-        setLists(wData.watchlists ?? []);
+      if (wRes && wRes.ok) {
+        const wData = (await wRes.json().catch(() => null)) as { watchlists: Watchlist[] } | null;
+        if (wData?.watchlists) {
+          setLists(wData.watchlists);
+        }
       }
 
       if (aRes && aRes.ok) {
-        const aData = (await aRes.json()) as { alerts: AlertEvent[] };
-        setAlerts(aData.alerts ?? []);
+        const aData = (await aRes.json().catch(() => null)) as { alerts: AlertEvent[] } | null;
+        if (aData?.alerts) {
+          setAlerts(aData.alerts);
+        }
       }
+    } catch {
+      // Silently catch unexpected network errors
     } finally {
       setLoading(false);
     }
@@ -219,7 +225,7 @@ export function WatchlistsView() {
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
-          className="px-5 py-2.5 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
+          className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
         >
           <Plus size={15} /> Create Watchlist
         </button>
@@ -416,7 +422,7 @@ export function WatchlistsView() {
                           type="button"
                           disabled={busy || !(competitorInput[wl.id] ?? '').trim()}
                           onClick={() => void addCompetitor(wl.id)}
-                          className="px-3.5 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer shrink-0"
+                          className="px-3.5 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer shrink-0"
                         >
                           <Plus size={14} className="inline mr-1" /> Add
                         </button>
@@ -648,7 +654,7 @@ export function WatchlistsView() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="px-4.5 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
+                  className="px-4.5 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
                 >
                   {busy ? 'Creating...' : 'Create Watchlist'}
                 </button>

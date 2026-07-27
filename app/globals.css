@@ -7,9 +7,11 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-secondary: var(--accent-secondary);
+  --color-accent-foreground: #FFFFFF;
   --color-border: var(--border);
   --color-card: var(--card);
   --color-card-hover: var(--card-hover);
+  --color-popover: var(--card);
   --color-navy: var(--navy);
   --color-ice: var(--ice);
   --color-black: var(--black);
@@ -292,9 +294,16 @@ input::placeholder, textarea::placeholder {
 }
 
 .bg-gradient-signature,
+.neu-btn-primary,
+button.bg-accent,
+.bg-accent {
+  color: #FFFFFF !important;
+}
+
+.bg-gradient-signature,
 .neu-btn-primary {
   background: var(--accent);
-  color: var(--accent-fg);
+  color: #FFFFFF !important;
   border: none;
   border-radius: var(--radius-button);
   box-shadow: none;
