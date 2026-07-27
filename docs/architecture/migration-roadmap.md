@@ -39,5 +39,5 @@ flowchart LR
   - Feature flag `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` default **OFF**
   - Tests: `__tests__/workflow-executor.test.ts`
 - **LangGraph npm dependency:** **not** added (Phase 3+)
-- **Phase 0 continued:** `classify`, `synthesize`, `mind-map`, `direct-answer`, prompt assets, shared cost estimates extracted; `orchestrator.ts` ~531 LOC
-- **Still open in Phase 0:** fuller env-backed `orchestrate()` integration goldens; optional further MiroFish dispatch split
+- **Phase 3:** `LangGraphExecutor` implemented behind `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` (default OFF); shared `run-agents` helpers; parity tests. **Do not enable by default until Phase 4 benchmarks.**
+- **Still open:** Phase 4 ≥100-query benchmark; Phase 5 enablement decision; env-backed `orchestrate()` goldens
