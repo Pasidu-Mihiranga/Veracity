@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
@@ -155,11 +155,11 @@ export function DashboardWorkspace({
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (mainScrollRef.current) {
       mainScrollRef.current.scrollTop = 0;
     }
-  }, [currentSessionId, mainScrollRef]);
+  }, [currentSessionId, topTab]);
 
   return (
     <>
@@ -168,7 +168,7 @@ export function DashboardWorkspace({
         onScroll={onMainScroll}
         className="flex-1 overflow-y-auto"
         style={{
-          paddingTop: hasResult ? '6px' : 'clamp(16px, 3vw, 32px)',
+          paddingTop: hasResult ? '12px' : 'clamp(16px, 3vw, 32px)',
           paddingRight: 'clamp(16px, 3vw, 32px)',
           paddingBottom: 'clamp(24px, 4vw, 40px)',
           paddingLeft: 'clamp(16px, 3vw, 32px)',
@@ -188,7 +188,7 @@ export function DashboardWorkspace({
           {topTab === 'steal' && <StealStrategyPanel />}
           {topTab === 'intelligence' && (
             <>
-              {messages.length === 0 && !isLoading && (
+              {messages.length === 0 && !isLoading && !hasResult && !currentResult && (
                 <ChatPanel
                   showEmptyState
                   onDemoQuery={onSendDemoQuery}
@@ -224,8 +224,8 @@ export function DashboardWorkspace({
                   activeJobId={activeJobId}
                   onCancelJob={onCancelJob}
                   onHidden={() => {
-                    if (mainScrollRef.current && mainScrollRef.current.scrollTop < 60) {
-                      mainScrollRef.current.scrollTop = 0;
+                    if (onResetHeader) {
+                      onResetHeader();
                     }
                   }}
                   {...chrome}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { AgentRun, AgentOutput } from '@/lib/agents/types';
 import type { PipelineStage } from '@/types/chat-ui';
 import { ALL_DOMAINS, type Domain } from '@/lib/domain-meta';
@@ -116,8 +116,8 @@ function AgentProgressGridInner({
     };
   }, [phase]);
 
-  useEffect(() => {
-    if (phase === 'hidden' && onHidden) {
+  useLayoutEffect(() => {
+    if ((phase === 'hidden' || phase === 'exiting') && onHidden) {
       onHidden();
     }
   }, [phase, onHidden]);
@@ -155,7 +155,9 @@ function AgentProgressGridInner({
 
   return (
     <div
-      className={`results-panel p-5 sm:p-6 ${phase === 'exiting' ? 'agent-converge-exit' : ''}`}
+      className={`results-panel p-5 sm:p-6 mb-2 shadow-lg border border-accent/15 rounded-2xl transition-all duration-300 ${
+        phase === 'exiting' ? 'agent-converge-exit' : ''
+      }`}
       style={{ background: cardBg }}
       aria-busy={phase === 'running'}
     >
@@ -164,9 +166,9 @@ function AgentProgressGridInner({
           <img
             src="/robot.avif"
             alt=""
-            width={72}
-            height={84}
-            className="brand-mascot w-14 h-auto sm:w-16 animate-float drop-shadow-md"
+            width={64}
+            height={76}
+            className="brand-mascot w-12 h-auto sm:w-14 animate-float drop-shadow-md"
             draggable={false}
           />
         </div>
@@ -174,16 +176,23 @@ function AgentProgressGridInner({
         <div className="min-w-0 flex-1 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="ui-section-label mb-1.5" style={{ color: textSubtle }}>
-                {phase === 'running' ? 'Researching' : 'Agents complete'}
+              <p className="ui-section-label mb-1 uppercase tracking-wider text-[11px] font-semibold" style={{ color: textSubtle }}>
+                {phase === 'running' ? 'RESEARCHING' : 'ANALYSIS COMPLETE'}
               </p>
-              <p className="ui-title truncate" style={{ color: textMain }}>
+              <p className="ui-title truncate font-semibold text-base sm:text-lg" style={{ color: textMain }}>
                 {queryLabel}
               </p>
             </div>
             {showMeta ? (
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <span className="ui-mono" style={{ color: accentInk, fontSize: 11 }}>
+              <div className="flex items-center gap-2 shrink-0">
+                <span
+                  className="ui-mono px-2.5 py-1 rounded-full text-xs font-medium"
+                  style={{
+                    color: accentInk,
+                    background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)',
+                  }}
+                >
                   {typeof progressPct === 'number'
                     ? `${progressPct}% · ${completedCount}/${denom}`
                     : `${completedCount}/${denom}`}
@@ -192,9 +201,9 @@ function AgentProgressGridInner({
                   <button
                     type="button"
                     onClick={onCancelJob}
-                    className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-red-200 bg-red-50 text-red-600"
+                    className="text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                   >
-                    Cancel job
+                    Cancel
                   </button>
                 ) : null}
               </div>
@@ -208,189 +217,18 @@ function AgentProgressGridInner({
                   key={i}
                   src={img.dataUrl}
                   alt={img.name}
-                  className="h-9 w-9 object-cover rounded-lg"
+                  className="h-8 w-8 object-cover rounded-lg"
                   style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
                 />
               ))}
             </div>
           ) : null}
 
+          {/* Running Agent Swarm Animation */}
           <AgentTeamConverge
             agents={convergeAgents}
             phase={phase as AgentTeamConvergePhase}
           />
-
-          {missionSummary && showMeta ? (
-            <MissionSummaryCard summary={missionSummary} />
-          ) : null}
-
-          {featureFlags.orchestratorView ? (
-            <div className="grid grid-cols-1 gap-3 pt-1">
-              <LiveOrchestratorView
-                agentRuns={agentRuns}
-                pipelineStages={pipelineStages}
-                selectedAgentIds={selectedAgentIds}
-                isLoading={phase === 'running'}
-              />
-              <ThinkingTimeline lines={orchestrationLines} agentRuns={agentRuns} />
-              <AgentCollaborationGraph
-                product={product}
-                competitor={competitor}
-                agentRuns={agentRuns}
-                selectedAgentIds={selectedAgentIds}
-                missionSteps={missionSteps}
-              />
-            </div>
-          ) : null}
-
-          {showMeta ? (
-            <div
-              className="veracity-card flex flex-col gap-4 p-4 sm:p-5 mt-1"
-              style={{ background: isDark ? 'var(--surface-raised)' : 'var(--card)' }}
-            >
-              {/* Pipeline stepper — clear active vs pending vs done */}
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="ui-section-label" style={{ color: textSubtle }}>
-                    Pipeline
-                  </span>
-                  <span className="ui-mono" style={{ color: accentInk, fontSize: 10 }}>
-                    {pipelineStages.filter((s) => s.state === 'completed').length}/
-                    {pipelineStages.length} stages
-                  </span>
-                </div>
-                <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
-                  {pipelineStages.map((stage, i) => {
-                    const isRunning = stage.state === 'running';
-                    const isDone = stage.state === 'completed';
-                    const isFailed = stage.state === 'failed';
-                    const isPending = stage.state === 'pending';
-                    return (
-                      <li key={stage.id} className="flex items-center gap-1.5">
-                        {i > 0 ? (
-                          <span
-                            aria-hidden
-                            className="hidden sm:block w-4 h-px shrink-0"
-                            style={{
-                              background: isDone || isRunning || isFailed
-                                ? 'color-mix(in srgb, var(--accent) 45%, transparent)'
-                                : 'var(--border)',
-                            }}
-                          />
-                        ) : null}
-                        <span
-                          className="inline-flex items-center gap-1.5 ui-mono px-2.5 py-1.5 rounded-full border transition-colors"
-                          style={{
-                            fontSize: 10,
-                            letterSpacing: '0.04em',
-                            textTransform: 'uppercase',
-                            color: isRunning || isDone
-                              ? accentInk
-                              : isFailed
-                                ? 'var(--destructive, #DC2626)'
-                                : textSubtle,
-                            background: isRunning
-                              ? 'color-mix(in srgb, var(--accent) 14%, transparent)'
-                              : isDone
-                                ? 'color-mix(in srgb, var(--accent) 8%, transparent)'
-                                : isFailed
-                                  ? 'rgba(220,38,38,0.08)'
-                                  : 'transparent',
-                            borderColor: isRunning
-                              ? 'color-mix(in srgb, var(--accent) 40%, transparent)'
-                              : isDone
-                                ? 'color-mix(in srgb, var(--accent) 22%, transparent)'
-                                : isFailed
-                                  ? 'rgba(220,38,38,0.28)'
-                                  : 'var(--border)',
-                            boxShadow: isRunning
-                              ? '0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent)'
-                              : 'none',
-                            opacity: isPending ? 0.55 : 1,
-                          }}
-                        >
-                          <span
-                            className={`inline-block shrink-0 ${isRunning ? 'live-dot' : 'w-1.5 h-1.5 rounded-full'}`}
-                            style={
-                              isRunning
-                                ? undefined
-                                : {
-                                    background: isDone
-                                      ? '#10B981'
-                                      : isFailed
-                                        ? '#DC2626'
-                                        : 'var(--foreground-subtle)',
-                                  }
-                            }
-                          />
-                          {stage.label}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </div>
-
-              {/* Orchestration log — inset well with real padding, not a stadium pill */}
-              <div
-                className="rounded-xl px-4 py-3.5 flex flex-col gap-3"
-                style={{
-                  background: isDark ? 'rgba(0,0,0,0.22)' : 'var(--muted)',
-                  boxShadow: 'var(--shadow-inset-sm)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="ui-section-label" style={{ color: textSubtle }}>
-                    Orchestration log
-                  </span>
-                  <span
-                    className="ui-mono px-2 py-0.5 rounded-md"
-                    style={{
-                      fontSize: 10,
-                      color: accentInk,
-                      background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
-                    }}
-                  >
-                    {orchLogLen} events
-                  </span>
-                </div>
-                <ul className="flex flex-col gap-2.5 m-0 p-0 list-none">
-                  {(orchestrationLines ?? []).slice(-4).map((line, idx, arr) => {
-                    const isLatest = idx === arr.length - 1;
-                    return (
-                      <li
-                        key={`${idx}-${line}`}
-                        className="flex items-start gap-2.5"
-                      >
-                        <span
-                          className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{
-                            background: isLatest ? accentInk : 'var(--foreground-subtle)',
-                            opacity: isLatest ? 1 : 0.45,
-                          }}
-                        />
-                        <p
-                          className="ui-caption m-0"
-                          style={{
-                            color: isLatest ? textMain : textMuted,
-                            fontWeight: isLatest ? 500 : 400,
-                          }}
-                        >
-                          {line}
-                        </p>
-                      </li>
-                    );
-                  })}
-                  {(orchestrationLines ?? []).length === 0 ? (
-                    <li className="ui-caption" style={{ color: textSubtle }}>
-                      Waiting for orchestration events…
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>

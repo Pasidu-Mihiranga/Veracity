@@ -159,7 +159,7 @@ export function IntelligenceResults({
 }: IntelligenceResultsProps) {
   const [openViz, setOpenViz] = useState(true);
   const [openMap, setOpenMap] = useState(true);
-  const [openAnalyst, setOpenAnalyst] = useState(viewMode === 'analyst' || viewMode === 'developer');
+  const [openAnalyst, setOpenAnalyst] = useState(true);
   const [openDevDiagnostics, setOpenDevDiagnostics] = useState(viewMode === 'developer');
   const [openSources, setOpenSources] = useState(false);
 
@@ -487,34 +487,45 @@ export function IntelligenceResults({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {outputs
                   .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
-                  .slice(0, 6)
                   .map((o, i) => {
                     const domainMeta = DOMAIN_META[o.domain as Domain];
                     return (
                       <div
                         key={`${o.domain}-${i}`}
-                        className="rounded-xl p-4"
+                        className="rounded-xl p-4 flex flex-col justify-between gap-2"
                         style={{
                           background: cardBg2,
                           border: `1px solid ${borderC || 'var(--border)'}`,
                           boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
                         }}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-1.5">
-                            {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
-                            <span
-                              className="text-[12px] font-mono font-bold uppercase tracking-wide"
-                              style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
-                            >
-                              {domainMeta?.short ?? o.domain}
-                            </span>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-1.5">
+                              {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
+                              <span
+                                className="text-[12px] font-mono font-bold uppercase tracking-wide"
+                                style={{ color: domainMeta ? domainAccent(domainMeta, isDark) : textMuted }}
+                              >
+                                {domainMeta?.short ?? o.domain}
+                              </span>
+                            </div>
+                            <ConfidenceBadge level={o.confidence} />
                           </div>
-                          <ConfidenceBadge level={o.confidence} />
+                          <p className="text-[13px] leading-relaxed font-medium" style={{ color: textMain }}>
+                            {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
+                          </p>
+                          {o.facts && o.facts.length > 1 && (
+                            <ul className="mt-2 text-[12px] space-y-1 opacity-90 border-t border-border/40 pt-2">
+                              {o.facts.slice(1, 4).map((f, idx) => (
+                                <li key={idx} className="flex items-start gap-1.5 leading-snug" style={{ color: textMuted }}>
+                                  <span style={{ color: domainMeta?.color ?? accentInk }}>•</span>
+                                  <span>{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
-                        <p className="text-[13px] leading-relaxed" style={{ color: textMain }}>
-                          {o.interpretation?.[0] || o.facts?.[0] || 'No highlight available.'}
-                        </p>
                       </div>
                     );
                   })}

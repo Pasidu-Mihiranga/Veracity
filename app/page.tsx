@@ -39,7 +39,7 @@ const MemoryDrawer = dynamic(
 
 export default function VeracityDashboard() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { streamChat } = useChatStream();
   const { isDark, toggle: toggleTheme, surface, surface2, text, textMuted, textSubtle, accent, border } = useTheme();
   const { mainScrollRef, headerIslandRef, headerCompact, onMainScroll, resetHeaderCompress } = useHeaderCompress();
@@ -129,7 +129,8 @@ export default function VeracityDashboard() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-  }, [supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!featureFlags.workspaces) return;

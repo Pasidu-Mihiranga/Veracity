@@ -34,6 +34,20 @@ function looksLikePersonHomonymNoise(sources: AgentSource[], product: string): b
   if (name.length < 3 || name === 'unknown product') return false;
   const productTerms = buildEntityTerms(product);
 
+  // If 2 or more valid product/software sources exist (e.g. clay.com, G2, pricing, enrichment), it's not noise
+  const companySources = sources.filter((s) => {
+    const url = (s.url ?? '').toLowerCase();
+    const title = (s.title ?? '').toLowerCase();
+    return (
+      url.includes(`${name}.com`) ||
+      url.includes('g2.com') ||
+      url.includes('capterra.com') ||
+      url.includes('producthunt.com') ||
+      /\b(pricing|enrichment|software|platform|b2b|outreach|sdr|features|workflow)\b/i.test(title)
+    );
+  });
+  if (companySources.length >= 2) return false;
+
   // Only personal profiles / bios — NOT linkedin.com/company, posts, or any URL that
   // merely contains the word "linkedin" (that false-flagged Notion with 54 matched sources).
   const personProfiles = sources.filter((s) => {

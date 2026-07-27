@@ -71,7 +71,14 @@ export function DashboardHeader({
   const activeAgents = Object.values(selectedAgents).filter(Boolean).length;
   return (
     <div
-      className={`shrink-0 z-30 px-3 md:px-5 pt-3 pb-1 ${sidebarCollapsed ? 'pl-12 md:pl-14' : ''}`}
+      className={`shrink-0 z-30 px-3 md:px-5 ${sidebarCollapsed ? 'pl-12 md:pl-14' : ''}`}
+      style={{
+        height: 60,
+        paddingTop: 8,
+        paddingBottom: 4,
+        display: 'flex',
+        alignItems: 'center',
+      }}
     >
       <header
         ref={headerIslandRef}
