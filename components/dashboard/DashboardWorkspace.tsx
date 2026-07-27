@@ -10,6 +10,8 @@ import { AgentProgressGrid } from '@/components/ui/AgentProgressGrid';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { AppErrorBoundary } from '@/components/ui/AppErrorBoundary';
 
+import { IntelligenceResults } from '@/components/ui/IntelligenceResults';
+
 const ApiUsagePanel = dynamic(() => import('@/components/ApiUsagePanel').then((m) => m.ApiUsagePanel), {
   loading: () => <PanelSkeleton label="Loading usage" height={280} />,
   ssr: false,
@@ -20,10 +22,6 @@ const StealStrategyPanel = dynamic(() => import('@/components/StealStrategyPanel
 });
 const ExpandedDomainPanel = dynamic(() => import('@/components/ui/ExpandedDomainPanel').then((m) => m.ExpandedDomainPanel), {
   loading: () => <PanelSkeleton label="Loading domain" height={240} />,
-  ssr: false,
-});
-const IntelligenceResults = dynamic(() => import('@/components/ui/IntelligenceResults').then((m) => m.IntelligenceResults), {
-  loading: () => <PanelSkeleton label="Loading results" rows={5} height={360} />,
   ssr: false,
 });
 const ProfileSettingsView = dynamic(() => import('@/components/profile/ProfileSettingsView').then((m) => m.ProfileSettingsView), {
