@@ -111,11 +111,15 @@ npm run mirofish:bootstrap  # seed a local MiroFish simulation map
 
 ### 5. Quality checks
 
+CI runs `npm test` and `npm run test:quality` on every PR. Locally:
+
 ```bash
 npm test
 npm run test:quality   # offline output-quality / anti-hallucination scenarios
 npm run typecheck
 npm run lint
+# optional (needs running app + real session cookie):
+# COOKIE='veracity_session=…' npm run test:api-smoke
 ```
 
 ---
@@ -129,7 +133,8 @@ npm run lint
 | `npm run mirofish` | MiroFish Flask service only |
 | `npm run build` / `start` | Production build & serve |
 | `npm test` | Vitest unit tests |
-| `npm run test:quality` | Validate entity filter + quality gate (no live LLM) |
+| `npm run test:quality` | Offline quality gate + abstain / category-mismatch scenarios |
+| `npm run test:api-smoke` | Live HTTP smoke of all `/api` routes (`COOKIE=veracity_session=…`) |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ---
