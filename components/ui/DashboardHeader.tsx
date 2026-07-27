@@ -212,15 +212,6 @@ export function DashboardHeader({
             >
               <Brain size={14} />
             </button>
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ color: textMuted }}
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDark ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
             <div className="relative shrink-0">
               <button
                 type="button"
@@ -231,7 +222,10 @@ export function DashboardHeader({
                 {userEmail ? userEmail[0].toUpperCase() : <User size={13} />}
               </button>
               {showUserMenu && (
-                <div className="absolute right-0 top-12 mt-1 w-56 p-1.5 z-50 rounded-2xl border border-border/60 bg-popover/95 backdrop-blur-md shadow-2xl animate-fadeIn">
+                <div
+                  className="absolute right-0 top-12 mt-1 w-56 p-2 z-50 rounded-2xl border border-border shadow-2xl animate-fadeIn"
+                  style={{ backgroundColor: 'var(--card)' }}
+                >
                   {userEmail && (
                     <div className="px-3 py-2 border-b border-border/40 mb-1">
                       <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Signed in as</p>

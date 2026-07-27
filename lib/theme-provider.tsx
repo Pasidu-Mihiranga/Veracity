@@ -12,6 +12,7 @@ type ThemeContextValue = ThemeTokens & {
   theme: ThemeMode;
   isDark: boolean;
   toggle: () => void;
+  setThemeMode: (mode: ThemeMode) => void;
   /** Compat aliases used across existing UI */
   bg: string;
   surface2: string;
@@ -35,12 +36,13 @@ function applyCssVars(mode: ThemeMode) {
   root.style.colorScheme = mode;
 }
 
-function buildContext(theme: ThemeMode, toggle: () => void): ThemeContextValue {
+function buildContext(theme: ThemeMode, toggle: () => void, setThemeMode: (mode: ThemeMode) => void): ThemeContextValue {
   const tokens = getThemeTokens(theme);
   return {
     theme,
     isDark: theme === 'dark',
     toggle,
+    setThemeMode,
     ...tokens,
     bg: tokens.background,
     surface2: tokens.surfaceRaised,
@@ -74,7 +76,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const value = useMemo(() => buildContext(theme, toggle), [theme]);
+  const setThemeMode = (mode: ThemeMode) => {
+    setTheme(mode);
+    localStorage.setItem('veracity-theme', mode);
+  };
+
+  const value = useMemo(() => buildContext(theme, toggle, setThemeMode), [theme]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -83,7 +90,7 @@ export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
     // SSR / missing provider fallback
-    return buildContext('light', () => {});
+    return buildContext('light', () => {}, () => {});
   }
   return ctx;
 }
