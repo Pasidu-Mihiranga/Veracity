@@ -36,11 +36,22 @@ CREATE TABLE IF NOT EXISTS conversations (
 
 -- ── Chat sessions / messages ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_sessions (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       text NOT NULL DEFAULT 'New Query',
+  folder_name text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;
+
+CREATE TABLE IF NOT EXISTS user_folders (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title      text NOT NULL DEFAULT 'New Query',
+  name       text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  UNIQUE(user_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS chat_messages (

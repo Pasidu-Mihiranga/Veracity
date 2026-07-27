@@ -24,13 +24,13 @@ export const featureFlags = {
   /** Phase 5 — durable audit logs for exports / sweeps */
   auditLogs: envFlag('NEXT_PUBLIC_FF_AUDIT_LOGS', false),
   /** Phase 5 — strategic watchlists UI */
-  watchlists: envFlag('NEXT_PUBLIC_FF_WATCHLISTS', false),
+  watchlists: envFlag('NEXT_PUBLIC_FF_WATCHLISTS', true),
   /** Phase 5 — weekly monitoring + in-app alerts */
-  alerts: envFlag('NEXT_PUBLIC_FF_ALERTS', false),
+  alerts: envFlag('NEXT_PUBLIC_FF_ALERTS', true),
   /** Phase 3 — Decision Memory store */
   decisionMemory: envFlag('NEXT_PUBLIC_FF_DECISION_MEMORY', true),
   /** Phase 5 — Competitive Timeline + Trend Summary */
-  competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', false),
+  competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', true),
   /** Phase 3 — cross-session feedback learning injection */
   feedbackLearning: envFlag('NEXT_PUBLIC_FF_FEEDBACK_LEARNING', true),
   /** Phase 6 — multi-tenant workspaces */

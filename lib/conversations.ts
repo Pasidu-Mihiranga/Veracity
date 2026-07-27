@@ -1,6 +1,7 @@
 export interface ChatSession {
   id: string;
   title: string;
+  folder_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -14,12 +15,12 @@ export interface StoredMessage {
   created_at: string;
 }
 
-export async function createSession(title: string): Promise<ChatSession | null> {
+export async function createSession(title: string, folderName?: string | null): Promise<ChatSession | null> {
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, folderName }),
   });
   if (!res.ok) {
     console.error('createSession:', res.status);
@@ -35,6 +36,41 @@ export async function updateSessionTitle(sessionId: string, title: string): Prom
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ title }),
+  });
+}
+
+export async function updateSessionFolder(sessionId: string, folderName: string | null): Promise<void> {
+  await fetch(`/api/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ folderName }),
+  });
+}
+
+export async function listFolders(): Promise<string[]> {
+  const res = await fetch('/api/folders', { credentials: 'include' });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return (json.folders ?? []) as string[];
+}
+
+export async function createFolder(name: string): Promise<string | null> {
+  const res = await fetch('/api/folders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return (json.folder as string) ?? name;
+}
+
+export async function deleteFolder(name: string): Promise<void> {
+  await fetch(`/api/folders?name=${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    credentials: 'include',
   });
 }
 

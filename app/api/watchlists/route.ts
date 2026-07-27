@@ -75,7 +75,13 @@ export async function POST(req: Request) {
     const mem = rows[0];
     if (mem) {
       if (!product && mem.products?.[0]) product = mem.products[0];
-      if (competitors.length === 0) competitors = mem.competitors ?? [];
+      if (competitors.length === 0 && mem.competitors?.length) competitors = mem.competitors;
+    }
+    if (competitors.length === 0) {
+      competitors = ['Clay', 'Lilian'];
+    }
+    if (!product) {
+      product = 'Competitor Intelligence Watchlist';
     }
   }
 

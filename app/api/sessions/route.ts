@@ -21,8 +21,11 @@ export async function GET() {
     1,
   );
 
+  // Ensure column exists safely
+  await query(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;`).catch(() => null);
+
   const { rows } = await query(
-    `SELECT id, title, created_at, updated_at
+    `SELECT id, title, folder_name, created_at, updated_at
      FROM chat_sessions
      WHERE ${scope.sql}
      ORDER BY updated_at DESC
@@ -51,22 +54,25 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const title = String(body.title ?? 'New Query');
+  const folderName = body.folderName ? String(body.folderName).trim() : null;
+
+  await query(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;`).catch(() => null);
 
   if (featureFlags.workspaces && tenant.workspaceId) {
     const { rows } = await query(
-      `INSERT INTO chat_sessions (user_id, workspace_id, title, updated_at)
-       VALUES ($1, $2, $3, now())
-       RETURNING id, title, created_at, updated_at`,
-      [user.id, tenant.workspaceId, title],
+      `INSERT INTO chat_sessions (user_id, workspace_id, title, folder_name, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       RETURNING id, title, folder_name, created_at, updated_at`,
+      [user.id, tenant.workspaceId, title, folderName],
     );
     return NextResponse.json({ session: rows[0] });
   }
 
   const { rows } = await query(
-    `INSERT INTO chat_sessions (user_id, title, updated_at)
-     VALUES ($1, $2, now())
-     RETURNING id, title, created_at, updated_at`,
-    [user.id, title],
+    `INSERT INTO chat_sessions (user_id, title, folder_name, updated_at)
+     VALUES ($1, $2, $3, now())
+     RETURNING id, title, folder_name, created_at, updated_at`,
+    [user.id, title, folderName],
   );
   return NextResponse.json({ session: rows[0] });
 }

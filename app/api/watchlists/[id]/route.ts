@@ -38,6 +38,9 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   const { id } = await ctx.params;
+  const existing = await getWatchlistForUser(id, user.id);
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
   const body = await req.json().catch(() => ({})) as {
     name?: string;
     product?: string;
@@ -52,6 +55,7 @@ export async function PATCH(
       watchlistId: id,
       competitor: body.competitor.trim(),
       competitorUrl: body.competitorUrl,
+      userId: user.id,
     });
   }
 
@@ -60,7 +64,6 @@ export async function PATCH(
     product: body.product,
     enabled: body.enabled,
   });
-  if (!watchlist) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   if (body.runNow && featureFlags.alerts) {
     await inngest.send({
