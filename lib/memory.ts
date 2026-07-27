@@ -51,22 +51,32 @@ export async function extractAndUpdateMemory(
   }
 }
 
-export function buildMemoryContext(memory: UserMemory): string {
-  if (!memory.raw_summary && memory.products.length === 0 && memory.facts.length === 0) {
+import { loadUserProfile } from '@/lib/user-profile';
+
+export function buildMemoryContext(memory: UserMemory | null): string {
+  const profile = typeof window !== 'undefined' ? loadUserProfile() : null;
+  const role = memory?.role || profile?.role || null;
+  const company = memory?.company || profile?.company || null;
+  const websiteUrl = profile?.websiteUrl || null;
+  const competitors = [...new Set([...(memory?.competitors || []), ...(profile?.competitors || [])])];
+  const facts = memory?.facts ?? [];
+  const interests = memory?.interests ?? [];
+
+  if (!role && !company && competitors.length === 0 && facts.length === 0 && !memory?.raw_summary) {
     return '';
   }
 
-  const lines: string[] = ['[USER MEMORY — persistent across all sessions]'];
+  const lines: string[] = ['[USER PROFILE & PERSONAL MEMORY — persistent baseline]'];
 
-  if (memory.raw_summary) lines.push(`Who they are: ${memory.raw_summary}`);
-  if (memory.role) lines.push(`Role: ${memory.role}`);
-  if (memory.company) lines.push(`Company: ${memory.company}`);
-  if (memory.products.length > 0) lines.push(`Products they work on: ${memory.products.join(', ')}`);
-  if (memory.competitors.length > 0) lines.push(`Competitors they track: ${memory.competitors.join(', ')}`);
-  if (memory.interests.length > 0) lines.push(`Strategic interests: ${memory.interests.join(', ')}`);
-  if (memory.facts.length > 0) {
-    lines.push('Notable facts:');
-    memory.facts.slice(-8).forEach(f => lines.push(`  - ${f.fact}`));
+  if (role) lines.push(`User Role: ${role}`);
+  if (company) lines.push(`User Company: ${company}`);
+  if (websiteUrl) lines.push(`Company Website: ${websiteUrl}`);
+  if (competitors.length > 0) lines.push(`Tracked Competitors: ${competitors.join(', ')}`);
+  if (interests.length > 0) lines.push(`Strategic Focus Topics: ${interests.join(', ')}`);
+  if (memory?.raw_summary) lines.push(`User Summary: ${memory.raw_summary}`);
+  if (facts.length > 0) {
+    lines.push('Durable Facts:');
+    facts.slice(-8).forEach((f) => lines.push(`  - ${f.fact}`));
   }
 
   return lines.join('\n');

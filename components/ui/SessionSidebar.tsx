@@ -72,17 +72,26 @@ export function SessionSidebar({
     : sessions;
 
   return (
-    <aside
-      className="sidebar-transition flex-shrink-0 flex flex-col h-full relative"
-      style={{
-        width: collapsed ? '0px' : '280px',
-        minWidth: collapsed ? '0px' : '280px',
-        background: sidebarBg,
-        borderRight: 'none',
-        boxShadow: collapsed ? 'none' : neuExtrudedSm,
-        overflow: 'visible',
-      }}
-    >
+    <>
+      {!collapsed && (
+        <div
+          onClick={onToggleCollapsed}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-fadeIn"
+        />
+      )}
+      <aside
+        className={`sidebar-transition flex-shrink-0 flex flex-col h-full relative z-40 md:z-auto ${
+          !collapsed ? 'fixed inset-y-0 left-0 md:relative' : ''
+        }`}
+        style={{
+          width: collapsed ? '0px' : '280px',
+          minWidth: collapsed ? '0px' : '280px',
+          background: sidebarBg,
+          borderRight: 'none',
+          boxShadow: collapsed ? 'none' : neuExtrudedSm,
+          overflow: 'visible',
+        }}
+      >
       <button
         onClick={onToggleCollapsed}
         className="sidebar-collapse-btn"
@@ -263,5 +272,6 @@ export function SessionSidebar({
         </div>
       </div>
     </aside>
-  );
+  </>
+);
 }

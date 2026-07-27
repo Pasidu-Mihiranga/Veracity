@@ -26,6 +26,10 @@ const IntelligenceResults = dynamic(() => import('@/components/ui/IntelligenceRe
   loading: () => <PanelSkeleton label="Loading results" rows={5} height={360} />,
   ssr: false,
 });
+const ProfileSettingsView = dynamic(() => import('@/components/profile/ProfileSettingsView').then((m) => m.ProfileSettingsView), {
+  loading: () => <PanelSkeleton label="Loading profile" height={320} />,
+  ssr: false,
+});
 
 type ComposerProps = {
   inputValue: string;
@@ -49,8 +53,12 @@ type ComposerProps = {
   isDark: boolean;
 };
 
+import { DashboardHeader, TopTab } from '@/components/ui/DashboardHeader';
+
 type Props = {
-  topTab: 'intelligence' | 'usage' | 'steal';
+  topTab: TopTab;
+  userEmail?: string | null;
+  userMemory?: import('@/lib/memory').UserMemory | null;
   mainScrollRef: React.RefObject<HTMLDivElement | null>;
   onMainScroll: () => void;
   currentResult?: ChatMessage;
@@ -109,6 +117,8 @@ type Props = {
 
 export function DashboardWorkspace({
   topTab,
+  userEmail,
+  userMemory,
   mainScrollRef,
   onMainScroll,
   currentResult,
@@ -186,6 +196,7 @@ export function DashboardWorkspace({
             />
           )}
           {topTab === 'steal' && <StealStrategyPanel />}
+          {topTab === 'profile' && <ProfileSettingsView userEmail={userEmail ?? null} userMemory={userMemory} />}
           {topTab === 'intelligence' && (
             <>
               {messages.length === 0 && !isLoading && !hasResult && !currentResult && (

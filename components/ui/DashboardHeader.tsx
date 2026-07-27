@@ -9,12 +9,13 @@ import { BrandWordmark } from '@/components/ui/BrandWordmark';
 import { featureFlags } from '@/lib/feature-flags';
 import { WorkspaceSwitcher } from '@/components/ui/WorkspaceSwitcher';
 
-export type TopTab = 'intelligence' | 'usage' | 'steal';
+export type TopTab = 'intelligence' | 'usage' | 'steal' | 'profile';
 
 export type DashboardHeaderProps = {
   headerIslandRef: RefObject<HTMLElement | null>;
   headerCompact: boolean;
   sidebarCollapsed: boolean;
+  onOpenSidebar?: () => void;
   headerBg: string;
   topTab: TopTab;
   onTopTabChange: (tab: TopTab) => void;
@@ -45,6 +46,7 @@ export function DashboardHeader({
   headerIslandRef,
   headerCompact,
   sidebarCollapsed,
+  onOpenSidebar,
   headerBg,
   topTab,
   onTopTabChange,
@@ -73,7 +75,7 @@ export function DashboardHeader({
   const activeAgents = Object.values(selectedAgents).filter(Boolean).length;
   return (
     <div
-      className={`shrink-0 z-30 px-3 md:px-5 ${sidebarCollapsed ? 'pl-12 md:pl-14' : ''}`}
+      className={`shrink-0 z-30 px-2 md:px-5 ${sidebarCollapsed ? 'pl-2 md:pl-14' : ''}`}
       style={{
         height: 60,
         paddingTop: 8,
@@ -87,17 +89,30 @@ export function DashboardHeader({
         className={`header-island ${headerCompact ? 'header-island--compact' : ''} ${sidebarCollapsed ? 'header-island--rail' : ''}`}
         style={{ background: headerBg }}
       >
+        {/* Mobile Hamburger Menu Button */}
+        {onOpenSidebar && (
+          <button
+            type="button"
+            onClick={onOpenSidebar}
+            className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/10 mr-1"
+            title="Open Sidebar"
+          >
+            ☰
+          </button>
+        )}
+
         {sidebarCollapsed && (
           <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
             <BrandWordmark size="md" />
           </div>
         )}
 
-        <div className="header-island-tabs flex items-center gap-0.5 shrink-0" role="tablist">
+        <div className="header-island-tabs flex items-center gap-0.5 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
           {([
             { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={13} /> },
             { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={13} /> },
             { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={13} /> },
+            { id: 'profile' as const, label: 'Profile & Settings', icon: <User size={13} /> },
           ]).map(tab => {
             const active = topTab === tab.id;
             return (
@@ -219,19 +234,18 @@ export function DashboardHeader({
                   {userEmail && (
                     <p className="px-3 py-2 text-[12px] font-medium truncate" style={{ color: textMuted }}>{userEmail}</p>
                   )}
-                  {onOpenProfile && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onToggleUserMenu();
-                        onOpenProfile();
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
-                      style={{ color: textMuted }}
-                    >
-                      <User size={13} style={{ color: textSubtle }} /> Profile & Settings
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onToggleUserMenu();
+                      onTopTabChange('profile');
+                      if (onOpenProfile) onOpenProfile();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
+                    style={{ color: textMuted }}
+                  >
+                    <User size={13} style={{ color: textSubtle }} /> Profile & Settings
+                  </button>
                   <button
                     type="button"
                     onClick={onSignOut}

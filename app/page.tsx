@@ -15,7 +15,7 @@ import { useHeaderCompress } from '@/hooks/useHeaderCompress';
 import { useChatOrchestration } from '@/hooks/useChatOrchestration';
 import { useRecallQuery } from '@/hooks/useRecallQuery';
 import { SessionSidebar } from '@/components/ui/SessionSidebar';
-import { DashboardHeader } from '@/components/ui/DashboardHeader';
+import { DashboardHeader, type TopTab } from '@/components/ui/DashboardHeader';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
 import { AlertsDrawer } from '@/components/ui/AlertsDrawer';
@@ -69,7 +69,7 @@ export default function VeracityDashboard() {
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [topTab, setTopTab] = useState<'intelligence' | 'usage' | 'steal'>('intelligence');
+  const [topTab, setTopTab] = useState<TopTab>('intelligence');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
 
   const currentResult = [...messages].reverse().find((m) => m.role === 'assistant');
@@ -262,6 +262,7 @@ export default function VeracityDashboard() {
           headerIslandRef={headerIslandRef}
           headerCompact={headerCompact}
           sidebarCollapsed={sidebarCollapsed}
+          onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
           headerBg={headerBg}
           topTab={topTab}
           onTopTabChange={setTopTab}
@@ -290,6 +291,8 @@ export default function VeracityDashboard() {
 
         <DashboardWorkspace
           topTab={topTab}
+          userEmail={userEmail}
+          userMemory={userMemory}
           mainScrollRef={mainScrollRef}
           onMainScroll={onMainScroll}
           currentResult={currentResult}
@@ -351,7 +354,6 @@ export default function VeracityDashboard() {
       neuExtrudedSm={neuExtrudedSm}
       accentInk={accentInk}
     />
-    <UserProfileDrawer isOpen={profileDrawerOpen} onClose={() => setProfileDrawerOpen(false)} />
     <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     <WorkspaceMembersDrawer
       open={membersOpen}

@@ -190,7 +190,7 @@ export function useChatOrchestration({
     const recalledContext = currentSessionId
       ? await recallContextForSession(currentSessionId, effectiveText)
       : '';
-    const userMemoryContext = userMemory ? buildMemoryContext(userMemory) : '';
+    const userMemoryContext = buildMemoryContext(userMemory);
     const memoryContext = [userMemoryContext, recalledContext].filter(Boolean).join('\n\n');
 
     try {

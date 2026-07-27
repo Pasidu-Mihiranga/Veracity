@@ -26,7 +26,12 @@ function AuthForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [company, setCompany] = useState('');
+  const [role, setRole] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
@@ -50,9 +55,30 @@ function AuthForm() {
     setSuccessMsg('');
 
     if (mode === 'signup') {
+      if (!company.trim() || !role.trim()) {
+        setError('Please enter your Company Name and Executive Role to complete signup.');
+        setLoading(false);
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError('Passwords do not match. Please ensure both password fields match.');
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
       else {
+        try {
+          const { saveUserProfile } = await import('@/lib/user-profile');
+          saveUserProfile({
+            company: company.trim(),
+            role: role.trim(),
+            websiteUrl: websiteUrl.trim(),
+            onboarded: true,
+          });
+        } catch {}
         router.push('/');
         router.refresh();
       }
@@ -184,8 +210,47 @@ function AuthForm() {
               </div>
 
               <form onSubmit={handleEmailAuth} className="flex flex-col gap-3.5">
+                {mode === 'signup' && (
+                  <>
+                    <div>
+                      <label className="label-mono auth-muted block mb-1.5">Company / Product Name <span className="text-accent">*</span></label>
+                      <input
+                        type="text"
+                        value={company}
+                        onChange={e => setCompany(e.target.value)}
+                        required={mode === 'signup'}
+                        placeholder="e.g. Vector Agents"
+                        className="auth-input w-full h-11 px-3.5 text-sm outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label-mono auth-muted block mb-1.5">Executive Role / Title <span className="text-accent">*</span></label>
+                      <input
+                        type="text"
+                        value={role}
+                        onChange={e => setRole(e.target.value)}
+                        required={mode === 'signup'}
+                        placeholder="e.g. VP of Product, CEO"
+                        className="auth-input w-full h-11 px-3.5 text-sm outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label-mono auth-muted block mb-1.5">Website URL (Optional)</label>
+                      <input
+                        type="url"
+                        value={websiteUrl}
+                        onChange={e => setWebsiteUrl(e.target.value)}
+                        placeholder="https://vectoragents.ai"
+                        className="auth-input w-full h-11 px-3.5 text-sm outline-none"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div>
-                  <label className="label-mono auth-muted block mb-1.5">Email</label>
+                  <label className="label-mono auth-muted block mb-1.5">Email <span className="text-accent">*</span></label>
                   <input
                     type="email"
                     value={email}
@@ -197,7 +262,7 @@ function AuthForm() {
                 </div>
 
                 <div>
-                  <label className="label-mono auth-muted block mb-1.5">Password</label>
+                  <label className="label-mono auth-muted block mb-1.5">Password <span className="text-accent">*</span></label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -218,6 +283,40 @@ function AuthForm() {
                     </button>
                   </div>
                 </div>
+
+                {mode === 'signup' && (
+                  <div>
+                    <label className="label-mono auth-muted block mb-1.5">
+                      Confirm Password <span className="text-accent">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        required={mode === 'signup'}
+                        minLength={6}
+                        placeholder="••••••••"
+                        className={`auth-input w-full h-11 px-3.5 pr-11 text-sm outline-none ${
+                          confirmPassword && password !== confirmPassword ? 'border-red-500/80 focus:border-red-500' : ''
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(v => !v)}
+                        className="auth-eye absolute right-2 top-1/2 -translate-y-1/2 p-2"
+                        aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                    {confirmPassword && password !== confirmPassword && (
+                      <span className="text-[11px] font-medium text-red-400 mt-1 block">
+                        ✕ Passwords do not match
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {error && (
                   <div className="flex items-start gap-2 p-3 rounded-xl auth-stat text-sm">
