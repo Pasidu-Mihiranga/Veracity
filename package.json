@@ -17,6 +17,7 @@
     "test:router": "npx tsx scripts/test-intent-router.ts",
     "typecheck": "tsc --noEmit",
     "bench:recall": "npx tsx scripts/benchmark-recall.mjs",
+    "bench:executors": "vitest run __tests__/bench-executor-parity.test.ts",
     "build:analyze": "ANALYZE=true next build",
     "prepare": "husky"
   },

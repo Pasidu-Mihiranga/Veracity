@@ -39,5 +39,6 @@ flowchart LR
   - Feature flag `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` default **OFF**
   - Tests: `__tests__/workflow-executor.test.ts`
 - **LangGraph npm dependency:** **not** added (Phase 3+)
-- **Phase 3:** `LangGraphExecutor` implemented behind `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` (default OFF); shared `run-agents` helpers; parity tests. **Do not enable by default until Phase 4 benchmarks.**
-- **Still open:** Phase 4 ≥100-query benchmark; Phase 5 enablement decision; env-backed `orchestrate()` goldens
+- **Phase 3:** `LangGraphExecutor` implemented behind `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` (default OFF); shared `run-agents` helpers; parity tests.
+- **Phase 4 (stub):** 109-query corpus + `npm run bench:executors` — **PASS** outcome parity (0/97 mismatches) and absolute overhead (~4ms p50). Report: `docs/architecture/benchmark-langgraph-vs-current.md`.
+- **Phase 5 blocked:** Live Gemini accuracy/evidence/cost ≤+5% benchmark still required before default-on. Flag stays **OFF**.

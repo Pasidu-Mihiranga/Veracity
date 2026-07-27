@@ -1,0 +1,1259 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-27T21:15:22.384Z",
+  "count": 109,
+  "queries": [
+    {
+      "id": "q001",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "hi"
+    },
+    {
+      "id": "q002",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "hello"
+    },
+    {
+      "id": "q003",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "hey"
+    },
+    {
+      "id": "q004",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "help"
+    },
+    {
+      "id": "q005",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "who are you"
+    },
+    {
+      "id": "q006",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "what can you do"
+    },
+    {
+      "id": "q007",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "how do you work"
+    },
+    {
+      "id": "q008",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "what is cac"
+    },
+    {
+      "id": "q009",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "greetings"
+    },
+    {
+      "id": "q010",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "thanks"
+    },
+    {
+      "id": "q011",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "???"
+    },
+    {
+      "id": "q012",
+      "category": "tier0",
+      "tier": 0,
+      "domains": [],
+      "query": "asdfgh"
+    },
+    {
+      "id": "q013",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "pricing"
+      ],
+      "query": "What is Notion pricing?"
+    },
+    {
+      "id": "q014",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "pricing"
+      ],
+      "query": "How much does Linear cost?"
+    },
+    {
+      "id": "q015",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "pricing"
+      ],
+      "query": "Figma pricing tiers 2026"
+    },
+    {
+      "id": "q016",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "competitive"
+      ],
+      "query": "Who competes with HubSpot?"
+    },
+    {
+      "id": "q017",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "competitive"
+      ],
+      "query": "Clay vs Apollo feature comparison"
+    },
+    {
+      "id": "q018",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "market-trends"
+      ],
+      "query": "AI SDR market trends"
+    },
+    {
+      "id": "q019",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "market-trends"
+      ],
+      "query": "GTM tooling category outlook"
+    },
+    {
+      "id": "q020",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "positioning",
+        "competitive"
+      ],
+      "query": "How does Gong position against Chorus?"
+    },
+    {
+      "id": "q021",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "win-loss",
+        "competitive"
+      ],
+      "query": "Why do buyers switch from Outreach to Salesloft?"
+    },
+    {
+      "id": "q022",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "pricing",
+        "competitive"
+      ],
+      "query": "Compare Salesforce and HubSpot pricing"
+    },
+    {
+      "id": "q023",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "positioning"
+      ],
+      "query": "What is Vector Agents positioning?"
+    },
+    {
+      "id": "q024",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "adjacent"
+      ],
+      "query": "Adjacent threats to email sequencing tools"
+    },
+    {
+      "id": "q025",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing"
+      ],
+      "query": "Intercom vs Zendesk competitive landscape"
+    },
+    {
+      "id": "q026",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "market-trends",
+        "pricing"
+      ],
+      "query": "Willingness to pay for AI research tools"
+    },
+    {
+      "id": "q027",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "win-loss"
+      ],
+      "query": "Win/loss drivers for CRM deals"
+    },
+    {
+      "id": "q028",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "pricing"
+      ],
+      "query": "Apollo.io pricing breakdown"
+    },
+    {
+      "id": "q029",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "competitive"
+      ],
+      "query": "Competitor moves by Lavender"
+    },
+    {
+      "id": "q030",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "positioning",
+        "competitive"
+      ],
+      "query": "Positioning gaps: Notion vs Coda"
+    },
+    {
+      "id": "q031",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "market-trends"
+      ],
+      "query": "Agentic GTM adoption signals"
+    },
+    {
+      "id": "q032",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "pricing",
+        "positioning"
+      ],
+      "query": "Packaging models for PLG SaaS"
+    },
+    {
+      "id": "q033",
+      "category": "tier1_2",
+      "tier": 1,
+      "domains": [
+        "competitive"
+      ],
+      "query": "Feature matrix: Attio vs Salesforce"
+    },
+    {
+      "id": "q034",
+      "category": "tier1_2",
+      "tier": 2,
+      "domains": [
+        "win-loss",
+        "competitive"
+      ],
+      "query": "Why teams churn from Pipedrive"
+    },
+    {
+      "id": "q035",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Vector Agents build next to beat Gong? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q036",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Clay build next to beat HubSpot? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q037",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Apollo build next to beat Notion? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q038",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Gong build next to beat Linear? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q039",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should HubSpot build next to beat Figma? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q040",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Notion build next to beat Attio? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q041",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Linear build next to beat Salesloft? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q042",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Figma build next to beat Outreach? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q043",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Attio build next to beat Lavender? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q044",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Salesloft build next to beat Instantly? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q045",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Outreach build next to beat Smartlead? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q046",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Lavender build next to beat Close? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q047",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Instantly build next to beat Pipedrive? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q048",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Smartlead build next to beat Affinity? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q049",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Close build next to beat Folk? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q050",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Pipedrive build next to beat Harmonic? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q051",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Affinity build next to beat PhantomBuster? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q052",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Folk build next to beat Lemlist? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q053",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Harmonic build next to beat Woodpecker? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q054",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should PhantomBuster build next to beat Reply.io? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q055",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Lemlist build next to beat Mixmax? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q056",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Woodpecker build next to beat Superhuman? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q057",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Reply.io build next to beat Front? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q058",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Mixmax build next to beat Missive? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q059",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Superhuman build next to beat Drift? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q060",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Front build next to beat Intercom? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q061",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Missive build next to beat Zendesk? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q062",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Drift build next to beat Freshworks? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q063",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Intercom build next to beat Vector Agents? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q064",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Zendesk build next to beat Clay? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q065",
+      "category": "tier3",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "win-loss",
+        "pricing",
+        "positioning",
+        "adjacent"
+      ],
+      "query": "What should Freshworks build next to beat Apollo? Full competitive and GTM analysis."
+    },
+    {
+      "id": "q066",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Write a cold email for Vector Agents targeting CTOs",
+      "forceExecution": true
+    },
+    {
+      "id": "q067",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Draft 3 LinkedIn variants for Clay outreach",
+      "forceExecution": true
+    },
+    {
+      "id": "q068",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Generate A/B test angles for Apollo cold email",
+      "forceExecution": true
+    },
+    {
+      "id": "q069",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Create a campaign brief for Gong enterprise launch",
+      "forceExecution": true
+    },
+    {
+      "id": "q070",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Compose landing page pitch for HubSpot competitor displacement",
+      "forceExecution": true
+    },
+    {
+      "id": "q071",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Ship an outreach sequence for Notion AI upsell",
+      "forceExecution": true
+    },
+    {
+      "id": "q072",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Give me 5 message variants for Linear PLG",
+      "forceExecution": true
+    },
+    {
+      "id": "q073",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Build an email campaign for Figma enterprise SDRs",
+      "forceExecution": true
+    },
+    {
+      "id": "q074",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Draft a one-pager for investor outreach about Attio",
+      "forceExecution": true
+    },
+    {
+      "id": "q075",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Launch LinkedIn post variants about Salesloft ROI",
+      "forceExecution": true
+    },
+    {
+      "id": "q076",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Create ad copy for Instantly AI senders",
+      "forceExecution": true
+    },
+    {
+      "id": "q077",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "GTM plan and campaign brief for Smartlead",
+      "forceExecution": true
+    },
+    {
+      "id": "q078",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Write falsifiable hypotheses for Close.com A/B tests",
+      "forceExecution": true
+    },
+    {
+      "id": "q079",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Generate outreach sequence for Pipedrive mid-market",
+      "forceExecution": true
+    },
+    {
+      "id": "q080",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Draft cold emails comparing Affinity vs Folk",
+      "forceExecution": true
+    },
+    {
+      "id": "q081",
+      "category": "execution",
+      "tier": 4,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Produce LinkedIn hooks for Harmonic recruiting GTM",
+      "forceExecution": true
+    },
+    {
+      "id": "q082",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Research Lilian pricing strategy",
+      "trap": "person_name"
+    },
+    {
+      "id": "q083",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "What does Jordan sell and who are competitors?",
+      "trap": "person_name"
+    },
+    {
+      "id": "q084",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Analyze Taylor market positioning",
+      "trap": "person_name"
+    },
+    {
+      "id": "q085",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Morgan competitive landscape and pricing",
+      "trap": "person_name"
+    },
+    {
+      "id": "q086",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Compare Avery vs competitors in SaaS",
+      "trap": "person_name"
+    },
+    {
+      "id": "q087",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "What should Riley build next?",
+      "trap": "person_name"
+    },
+    {
+      "id": "q088",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Cameron win/loss analysis vs rivals",
+      "trap": "person_name"
+    },
+    {
+      "id": "q089",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Quinn product positioning and ICP",
+      "trap": "person_name"
+    },
+    {
+      "id": "q090",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Harper pricing tiers and packaging",
+      "trap": "person_name"
+    },
+    {
+      "id": "q091",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Reese competitive threats and adjacent markets",
+      "trap": "person_name"
+    },
+    {
+      "id": "q092",
+      "category": "homonym",
+      "tier": 3,
+      "domains": [
+        "competitive",
+        "positioning",
+        "pricing"
+      ],
+      "query": "Alex GTM strategy and messaging gaps",
+      "trap": "person_name"
+    },
+    {
+      "id": "q093",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Competitive analysis for ZzyzxMetrics AI",
+      "expectThin": true
+    },
+    {
+      "id": "q094",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Pricing for QuorraFlux GTM",
+      "expectThin": true
+    },
+    {
+      "id": "q095",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "What should NebulaScribe build next?",
+      "expectThin": true
+    },
+    {
+      "id": "q096",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Win/loss for PixelMarrow analytics",
+      "expectThin": true
+    },
+    {
+      "id": "q097",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Positioning for OrthoCanvas B2B",
+      "expectThin": true
+    },
+    {
+      "id": "q098",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Market trends for PlumeLedger",
+      "expectThin": true
+    },
+    {
+      "id": "q099",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Adjacent threats to CoralVault CRM",
+      "expectThin": true
+    },
+    {
+      "id": "q100",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Compare FathomlessHQ vs rivals",
+      "expectThin": true
+    },
+    {
+      "id": "q101",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Packaging for EmberQuill sales AI",
+      "expectThin": true
+    },
+    {
+      "id": "q102",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "Full swarm research on NimbusWicket",
+      "expectThin": true
+    },
+    {
+      "id": "q103",
+      "category": "thin_evidence",
+      "tier": 3,
+      "domains": [
+        "market-trends",
+        "competitive",
+        "pricing"
+      ],
+      "query": "GTM strategy for BrambleForge",
+      "expectThin": true
+    },
+    {
+      "id": "q104",
+      "category": "refine",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing",
+        "win-loss"
+      ],
+      "query": "Refine the Vector Agents vs Clay analysis with more pricing evidence",
+      "injectedContext": "User rejected \"raise prices\" recommendation."
+    },
+    {
+      "id": "q105",
+      "category": "refine",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing",
+        "win-loss"
+      ],
+      "query": "Follow up: focus only on win/loss for Gong",
+      "injectedContext": "Prior thumbs-down on positioning card."
+    },
+    {
+      "id": "q106",
+      "category": "refine",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing",
+        "win-loss"
+      ],
+      "query": "Update HubSpot outreach variants after poor reply rates",
+      "injectedContext": "Campaign reply rate 0.8% — invert messaging."
+    },
+    {
+      "id": "q107",
+      "category": "refine",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing",
+        "win-loss"
+      ],
+      "query": "Re-run Notion competitive sweep with stronger sources",
+      "injectedContext": "Quality gate abstained last run."
+    },
+    {
+      "id": "q108",
+      "category": "refine",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing",
+        "win-loss"
+      ],
+      "query": "Refine Linear pricing recommendations",
+      "injectedContext": "Accepted \"usage-based packaging\" hypothesis."
+    },
+    {
+      "id": "q109",
+      "category": "refine",
+      "tier": 2,
+      "domains": [
+        "competitive",
+        "pricing",
+        "win-loss"
+      ],
+      "query": "Targeted follow-up on Apollo hiring signals only",
+      "injectedContext": "User asked for competitive hiring only."
+    }
+  ]
+}
