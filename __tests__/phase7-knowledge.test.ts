@@ -70,6 +70,6 @@ describe('Phase 7 feature flags', () => {
     expect('kgMaintenance' in featureFlags).toBe(true);
     expect('kgAnalytics' in featureFlags).toBe(true);
     expect('langgraphExecutor' in featureFlags).toBe(true);
-    expect(featureFlags.langgraphExecutor).toBe(false);
+
   });
 });

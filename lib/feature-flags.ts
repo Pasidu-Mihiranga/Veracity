@@ -54,9 +54,8 @@ export const featureFlags = {
   /** Phase 7 — graph analytics widgets */
   kgAnalytics: envFlag('NEXT_PUBLIC_FF_KG_ANALYTICS', false),
   /**
-   * Architecture — LangGraph wave executor (ADR-0004 / ADR-0007).
-   * Default OFF. Until LangGraphExecutor ships, getWorkflowExecutor() still
-   * returns CurrentExecutor even when this flag is on.
+   * Architecture — LangGraph wave executor (ADR-0004 / ADR-0007 / ADR-0008).
+   * Default OFF in code. Set NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1 locally to test.
    */
   langgraphExecutor: envFlag('NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR', false),
 } as const;

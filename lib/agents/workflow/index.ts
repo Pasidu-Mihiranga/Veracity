@@ -1,5 +1,6 @@
 import { featureFlags } from '@/lib/feature-flags';
 import { currentExecutor } from '@/lib/agents/workflow/current-executor';
+import { langGraphExecutor } from '@/lib/agents/workflow/langgraph-executor';
 import type { WorkflowExecutor } from '@/lib/agents/workflow/types';
 
 export type {
@@ -15,14 +16,12 @@ export { formatPriorWaveFindings, mergePriorContext } from '@/lib/agents/workflo
 
 /**
  * Resolve the active wave executor.
- * LangGraph is selected only when `featureFlags.langgraphExecutor` is true (default OFF).
+ * LangGraph is selected only when `featureFlags.langgraphExecutor` is true (default OFF in code;
+ * enable locally via NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1).
  */
 export function getWorkflowExecutor(): WorkflowExecutor {
   if (featureFlags.langgraphExecutor) {
-    // Lazy load so default path does not initialize the graph module eagerly.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('./langgraph-executor') as typeof import('./langgraph-executor');
-    return mod.langGraphExecutor;
+    return langGraphExecutor;
   }
   return currentExecutor;
 }

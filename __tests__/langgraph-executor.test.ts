@@ -115,7 +115,9 @@ describe('executor parity', () => {
 });
 
 describe('getWorkflowExecutor flag', () => {
-  it('defaults to current', () => {
-    expect(getWorkflowExecutor().id).toBe('current');
+  it('selects executor from featureFlags.langgraphExecutor', async () => {
+    const { featureFlags } = await import('@/lib/feature-flags');
+    const exec = getWorkflowExecutor();
+    expect(exec.id).toBe(featureFlags.langgraphExecutor ? 'langgraph' : 'current');
   });
 });
