@@ -40,6 +40,8 @@
 
 Stub Phase 4 passed (parity + absolute overhead). Per ADR-0007, live accuracy/evidence/cost/latency gates remain open. Production continues on `CurrentExecutor` until a live benchmark report updates this section to PASS.
 
+## Artifacts
+
 - Corpus: `scripts/benchmarks/queries.json`
 - Results: `scripts/benchmarks/results-executor-parity.json`
 - Runner: `npm run bench:executors`
