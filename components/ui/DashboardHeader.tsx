@@ -22,6 +22,7 @@ export type DashboardHeaderProps = {
   mirofishRunning: boolean;
   onOpenAgents?: () => void;
   onOpenMemory: () => void;
+  onOpenProfile?: () => void;
   onOpenAlerts?: () => void;
   alertsUnread?: number;
   onOpenMembers?: () => void;
@@ -51,6 +52,7 @@ export function DashboardHeader({
   mirofishRunning,
   onOpenAgents,
   onOpenMemory,
+  onOpenProfile,
   onOpenAlerts,
   alertsUnread = 0,
   onOpenMembers,
@@ -216,6 +218,19 @@ export function DashboardHeader({
                 <div className="veracity-card absolute right-0 top-11 w-52 py-1.5 z-50">
                   {userEmail && (
                     <p className="px-3 py-2 text-[12px] font-medium truncate" style={{ color: textMuted }}>{userEmail}</p>
+                  )}
+                  {onOpenProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onToggleUserMenu();
+                        onOpenProfile();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
+                      style={{ color: textMuted }}
+                    >
+                      <User size={13} style={{ color: textSubtle }} /> Profile & Settings
+                    </button>
                   )}
                   <button
                     type="button"

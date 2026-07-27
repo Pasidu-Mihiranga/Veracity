@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       existingMemory: UserMemory;
     };
 
-    if (!userQuery?.trim() || !assistantAnswer?.trim()) {
+    if (!userQuery?.trim()) {
       return NextResponse.json({ ok: true });
     }
 
@@ -68,21 +68,20 @@ export async function POST(req: NextRequest) {
       : 'No prior memory about this user.';
 
     const systemPrompt = `You are a memory extraction system for a growth intelligence assistant.
-Your job is to extract durable facts about the USER from their query — not about the companies they're researching.
+Your job is to extract durable facts about the USER from their explicit query text ONLY — NEVER from external research subjects.
 
-Extract ONLY facts that reveal something about WHO THE USER IS:
-- Their role or job title
-- Their company or product they work on
-- Companies/products they regularly research or compete with
-- Their strategic focus areas
+Extract ONLY facts where the user explicitly states something about THEMSELVES:
+- Their role or job title (e.g. "I am VP of Product")
+- Their own company or product (e.g. "I work at Vector Agents", "My company is...")
+- Competitors they explicitly state they track (e.g. "We compete with Clay")
 
-Do NOT extract facts about external companies — only about the user themselves.`;
+CRITICAL STRICT RULE:
+Do NOT extract third-party companies or research subjects (such as Lilian, Notion, Linear, Clay) as the user's company UNLESS the user explicitly wrote "I work at..." or "my company is...". If the user asks a question about a company (e.g. "Is Lilian competitive?" or "What is Clay's pricing?"), return null for company and do NOT extract it!`;
 
     const userPrompt = `${existingSummary}
 
-Latest exchange:
-User asked: "${userQuery}"
-System answered: "${assistantAnswer.slice(0, 400)}"
+Latest user prompt:
+"${userQuery}"
 
 Return JSON with this exact shape:
 {

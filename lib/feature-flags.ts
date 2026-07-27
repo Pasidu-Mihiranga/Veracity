@@ -27,12 +27,12 @@ export const featureFlags = {
   watchlists: envFlag('NEXT_PUBLIC_FF_WATCHLISTS', false),
   /** Phase 5 — weekly monitoring + in-app alerts */
   alerts: envFlag('NEXT_PUBLIC_FF_ALERTS', false),
-  /** Phase 5 — Decision Memory store */
-  decisionMemory: envFlag('NEXT_PUBLIC_FF_DECISION_MEMORY', false),
+  /** Phase 3 — Decision Memory store */
+  decisionMemory: envFlag('NEXT_PUBLIC_FF_DECISION_MEMORY', true),
   /** Phase 5 — Competitive Timeline + Trend Summary */
   competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', false),
-  /** Phase 5 — cross-session feedback learning injection */
-  feedbackLearning: envFlag('NEXT_PUBLIC_FF_FEEDBACK_LEARNING', false),
+  /** Phase 3 — cross-session feedback learning injection */
+  feedbackLearning: envFlag('NEXT_PUBLIC_FF_FEEDBACK_LEARNING', true),
   /** Phase 6 — multi-tenant workspaces */
   workspaces: envFlag('NEXT_PUBLIC_FF_WORKSPACES', false),
   /** Phase 6 — RBAC enforcement UI + assertPermission */

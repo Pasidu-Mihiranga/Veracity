@@ -23,6 +23,8 @@ import { AgentsDrawer } from '@/components/ui/AgentsDrawer';
 import { WorkspaceMembersDrawer } from '@/components/ui/WorkspaceMembersDrawer';
 import { OrgIntelligencePanel } from '@/components/ui/OrgIntelligencePanel';
 import { KnowledgeGraphExplorer } from '@/components/ui/KnowledgeGraphExplorer';
+import { UserProfileDrawer } from '@/components/profile/UserProfileDrawer';
+import { UserProfileModal } from '@/components/profile/UserProfileModal';
 import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
 import {
@@ -56,6 +58,7 @@ export default function VeracityDashboard() {
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [agentsDrawerOpen, setAgentsDrawerOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertsUnread, setAlertsUnread] = useState(0);
@@ -266,6 +269,7 @@ export default function VeracityDashboard() {
           mirofishRunning={mirofishRunning}
           onOpenAgents={() => setAgentsDrawerOpen(true)}
           onOpenMemory={() => setMemoryDrawerOpen(true)}
+          onOpenProfile={() => setProfileDrawerOpen(true)}
           onOpenAlerts={() => setAlertsOpen(true)}
           alertsUnread={alertsUnread}
           onOpenMembers={() => setMembersOpen(true)}
@@ -347,6 +351,7 @@ export default function VeracityDashboard() {
       neuExtrudedSm={neuExtrudedSm}
       accentInk={accentInk}
     />
+    <UserProfileDrawer isOpen={profileDrawerOpen} onClose={() => setProfileDrawerOpen(false)} />
     <AlertsDrawer open={alertsOpen} onClose={() => setAlertsOpen(false)} />
     <WorkspaceMembersDrawer
       open={membersOpen}
