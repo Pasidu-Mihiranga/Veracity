@@ -1,3 +1,5 @@
+import { unwrapApiPayload } from '@/lib/api-client';
+
 export interface UserMemory {
   role: string | null;
   company: string | null;
@@ -30,7 +32,8 @@ export async function getUserMemory(): Promise<UserMemory> {
   const res = await fetch('/api/memory', { credentials: 'include' }).catch(() => null);
   if (!res || !res.ok) return EMPTY_MEMORY;
   const json = await res.json().catch(() => null);
-  return (json?.memory as UserMemory) ?? EMPTY_MEMORY;
+  const data = unwrapApiPayload<{ memory?: UserMemory }>(json);
+  return data.memory ?? EMPTY_MEMORY;
 }
 
 export async function extractAndUpdateMemory(

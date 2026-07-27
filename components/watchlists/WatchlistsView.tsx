@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
 import { formatRelativeSweep } from '@/lib/monitoring/health';
+import { unwrapApiPayload } from '@/lib/api-client';
 
 type Item = { id: string; competitor: string; enabled: boolean };
 type Watchlist = {
@@ -55,15 +56,17 @@ export function WatchlistsView() {
       ]);
 
       if (wRes && wRes.ok) {
-        const wData = (await wRes.json().catch(() => null)) as { watchlists: Watchlist[] } | null;
-        if (wData?.watchlists) {
+        const raw = await wRes.json().catch(() => null);
+        const wData = unwrapApiPayload<{ watchlists?: Watchlist[] }>(raw);
+        if (wData.watchlists) {
           setLists(wData.watchlists);
         }
       }
 
       if (aRes && aRes.ok) {
-        const aData = (await aRes.json().catch(() => null)) as { alerts: AlertEvent[] } | null;
-        if (aData?.alerts) {
+        const raw = await aRes.json().catch(() => null);
+        const aData = unwrapApiPayload<{ alerts?: AlertEvent[] }>(raw);
+        if (aData.alerts) {
           setAlerts(aData.alerts);
         }
       }

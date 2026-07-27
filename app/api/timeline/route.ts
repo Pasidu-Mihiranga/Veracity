@@ -14,33 +14,46 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const url = new URL(req.url);
-  const events = await listCompetitiveEvents(user.id, {
-    product: url.searchParams.get('product') ?? undefined,
-    competitor: url.searchParams.get('competitor') ?? undefined,
-    days: Number(url.searchParams.get('days') ?? 90),
-  });
+  try {
+    const events = await listCompetitiveEvents(user.id, {
+      product: url.searchParams.get('product') ?? undefined,
+      competitor: url.searchParams.get('competitor') ?? undefined,
+      days: Number(url.searchParams.get('days') ?? 90),
+    });
 
-  const lite = events.map((e) => ({
-    id: e.id,
-    competitor: e.competitor,
-    title: e.title,
-    summary: e.summary,
-    category: e.category,
-    event_date: e.event_date,
-    cluster_key: e.cluster_key,
-  }));
-  const clusters = clusterCompetitiveEvents(lite);
-  const recent = events.filter((e) => {
-    const d = new Date(e.event_date).getTime();
-    return Date.now() - d <= 30 * 24 * 60 * 60 * 1000;
-  });
-  const trends = buildTrendSummaries(
-    recent.map((e) => ({
+    const lite = events.map((e) => ({
+      id: e.id,
       competitor: e.competitor,
-      category: e.category,
       title: e.title,
-    })),
-  );
+      summary: e.summary,
+      category: e.category,
+      event_date: e.event_date,
+      cluster_key: e.cluster_key,
+    }));
+    const clusters = clusterCompetitiveEvents(lite);
+    const recent = events.filter((e) => {
+      const d = new Date(e.event_date).getTime();
+      return Date.now() - d <= 30 * 24 * 60 * 60 * 1000;
+    });
+    const trends = buildTrendSummaries(
+      recent.map((e) => ({
+        competitor: e.competitor,
+        category: e.category,
+        title: e.title,
+      })),
+    );
 
-  return NextResponse.json({ events, clusters, trends });
+    return NextResponse.json({ events, clusters, trends });
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === '42P01') {
+      return NextResponse.json({
+        events: [],
+        clusters: [],
+        trends: [],
+        warning: 'competitive_events table missing — run db:setup / migrations',
+      });
+    }
+    throw err;
+  }
 }

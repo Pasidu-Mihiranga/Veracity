@@ -27,6 +27,7 @@ import { UserProfileDrawer } from '@/components/profile/UserProfileDrawer';
 import { UserProfileModal } from '@/components/profile/UserProfileModal';
 import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
+import { unwrapApiPayload } from '@/lib/api-client';
 import {
   defaultSelectedAgents,
   loadSelectedAgents,
@@ -150,8 +151,9 @@ export default function VeracityDashboard() {
     const loadUnread = () => {
       void fetch('/api/alerts?unread=1')
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { alerts?: unknown[] } | null) => {
-          setAlertsUnread(d?.alerts?.length ?? 0);
+        .then((d) => {
+          const data = unwrapApiPayload<{ alerts?: unknown[] }>(d);
+          setAlertsUnread(data.alerts?.length ?? 0);
         })
         .catch(() => {});
     };

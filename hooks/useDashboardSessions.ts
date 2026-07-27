@@ -49,16 +49,27 @@ export function useDashboardSessions() {
   const sessionsQuery = useQuery({
     queryKey: ['sessions'],
     queryFn: listSessions,
-    initialData: [] as ChatSession[],
+    // IMPORTANT: do NOT use initialData: [] with global staleTime — empty [] is
+    // treated as fresh cache and the sidebar never refetches (shows 0 forever).
+    placeholderData: [] as ChatSession[],
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const sessions = sessionsQuery.data ?? [];
-  const loadingSessions = sessionsQuery.isLoading || loadingSessionMessages;
+  const loadingSessions =
+    (sessionsQuery.isLoading || sessionsQuery.isFetching) && sessions.length === 0
+    || loadingSessionMessages;
 
   const refreshSessions = useCallback(async () => {
-    const result = await sessionsQuery.refetch();
-    return result.data ?? [];
-  }, [sessionsQuery]);
+    const result = await queryClient.fetchQuery({
+      queryKey: ['sessions'],
+      queryFn: listSessions,
+      staleTime: 0,
+    });
+    return result;
+  }, [queryClient]);
 
   const loadSessionById = useCallback(
     async (sessionId: string) => {
@@ -69,14 +80,18 @@ export function useDashboardSessions() {
         hits: prev.hits + (hadCachedMessages ? 1 : 0),
         misses: prev.misses + (hadCachedMessages ? 0 : 1),
       }));
-      const stored = await queryClient.fetchQuery({
-        queryKey: ['sessionMessages', sessionId],
-        queryFn: () => loadMessages(sessionId),
-      });
-      const { mainMessages, loadedFollowUps } = splitStoredMessages(stored);
-      setMessages(mainMessages);
-      setFollowUps(loadedFollowUps);
-      setLoadingSessionMessages(false);
+      try {
+        const stored = await queryClient.fetchQuery({
+          queryKey: ['sessionMessages', sessionId],
+          queryFn: () => loadMessages(sessionId),
+          staleTime: 0,
+        });
+        const { mainMessages, loadedFollowUps } = splitStoredMessages(stored);
+        setMessages(mainMessages);
+        setFollowUps(loadedFollowUps);
+      } finally {
+        setLoadingSessionMessages(false);
+      }
     },
     [queryClient],
   );

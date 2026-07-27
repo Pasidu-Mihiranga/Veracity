@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, X } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
+import { unwrapApiPayload } from '@/lib/api-client';
 
 type AlertRow = {
   id: string;
@@ -33,7 +34,8 @@ export function AlertsDrawer({ open, onClose }: Props) {
     if (competitor.trim()) params.set('competitor', competitor.trim());
     const res = await fetch(`/api/alerts?${params}`);
     if (!res.ok) return;
-    const data = await res.json() as { alerts: AlertRow[] };
+    const raw = await res.json();
+    const data = unwrapApiPayload<{ alerts?: AlertRow[] }>(raw);
     setAlerts(data.alerts ?? []);
   }, [unreadOnly, highOnly, competitor]);
 

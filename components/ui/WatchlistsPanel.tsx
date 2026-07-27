@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Play, Trash2 } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
 import { formatRelativeSweep } from '@/lib/monitoring/health';
+import { unwrapApiPayload } from '@/lib/api-client';
 
 type Item = { id: string; competitor: string; enabled: boolean };
 type Watchlist = {
@@ -27,7 +28,8 @@ export function WatchlistsPanel() {
     if (!featureFlags.watchlists) return;
     const res = await fetch('/api/watchlists');
     if (!res.ok) return;
-    const data = await res.json() as { watchlists: Watchlist[] };
+    const raw = await res.json();
+    const data = unwrapApiPayload<{ watchlists?: Watchlist[] }>(raw);
     setLists(data.watchlists ?? []);
   }, []);
 

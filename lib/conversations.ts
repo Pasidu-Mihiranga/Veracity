@@ -1,3 +1,5 @@
+import { unwrapApiPayload } from '@/lib/api-client';
+
 export interface ChatSession {
   id: string;
   title: string;
@@ -27,7 +29,8 @@ export async function createSession(title: string, folderName?: string | null): 
     return null;
   }
   const json = await res.json();
-  return (json.session as ChatSession) ?? null;
+  const data = unwrapApiPayload<{ session?: ChatSession }>(json);
+  return data.session ?? null;
 }
 
 export async function updateSessionTitle(sessionId: string, title: string): Promise<void> {
@@ -52,7 +55,8 @@ export async function listFolders(): Promise<string[]> {
   const res = await fetch('/api/folders', { credentials: 'include' });
   if (!res.ok) return [];
   const json = await res.json();
-  return (json.folders ?? []) as string[];
+  const data = unwrapApiPayload<{ folders?: string[] }>(json);
+  return (data.folders ?? []) as string[];
 }
 
 export async function createFolder(name: string): Promise<string | null> {
@@ -64,7 +68,8 @@ export async function createFolder(name: string): Promise<string | null> {
   });
   if (!res.ok) return null;
   const json = await res.json();
-  return (json.folder as string) ?? name;
+  const data = unwrapApiPayload<{ folder?: string }>(json);
+  return (data.folder as string) ?? name;
 }
 
 export async function deleteFolder(name: string): Promise<void> {
@@ -77,11 +82,16 @@ export async function deleteFolder(name: string): Promise<void> {
 export async function listSessions(): Promise<ChatSession[]> {
   const res = await fetch('/api/sessions', { credentials: 'include' });
   if (!res.ok) {
-    console.error('listSessions:', res.status);
-    return [];
+    // Throw so React Query does not cache [] as a successful empty history.
+    throw new Error(`listSessions failed: ${res.status}`);
   }
   const json = await res.json();
-  return (json.sessions ?? []) as ChatSession[];
+  const data = unwrapApiPayload<{ sessions?: ChatSession[] }>(json);
+  const sessions = data.sessions;
+  if (!Array.isArray(sessions)) {
+    throw new Error('listSessions: invalid response shape');
+  }
+  return sessions as ChatSession[];
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
@@ -108,7 +118,8 @@ export async function saveMessage(
     return null;
   }
   const json = await res.json();
-  return (json.id as string | undefined) ?? null;
+  const data = unwrapApiPayload<{ id?: string }>(json);
+  return (data.id as string | undefined) ?? null;
 }
 
 export async function loadMessages(sessionId: string): Promise<StoredMessage[]> {
@@ -118,5 +129,6 @@ export async function loadMessages(sessionId: string): Promise<StoredMessage[]> 
     return [];
   }
   const json = await res.json();
-  return (json.messages ?? []) as StoredMessage[];
+  const data = unwrapApiPayload<{ messages?: StoredMessage[] }>(json);
+  return (data.messages ?? []) as StoredMessage[];
 }

@@ -218,11 +218,7 @@ export function SessionSidebar({
                   {folders.map((folderName) => {
                     const isOpen = expandedFolders[folderName] !== false;
                     const folderSessions = sessions.filter(
-                      (s) =>
-                        s.folder_name?.toLowerCase() === folderName.toLowerCase() ||
-                        (!s.folder_name &&
-                          (s.title.toLowerCase().includes(folderName.toLowerCase()) ||
-                            s.id.toLowerCase().includes(folderName.toLowerCase()))),
+                      (s) => s.folder_name?.toLowerCase() === folderName.toLowerCase(),
                     );
 
                     return (
