@@ -65,7 +65,7 @@ export function ProfileSettingsView({
   const productsList = userMemory?.products ?? [];
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
+    <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
       {/* Top Header Card */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"

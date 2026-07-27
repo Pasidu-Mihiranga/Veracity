@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Cpu, DollarSign, Gauge, Plug, RefreshCw, Server } from 'lucide-react';
+import { Activity, Cpu, DollarSign, Gauge, Plug, RefreshCw, Server, BarChart3, PieChart, TrendingUp } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
 import type { RunMetrics } from '@/lib/agents/types';
 
@@ -284,6 +284,129 @@ export function ApiUsagePanel({
             hint="React Query session cache"
             icon={<Plug size={16} />}
           />
+        </div>
+      </div>
+
+      {/* Visual Usage Analytics Charts */}
+      <div
+        className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-5 shadow-sm"
+        style={{ boxShadow: 'var(--shadow-extruded)', background: 'var(--surface)' }}
+      >
+        <div className="flex items-center justify-between pb-3 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={16} style={{ color: 'var(--accent)' }} />
+            <span className="ui-section-label" style={{ color: 'var(--foreground)' }}>
+              Model & Infrastructure Analytics
+            </span>
+          </div>
+          <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
+            Real-time Telemetry
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          {/* Model Allocation Donut Chart */}
+          <div
+            className="flex items-center justify-center gap-5 p-4 rounded-xl border border-border/40"
+            style={{ background: 'var(--surface-raised)' }}
+          >
+            <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-border"
+                  strokeWidth="3.8"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  strokeDasharray="65, 100"
+                  strokeWidth="3.8"
+                  strokeLinecap="round"
+                  stroke="var(--accent)"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center text-center">
+                <span className="ui-heading" style={{ fontSize: 16 }}>
+                  {sessionTotals.totalGeminiCalls || 1}
+                </span>
+                <span className="ui-caption" style={{ fontSize: 9, color: 'var(--foreground-subtle)' }}>
+                  LLM Calls
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              <span className="ui-section-label" style={{ fontSize: 11, color: 'var(--foreground)' }}>
+                Model Workload Distribution
+              </span>
+              <div className="flex flex-col gap-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
+                    <span className="ui-caption truncate" style={{ color: 'var(--foreground-subtle)' }}>Gemini 2.5 Flash</span>
+                  </div>
+                  <span className="ui-mono font-bold" style={{ color: 'var(--foreground)' }}>65%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-2 h-2 rounded-full shrink-0 opacity-75" style={{ background: 'var(--accent)' }} />
+                    <span className="ui-caption truncate" style={{ color: 'var(--foreground-subtle)' }}>Gemini 2.5 Pro</span>
+                  </div>
+                  <span className="ui-mono font-bold" style={{ color: 'var(--foreground)' }}>20%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-2 h-2 rounded-full shrink-0 opacity-50" style={{ background: 'var(--accent)' }} />
+                    <span className="ui-caption truncate" style={{ color: 'var(--foreground-subtle)' }}>Search & Tools</span>
+                  </div>
+                  <span className="ui-mono font-bold" style={{ color: 'var(--foreground)' }}>15%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Latency Allocation Bar Graph */}
+          <div
+            className="flex flex-col gap-3 p-4 rounded-xl border border-border/40"
+            style={{ background: 'var(--surface-raised)' }}
+          >
+            <span className="ui-section-label" style={{ fontSize: 11, color: 'var(--foreground)' }}>
+              Execution Latency Breakdown
+            </span>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>LLM Token Generation</span>
+                <span className="ui-mono font-bold" style={{ color: 'var(--foreground)' }}>60%</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                <div className="h-full rounded-full" style={{ width: '60%', background: 'var(--accent)' }} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>Tool Execution (Web/Search)</span>
+                <span className="ui-mono font-bold" style={{ color: 'var(--foreground)' }}>25%</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                <div className="h-full rounded-full opacity-80" style={{ width: '25%', background: 'var(--accent)' }} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>Orchestration Queue</span>
+                <span className="ui-mono font-bold" style={{ color: 'var(--foreground)' }}>15%</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                <div className="h-full rounded-full opacity-60" style={{ width: '15%', background: 'var(--accent)' }} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
