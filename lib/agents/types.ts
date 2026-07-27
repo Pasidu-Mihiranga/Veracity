@@ -39,6 +39,13 @@ export interface AgentOutput {
   sources: AgentSource[];
   generatedAt: string;
   artifactType: ArtifactType;
+  /**
+   * When quality gate abstains (weak / ambiguous entity), Stage-1 cards are
+   * category context — not claims about a confirmed product.
+   */
+  contextOnly?: boolean;
+  /** Short UI badge, e.g. "Category context only" */
+  contextOnlyLabel?: string;
 }
 
 // ─── Intelligence domains ─────────────────────────────────────────────────────

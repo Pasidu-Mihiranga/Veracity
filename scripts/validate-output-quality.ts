@@ -11,10 +11,11 @@ import {
   filterSourcesByEntityRelevance,
 } from '../lib/tools/source-relevance';
 import {
+  applyAbstainToArtifacts,
   applyOutputQualityGate,
   assessOutputQuality,
 } from '../lib/agents/output-quality';
-import type { AgentSource, Recommendation } from '../lib/agents/types';
+import type { AgentSource, CompetitiveOutput, MindMapOutput, Recommendation } from '../lib/agents/types';
 
 type Check = { name: string; pass: boolean; detail: string };
 
@@ -270,6 +271,194 @@ function scenarioVagueProduct(): Check[] {
   ];
 }
 
+function scenarioCategoryMismatchLilian(): Check[] {
+  const sources = [
+    src('Lilian Real Estate Virginia', 'https://lilianrealty.com'),
+    src('Lilian property listings', 'https://lilianrealty.com/listings'),
+    src('Contact Lilian Realty', 'https://lilianrealty.com/contact'),
+    src('Apollo Global Management overview', 'https://www.apollo.com'),
+  ];
+  const answer =
+    "Lilian is not currently competitive in the AI SDR market because there is no evidence it operates in that space. Your digital footprint currently identifies Lilian as a local real estate service, and the data for your competitor, Apollo, refers to a private equity firm.";
+  const report = assessOutputQuality({
+    product: 'Lilian',
+    competitor: 'Apollo',
+    sources,
+    answer,
+    recommendations: [
+      {
+        title: 'Scrub your legacy digital footprint',
+        rationale: 'Real estate presence confuses B2B buyers.',
+        evidence: ['realty site'],
+        confidence: 'high',
+        priority: 'immediate',
+      },
+    ],
+    agentConfidenceAvg: 0.85,
+  });
+  const guarded = applyOutputQualityGate({
+    product: 'Lilian',
+    competitor: 'Apollo',
+    sources,
+    answer,
+    recommendations: [
+      {
+        title: 'Scrub your legacy digital footprint',
+        rationale: 'Real estate presence confuses B2B buyers.',
+        evidence: ['realty site'],
+        confidence: 'high',
+        priority: 'immediate',
+      },
+    ],
+    followUps: ['What next?'],
+    agentConfidenceAvg: 0.85,
+  });
+
+  const competitiveIn = {
+    agentId: 'competitive',
+    domain: 'competitive' as const,
+    confidence: 'high' as const,
+    confidenceScore: 0.9,
+    facts: ['gap'],
+    interpretation: ['Lilian vs Apollo'],
+    sources: [],
+    generatedAt: new Date().toISOString(),
+    artifactType: 'competitive-matrix' as const,
+    competitor: 'Apollo',
+    matrix: [
+      {
+        feature: 'AI SDR',
+        yourProduct: 'strong' as const,
+        competitor: 'medium' as const,
+        gapDirection: 'advantage' as const,
+      },
+    ],
+    competitorSummary: 'Apollo PE notes',
+    hiringSignals: ['Lilian hiring'],
+    recentMoves: ['Apollo invested'],
+  } satisfies CompetitiveOutput;
+
+  const mindIn = {
+    agentId: 'mind-map-synthesis',
+    domain: 'market-trends' as const,
+    confidence: 'high' as const,
+    confidenceScore: 0.85,
+    facts: [],
+    interpretation: [],
+    sources: [],
+    generatedAt: new Date().toISOString(),
+    artifactType: 'mind-map' as const,
+    centralTopic: 'Specialize ICP',
+    summary: 'Pricing next',
+    branches: [{ id: 'b1', label: 'Specialize ICP', detail: 'Ship', children: [] }],
+  } satisfies MindMapOutput;
+
+  const artifacts = applyAbstainToArtifacts([competitiveIn, mindIn], {
+    product: 'Lilian',
+    competitor: 'Apollo',
+    quality: report,
+  });
+  const competitive = artifacts[0] as CompetitiveOutput;
+  const mind = artifacts[1] as MindMapOutput;
+
+  return [
+    check(
+      'Category mismatch Lilian → flag + abstain',
+      report.flags.includes('entity_category_mismatch') && report.shouldAbstainFromStrongClaims,
+      `flags=${report.flags.join(',')}`,
+    ),
+    check(
+      'Category mismatch → caution explains wrong business kind',
+      /wrong kind of business/i.test(guarded.answer),
+      guarded.answer.slice(0, 160).replace(/\n/g, ' '),
+    ),
+    check(
+      'Category mismatch → replace strategy recs with URL/name',
+      /official product URL/i.test(guarded.recommendations[0]?.title ?? '') &&
+        !/scrub|footprint|rebrand/i.test(guarded.recommendations.map((r) => r.title).join(' ')),
+      guarded.recommendations.map((r) => r.title).join(' | '),
+    ),
+    check(
+      'Category mismatch → hide competitive matrix rows/hiring',
+      competitive.matrix.length === 0 &&
+        competitive.hiringSignals.length === 0 &&
+        competitive.recentMoves.length === 0,
+      `matrix=${competitive.matrix.length}; hiring=${competitive.hiringSignals.length}`,
+    ),
+    check(
+      'Category mismatch → identity mind map (not ICP)',
+      /identity/i.test(mind.centralTopic) &&
+        mind.branches.some((b) => /Confirm official URL/i.test(b.label)) &&
+        !mind.branches.some((b) => /Specialize/i.test(b.label)),
+      `topic=${mind.centralTopic}; branches=${mind.branches.map((b) => b.label).join(',')}`,
+    ),
+  ];
+}
+
+function scenarioClearNotionStayStrong(): Check[] {
+  const sources = Array.from({ length: 8 }, (_, i) =>
+    src(`Notion product review ${i}`, `https://www.g2.com/products/notion/reviews?p=${i}`),
+  );
+  const report = assessOutputQuality({
+    product: 'Notion',
+    competitor: 'Linear',
+    sources,
+    answer: 'Notion should deepen AI workflows for PM teams.',
+    recommendations: [
+      {
+        title: 'Ship AI workflow pack',
+        rationale: 'Linear wins on speed.',
+        evidence: ['G2'],
+        confidence: 'high',
+        priority: 'immediate',
+      },
+    ],
+    agentConfidenceAvg: 0.8,
+  });
+  const artifacts = applyAbstainToArtifacts(
+    [
+      {
+        agentId: 'competitive',
+        domain: 'competitive',
+        confidence: 'high',
+        confidenceScore: 0.9,
+        facts: ['x'],
+        interpretation: ['Notion vs Linear'],
+        sources: [],
+        generatedAt: new Date().toISOString(),
+        artifactType: 'competitive-matrix',
+        competitor: 'Linear',
+        matrix: [
+          {
+            feature: 'Docs',
+            yourProduct: 'strong',
+            competitor: 'medium',
+            gapDirection: 'advantage',
+          },
+        ],
+        competitorSummary: 'Notion leads docs',
+        hiringSignals: ['Notion hiring'],
+        recentMoves: ['Notion AI'],
+      } as CompetitiveOutput,
+    ],
+    { product: 'Notion', competitor: 'Linear', quality: report },
+  );
+
+  return [
+    check(
+      'Clear Notion → no abstain',
+      report.shouldAbstainFromStrongClaims === false,
+      `flags=${report.flags.join(',') || 'none'}`,
+    ),
+    check(
+      'Clear Notion → artifacts unchanged (no contextOnly)',
+      artifacts[0].contextOnly !== true &&
+        (artifacts[0] as CompetitiveOutput).matrix.length === 1,
+      `contextOnly=${artifacts[0].contextOnly}`,
+    ),
+  ];
+}
+
 function main() {
   const suites: { title: string; checks: Check[] }[] = [
     { title: '1. Ambiguous Lilian (should abstain)', checks: scenarioAmbiguousLilian() },
@@ -278,6 +467,8 @@ function main() {
     { title: '4. Notion vs Linear baseline', checks: scenarioNotionBaseline() },
     { title: '5. Missing competitor search hygiene', checks: scenarioNoFakeCompetitorSearch() },
     { title: '6. Vague / unknown product', checks: scenarioVagueProduct() },
+    { title: '7. Category mismatch Lilian + Apollo (user-facing noise)', checks: scenarioCategoryMismatchLilian() },
+    { title: '8. Clear Notion stays strong (no soft-label)', checks: scenarioClearNotionStayStrong() },
   ];
 
   let passed = 0;

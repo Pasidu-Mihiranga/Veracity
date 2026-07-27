@@ -3,6 +3,7 @@ import { buildFallbackAnswer } from '@/lib/agents/synthesize';
 import { safeParseJson, stripJsonFences } from '@/lib/agents/json-parse';
 import {
   buildSynthesizePrompt,
+  buildMindMapUserPrompt,
   DIRECT_ANSWER_SYSTEM_PROMPT,
   MIND_MAP_SYSTEM_PROMPT,
 } from '@/lib/agents/prompts/synthesis';
@@ -65,10 +66,43 @@ describe('prompt assets', () => {
     });
     expect(p).toMatch(/ANTI-HALLUCINATION/);
     expect(p).toContain('Acme');
+    expect(p).toMatch(/interest score|estimated/i);
+  });
+
+  it('adds buyer-vs-builder follow-up rule for compares', () => {
+    const p = buildSynthesizePrompt({
+      query: 'Compare ChatGPT and Claude',
+      product: 'ChatGPT',
+      competitor: 'Claude',
+      priorSummary: '',
+      outputSummariesJson: '[]',
+      citedTitlesJson: '[]',
+      agentCount: 2,
+    });
+    expect(p).toMatch(/choosing as a buyer or positioning/i);
   });
 
   it('exports mind-map and direct-answer system prompts', () => {
     expect(MIND_MAP_SYSTEM_PROMPT).toMatch(/mind maps/i);
     expect(DIRECT_ANSWER_SYSTEM_PROMPT).toMatch(/Veracity AI/);
+  });
+
+  it('switches mind-map pillars to identity-first when requested', () => {
+    const identity = buildMindMapUserPrompt({
+      product: 'Lilian',
+      query: 'Is Lilian competitive?',
+      outputSummariesJson: '[]',
+      identityFirst: true,
+    });
+    expect(identity).toMatch(/IDENTITY-FIRST/i);
+    expect(identity).toMatch(/Confirm official URL/);
+    expect(identity).not.toMatch(/Specialize \/ ICP/);
+
+    const normal = buildMindMapUserPrompt({
+      product: 'Clay',
+      query: 'What to build?',
+      outputSummariesJson: '[]',
+    });
+    expect(normal).toMatch(/Specialize \/ ICP/);
   });
 });

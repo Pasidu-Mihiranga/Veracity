@@ -142,7 +142,7 @@ Respond with JSON:
 Domain selection & Tier rules:
 - Tier 0 (Direct Answer, 0 domains): Conversational greetings, meta-questions about Veracity AI or what it can do/capabilities, generic business concept definitions without a specific target company.
 - Tier 1 (1 domain): Single factual metric lookup for 1 company (e.g. pricing).
-- Tier 2 (2-3 domains): Focused comparison or positioning analysis between 2 companies (include competitive, win-loss, positioning).
+- Tier 2 (2-3 domains): Focused comparison or positioning analysis between 2 companies (include competitive, win-loss, positioning, and pricing when both products are software).
 - Tier 3 (Full Swarm): Complex multi-domain strategic research prompts (e.g. "What should Vector Agents build?").
 - Tier 4: Deliverable creation prompts (write copy, campaign brief, cold email, variants).
 - Tier 5: Persona panel simulation prompts.`;

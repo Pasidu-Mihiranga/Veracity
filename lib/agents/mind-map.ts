@@ -13,6 +13,7 @@ export async function generateMindMap(
   query: string,
   product: string,
   outputs: AgentOutput[],
+  opts?: { identityFirst?: boolean },
 ): Promise<MindMapOutput | null> {
   if (outputs.length === 0) return null;
 
@@ -28,6 +29,7 @@ export async function generateMindMap(
     product,
     query,
     outputSummariesJson: JSON.stringify(outputSummaries, null, 2),
+    identityFirst: opts?.identityFirst,
   });
 
   try {

@@ -10,8 +10,10 @@ import { mirofishLiveAgent } from './mirofish-live';
 import { isPlaceholderProduct } from './entity-url';
 import { filterAndRankSources } from '@/lib/tools/source-validator';
 import {
+  applyAbstainToArtifacts,
   applyEntitySourceFilterToOutputs,
   applyOutputQualityGate,
+  assessOutputQuality,
 } from '@/lib/agents/output-quality';
 import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
 import { computeEvidenceCoverage } from '@/lib/agents/evidence-coverage';
@@ -202,6 +204,19 @@ export async function orchestrate(
     if (targeted.length > 0) researchIds = targeted;
   }
 
+  // Dual-entity compares: auto-include pricing (free-tier: one extra agent, no manual toggle)
+  const uiAllowsPricing =
+    !options?.selectedAgents?.length ||
+    options.selectedAgents.includes('pricing');
+  if (
+    competitor &&
+    uiAllowsPricing &&
+    !researchIds.includes('pricing') &&
+    !isPlaceholderProduct(competitor)
+  ) {
+    researchIds = [...researchIds, 'pricing'];
+  }
+
   const agentsToRun = ALL_AGENTS.filter((a) => researchIds.includes(a.id as IntelligenceDomain));
   const missionSteps = planMission([
     ...researchIds,
@@ -296,11 +311,27 @@ export async function orchestrate(
   const filtered = applyEntitySourceFilterToOutputs(outputs, product, competitor);
   const researchOutputs = filtered.outputs;
 
+  // Early entity-quality peek (sources only) so mind map can prefer identity-first pillars
+  const preGateSources = researchOutputs.flatMap((o) => o.sources);
+  const preGateAvg = researchOutputs.length > 0
+    ? researchOutputs.reduce((sum, o) => sum + o.confidenceScore, 0) / researchOutputs.length
+    : 0.5;
+  const earlyQuality = assessOutputQuality({
+    product,
+    competitor,
+    sources: preGateSources,
+    answer: '',
+    recommendations: [],
+    agentConfidenceAvg: preGateAvg,
+  });
+
   // Step 5: Synthesise + generate mind map in parallel (2 model calls)
   log?.('Reasoning over findings — synthesizing answer and strategic mind map…');
   const [synthesisResult, mindMapResult] = await Promise.all([
     synthesize(query, researchOutputs, history, images, synthesisMemoryContext, product, competitor),
-    generateMindMap(query, product, researchOutputs),
+    generateMindMap(query, product, researchOutputs, {
+      identityFirst: earlyQuality.shouldAbstainFromStrongClaims,
+    }),
   ]);
   modelCallCount += 2; // synthesis + mind map
 
@@ -337,13 +368,18 @@ export async function orchestrate(
       matched: guarded.quality.matchedSourceCount,
       total: guarded.quality.totalSourceCount,
     });
-    log?.('Evidence quality check flagged thin or ambiguous grounding — softening claims…');
+    log?.('Evidence quality check flagged thin or ambiguous grounding — softening claims and Stage-1 cards…');
   }
 
   const answer = guarded.answer;
   const followUps = guarded.followUps;
   const totalConfidence = guarded.totalConfidence;
-  const outputsFinal = researchOutputs;
+  // Soft-label Stage-1 / sanitize competitive signals / identity-first mind map
+  const outputsFinal = applyAbstainToArtifacts(researchOutputs, {
+    product,
+    competitor,
+    quality: guarded.quality,
+  });
 
   // Step 7b: Bind recommendation evidence → source URLs (Evidence Trail)
   const recommendations = bindEvidenceToSources(
