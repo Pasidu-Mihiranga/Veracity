@@ -724,7 +724,8 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {isDevMode ? (
+      {/* Hide empty Tier-0 diagnostics (0 agents / no mission) — avoids noise after conceptual answers */}
+      {isDevMode && !isTier0 ? (
         <section className="results-panel p-5 lg:p-6 border-dashed border-accent/30">
           <SectionToggle
             title="Developer diagnostics & swarm logs"
