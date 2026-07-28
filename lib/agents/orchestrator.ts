@@ -117,9 +117,7 @@ export async function orchestrate(
           `What market trends matter for ${product}?`,
         ]
       : [
-          'What product or competitor would you like to analyze today?',
-          'Compare your product against a key market rival.',
-          'Explore market trends for your industry.',
+          'Name a product or competitor for a full research sweep.',
         ];
 
     return {

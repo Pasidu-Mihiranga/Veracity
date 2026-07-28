@@ -85,7 +85,7 @@ describe('prompt assets', () => {
   it('exports mind-map and direct-answer system prompts', () => {
     expect(MIND_MAP_SYSTEM_PROMPT).toMatch(/mind maps/i);
     expect(DIRECT_ANSWER_SYSTEM_PROMPT).toMatch(/Veracity AI/);
-    expect(DIRECT_ANSWER_SYSTEM_PROMPT).toMatch(/Do NOT mention or analyze the user's profile company/i);
+    expect(DIRECT_ANSWER_SYSTEM_PROMPT).toMatch(/Do NOT mention companies or products from memory/i);
   });
 
   it('switches mind-map pillars to identity-first when requested', () => {

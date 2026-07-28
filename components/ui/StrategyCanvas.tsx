@@ -36,7 +36,7 @@ export function StrategyCanvas({ message }: Props) {
   return (
     <section className="results-panel p-5 lg:p-6 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="results-section-title">Strategy canvas</p>
+        <p className="results-section-title">Business snapshot</p>
         <span className="text-[10px] font-mono text-muted-foreground">
           {out.product}
           {out.competitor ? ` vs ${out.competitor}` : ''}
@@ -59,7 +59,7 @@ export function StrategyCanvas({ message }: Props) {
                   style={{ width: `${Math.max(pct, pct > 0 ? 6 : 0)}%` }}
                 />
               </div>
-              <span className="text-xs font-mono text-foreground">{pct}% coverage</span>
+              <span className="text-xs font-mono text-foreground">{pct}% evidence coverage</span>
             </div>
           );
         })}
@@ -67,25 +67,25 @@ export function StrategyCanvas({ message }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="rounded-2xl border border-border bg-muted/40 p-4">
-          <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Why we win</p>
+          <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Current strengths</p>
           <p className="text-sm text-foreground">
             {advantageCount > 0
               ? `${advantageCount} matrix advantages vs ${out.competitor || 'competitor'}.`
-              : 'Advantage signals still forming — check coverage radar.'}
+              : 'No clear advantage yet. We need more evidence before calling this a real strength.'}
           </p>
           {topRecs[0] ? (
-            <p className="text-[12px] text-muted-foreground mt-2">Lead bet: {String(topRecs[0].title)}</p>
+            <p className="text-[12px] text-muted-foreground mt-2">Best next move: {String(topRecs[0].title)}</p>
           ) : null}
         </div>
         <div className="rounded-2xl border border-border bg-muted/40 p-4">
-          <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Where we lose</p>
+          <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Current risks</p>
           <p className="text-sm text-foreground">
             {gapCount > 0
-              ? `${gapCount} feature gaps to close.`
-              : 'No hard gaps surfaced — validate with customer voice.'}
+              ? `${gapCount} meaningful gaps still need attention.`
+              : 'No clear weakness showed up yet, but customer evidence is still thin.'}
           </p>
           {topRecs[1] ? (
-            <p className="text-[12px] text-muted-foreground mt-2">Watch: {String(topRecs[1].title)}</p>
+            <p className="text-[12px] text-muted-foreground mt-2">Watch closely: {String(topRecs[1].title)}</p>
           ) : null}
         </div>
       </div>

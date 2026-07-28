@@ -1,37 +1,34 @@
 import type { ExtractedEntities } from '@/lib/agents/extract-entities';
 
-/** Canned dig-deeper prompts that must stay clarifying — never invent a product from memory. */
-const GENERIC_CONTINUE_RE =
-  /^(what product or competitor would you like to analyze|compare your product against a key market rival|explore market trends for your industry)\b/i;
-
-/** Signals the user wants live research agents (not a conceptual role/ecosystem answer). */
-const RESEARCH_COMPARE_RE =
-  /\b(pricing|price|positioning|features?|roadmap|market\s+share|compete|competitor|competitive|win[\s-]?loss|gtm|icp|swot|benchmark|head[\s-]?to[\s-]?head|market\s+trends?|go[\s-]?to[\s-]?market)\b/i;
-
-export function isGenericContinuePrompt(query: string): boolean {
-  return GENERIC_CONTINUE_RE.test(query.trim());
+/** Tokenize a brand/company name for overlap checks (language-agnostic). */
+export function entityTokens(...names: (string | undefined)[]): string[] {
+  const out = new Set<string>();
+  for (const name of names) {
+    if (!name?.trim()) continue;
+    for (const part of name.toLowerCase().split(/[\s./_-]+/)) {
+      if (part.length >= 2) out.add(part);
+    }
+  }
+  return [...out];
 }
 
-export function isResearchCompareIntent(query: string): boolean {
-  return RESEARCH_COMPARE_RE.test(query);
+export function textMentionsAnyToken(text: string, tokens: string[]): boolean {
+  if (!tokens.length) return false;
+  const lower = text.toLowerCase();
+  return tokens.some((t) => lower.includes(t));
 }
 
-/**
- * Two named entities compared without research keywords → answer in Tier 0 (no agents).
- * e.g. "Compare WSO2 and SyscoLabs" / "difference between X and Y".
- */
-export function isConceptualCompareQuery(
-  query: string,
-  heuristic: ExtractedEntities,
-): boolean {
-  if (!heuristic.product || !heuristic.competitor) return false;
-  if (isResearchCompareIntent(query)) return false;
-  return true;
+/** Entities named in the current query (heuristic + raw query tokens). */
+export function queryFocusTokens(query: string, heuristic: ExtractedEntities): string[] {
+  const fromHeuristic = entityTokens(heuristic.product, heuristic.competitor);
+  if (fromHeuristic.length > 0) return fromHeuristic;
+  // No extracted pair — do not invent; caller uses short history window only
+  return [];
 }
 
 /**
- * Drop profile/recall memory when the current query is about other companies,
- * or when the prompt is a generic dig-deeper continue.
+ * Drop memory/recall when it does not mention any entity from the current query.
+ * No product-specific blocklists.
  */
 export function gateMemoryContext(
   query: string,
@@ -39,56 +36,76 @@ export function gateMemoryContext(
   heuristic: ExtractedEntities,
 ): string | undefined {
   if (!memoryContext?.trim()) return undefined;
-  if (isGenericContinuePrompt(query)) return undefined;
 
-  if (heuristic.product || heuristic.competitor) {
-    const companyLine = memoryContext.match(/User Company:\s*(.+)/i)?.[1]?.trim();
-    const queryEntities = [heuristic.product, heuristic.competitor]
-      .filter(Boolean)
-      .map((s) => s!.toLowerCase());
-    const qLower = query.toLowerCase();
-
-    if (companyLine) {
-      const companyLower = companyLine.toLowerCase();
-      const companyInQuery =
-        qLower.includes(companyLower)
-        || queryEntities.some(
-          (e) => e === companyLower || companyLower.includes(e) || e.includes(companyLower),
-        );
-      if (!companyInQuery) return undefined;
-    }
-
-    // Also drop when durable facts / recall clearly about a different named product
-    const foreignHints = ['lilian', 'clay', 'vector agents', 'vectoragents'];
-    const queryMentionsForeign = foreignHints.some((h) => qLower.includes(h));
-    if (!queryMentionsForeign) {
-      const memoryMentionsForeign = foreignHints.some((h) =>
-        memoryContext.toLowerCase().includes(h),
-      );
-      if (memoryMentionsForeign && queryEntities.every((e) => !foreignHints.includes(e))) {
-        return undefined;
-      }
-    }
+  const focus = queryFocusTokens(query, heuristic);
+  if (focus.length === 0) {
+    // Vague prompt — do not inject profile/competitor memory (prevents pivot to old topic)
+    return undefined;
   }
 
-  return memoryContext;
+  if (textMentionsAnyToken(memoryContext, focus)) {
+    return memoryContext;
+  }
+
+  const profileCompany = memoryContext.match(/User Company:\s*(.+)/i)?.[1]?.trim();
+  if (profileCompany && textMentionsAnyToken(query, entityTokens(profileCompany))) {
+    return memoryContext;
+  }
+
+  return undefined;
 }
 
-/** Keep only history that mentions the current query entities (avoids Lilian→WSO2 bleed). */
+/** History turns that mention the same entities as the current query (or recent window if none). */
 export function filterHistoryForQueryScope<T extends { content: string }>(
   history: T[],
   heuristic: ExtractedEntities,
   limit = 4,
 ): T[] {
-  if (!heuristic.product && !heuristic.competitor) {
-    return history.slice(-limit);
+  const focus = entityTokens(heuristic.product, heuristic.competitor);
+  if (focus.length === 0) {
+    return history.slice(-Math.min(2, limit));
   }
-  const terms = [heuristic.product, heuristic.competitor]
-    .filter(Boolean)
-    .map((t) => t!.toLowerCase());
-  const matched = history.filter((m) => {
-    const c = m.content.toLowerCase();
-    return terms.some((t) => t.length >= 2 && c.includes(t));
-  });
+  const matched = history.filter((m) => textMentionsAnyToken(m.content, focus));
+  if (matched.length === 0) return [];
   return matched.slice(-limit);
+}
+
+export type ExecutionTier = 0 | 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Align tier/domains with classifier `needsResearch` and extracted entities.
+ * No product-specific rules — only structure: research vs direct answer.
+ */
+export function reconcileResearchTier(
+  heuristic: ExtractedEntities,
+  parsed: {
+    tier: number;
+    needsResearch?: boolean;
+    domains: import('@/lib/agents/types').IntelligenceDomain[];
+  },
+): { tier: ExecutionTier; domains: import('@/lib/agents/types').IntelligenceDomain[] } {
+  const dualNamed = Boolean(heuristic.product && heuristic.competitor);
+  let tier = Math.min(5, Math.max(0, Math.round(parsed.tier))) as ExecutionTier;
+  let domains = [...parsed.domains];
+
+  if (parsed.needsResearch === false) {
+    return { tier: 0, domains: [] };
+  }
+
+  if (parsed.needsResearch === true && tier === 0) {
+    tier = (dualNamed ? 2 : 3) as ExecutionTier;
+  }
+
+  if (dualNamed && tier === 0 && parsed.needsResearch !== false) {
+    tier = 2;
+    if (domains.length === 0) {
+      domains = ['competitive', 'win-loss', 'positioning'];
+    }
+  }
+
+  if (tier === 0) {
+    domains = [];
+  }
+
+  return { tier, domains };
 }

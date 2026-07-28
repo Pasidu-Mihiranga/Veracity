@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
@@ -166,6 +166,9 @@ export function DashboardWorkspace({
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
+  const handleAgentProgressHidden = useCallback(() => {
+    onResetHeader?.();
+  }, [onResetHeader]);
 
   useLayoutEffect(() => {
     if (mainScrollRef.current) {
@@ -237,11 +240,7 @@ export function DashboardWorkspace({
                   missionSteps={missionSteps}
                   activeJobId={activeJobId}
                   onCancelJob={onCancelJob}
-                  onHidden={() => {
-                    if (onResetHeader) {
-                      onResetHeader();
-                    }
-                  }}
+                  onHidden={handleAgentProgressHidden}
                   {...chrome}
                 />
               </AppErrorBoundary>

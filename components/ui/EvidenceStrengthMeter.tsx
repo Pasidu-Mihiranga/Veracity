@@ -11,10 +11,10 @@ function pct(n: number): number {
 }
 
 const PARTS: { key: keyof Pick<OutputQualityReport, 'toolHealth' | 'entityMatch' | 'agentAvg' | 'qualityGate'>; label: string }[] = [
-  { key: 'toolHealth', label: 'Tool health' },
-  { key: 'entityMatch', label: 'Entity match' },
-  { key: 'agentAvg', label: 'Agent avg' },
-  { key: 'qualityGate', label: 'Quality gate' },
+  { key: 'toolHealth', label: 'System reliability' },
+  { key: 'entityMatch', label: 'Right company/product match' },
+  { key: 'agentAvg', label: 'Average research confidence' },
+  { key: 'qualityGate', label: 'Final answer safety check' },
 ];
 
 /**
@@ -36,7 +36,7 @@ export function EvidenceStrengthMeter({ quality }: Props) {
     <div className="veracity-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Evidence strength
+          How trustworthy this answer is
         </span>
         <span className="text-xs font-mono text-foreground">{overall}%</span>
       </div>
@@ -69,7 +69,7 @@ export function EvidenceStrengthMeter({ quality }: Props) {
       </div>
       {quality.flags.length > 0 ? (
         <p className="text-[11px] text-muted-foreground">
-          Flags: {quality.flags.join(', ')}
+          Warnings: {quality.flags.join(', ').replaceAll('_', ' ')}
         </p>
       ) : null}
     </div>

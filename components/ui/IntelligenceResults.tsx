@@ -116,12 +116,12 @@ function trustLine(opts: {
   const parts: string[] = [];
   if (opts.sourceCount > 0) parts.push(`Based on ${opts.sourceCount} source${opts.sourceCount === 1 ? '' : 's'}`);
   if (opts.qualityAbstain) {
-    parts.push('identity not fully confirmed — treat as draft');
+    parts.push('we found a name match, but we have not fully confirmed it is the exact business or product you meant');
   } else if (typeof opts.qualityGate === 'number') {
-    parts.push(opts.qualityGate >= 0.7 ? 'evidence looks solid' : 'evidence is mixed — double-check before acting');
+    parts.push(opts.qualityGate >= 0.7 ? 'evidence looks solid' : 'evidence is mixed, so double-check before acting on it');
   }
   if (typeof opts.pricingCoverage === 'number' && opts.pricingCoverage < 0.15) {
-    parts.push('pricing not covered yet');
+    parts.push('pricing is still unclear');
   }
   return parts.join(' · ');
 }
@@ -561,11 +561,43 @@ export function IntelligenceResults({
           {openViz && (
             <div className="mt-4 rounded-2xl p-3 sm:p-4" style={{ background: cardBg2, border: `1px solid ${borderC || 'var(--border)'}`, opacity: primaryVisual.contextOnly || qualityAbstain ? 0.9 : 1 }}>
               {(primaryVisual.contextOnly || qualityAbstain) ? (
-                <p className="text-[11px] font-mono uppercase tracking-wider mb-3" style={{ color: isDark ? '#FCD34D' : '#92400E' }}>
-                  {primaryVisual.contextOnlyLabel ?? 'Category context only'} — not a confirmed product comparison
-                </p>
-              ) : null}
-              <ArtifactRenderer output={primaryVisual} product={product} />
+                <div className="flex flex-col gap-3">
+                  <p className="text-[11px] font-mono uppercase tracking-wider" style={{ color: isDark ? '#FCD34D' : '#92400E' }}>
+                    Early directional view only — this is not yet a confirmed product-vs-product comparison
+                  </p>
+                  <div className="rounded-2xl p-4 sm:p-5" style={{ background: 'var(--surface-raised)', border: `1px solid ${borderC || 'var(--border)'}` }}>
+                    <h4 className="text-sm font-semibold mb-2" style={{ color: textMain }}>
+                      This chart is hidden because it would be misleading right now.
+                    </h4>
+                    <p className="text-[13px] leading-relaxed mb-3" style={{ color: textMuted }}>
+                      We matched the name <strong>{product || 'this entity'}</strong>, but we have not yet confirmed it is the exact company or product you meant.
+                      Until that is confirmed, trend, pricing, and competitor charts can look precise while still pointing at the wrong business.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px]">
+                      <div className="rounded-xl p-3" style={{ background: cardBg }}>
+                        <p className="font-semibold mb-1" style={{ color: textMain }}>What we know</p>
+                        <p style={{ color: textMuted }}>
+                          The system found sources for the name, but the category match is still uncertain.
+                        </p>
+                      </div>
+                      <div className="rounded-xl p-3" style={{ background: cardBg }}>
+                        <p className="font-semibold mb-1" style={{ color: textMain }}>Why this matters</p>
+                        <p style={{ color: textMuted }}>
+                          If the name points to the wrong entity, every comparison card below becomes unreliable.
+                        </p>
+                      </div>
+                      <div className="rounded-xl p-3" style={{ background: cardBg }}>
+                        <p className="font-semibold mb-1" style={{ color: textMain }}>What we need</p>
+                        <p style={{ color: textMuted }}>
+                          Share the official website or exact product name, then rerun the analysis.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ArtifactRenderer output={primaryVisual} product={product} />
+              )}
             </div>
           )}
         </section>
@@ -585,7 +617,7 @@ export function IntelligenceResults({
             <div className="mt-4">
               {mindMapOutput.contextOnly ? (
                 <p className="text-[11px] font-mono uppercase tracking-wider mb-3" style={{ color: isDark ? '#FCD34D' : '#92400E' }}>
-                  Resolve identity first — ICP / pricing deferred until the entity is confirmed
+                  Confirm the exact company or product first. Buyer, pricing, and competitor analysis can be misleading until that is clear.
                 </p>
               ) : null}
               <ArtifactRenderer output={mindMapOutput} product={product} />
@@ -626,7 +658,7 @@ export function IntelligenceResults({
       {showAnalystBlock ? (
         <section className="results-panel p-5 lg:p-6">
           <SectionToggle
-            title="Analyst details & domain highlights"
+            title="Why the answer looks trustworthy"
             icon={<ShieldCheck size={13} />}
             open={openAnalyst}
             onToggle={() => setOpenAnalyst((v) => !v)}

@@ -39,7 +39,7 @@ export function ResearchReplay({ message }: Props) {
     <div className="veracity-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Research replay
+          How this answer was built
         </span>
         <div className="flex gap-2">
           <button
@@ -64,15 +64,15 @@ export function ResearchReplay({ message }: Props) {
       <div className="flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground">
         <span>{out?.generatedAt ? new Date(out.generatedAt).toLocaleString() : '—'}</span>
         <span>·</span>
-        <span>{(elapsedMs / 1000).toFixed(1)}s elapsed</span>
+        <span>{(elapsedMs / 1000).toFixed(1)}s total time</span>
         <span>·</span>
-        <span>{agentCount} agents</span>
+        <span>{agentCount} research agents</span>
         <span>·</span>
         <span>
-          quality {quality != null ? `${Math.round(quality * 100)}%` : '—'}
+          answer confidence {quality != null ? `${Math.round(quality * 100)}%` : '—'}
         </span>
         <span>·</span>
-        <span>{evidenceCount} evidence</span>
+        <span>{evidenceCount} supporting sources</span>
       </div>
       <ol className="flex flex-col gap-1 max-h-40 overflow-y-auto m-0 p-0 list-none">
         {lines.slice(0, idx + 1).map((line, i) => (

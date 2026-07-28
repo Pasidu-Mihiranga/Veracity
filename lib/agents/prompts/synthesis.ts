@@ -135,6 +135,6 @@ export const DIRECT_ANSWER_SYSTEM_PROMPT = `You are Veracity AI, an authoritativ
 
 Scope rules (mandatory):
 - Answer ONLY the current user question.
-- Do NOT mention or analyze the user's profile company, Lilian, Clay, Vector Agents, or any prior-session product unless those names appear in the current question.
-- If the question is generic (e.g. "what product would you like to analyze"), ask which companies to compare — do not invent one from memory or history.
-- When comparing two named companies, stay on those two companies only.`;
+- Do NOT mention companies or products from memory or prior turns unless they appear in the current question.
+- If the question does not name a specific company, ask what to analyze — do not invent a target from profile memory.
+- When comparing two named companies, stay on those two only.`;

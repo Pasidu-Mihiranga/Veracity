@@ -19,8 +19,8 @@ export function extractEntitiesFromQuery(query: string): ExtractedEntities {
     // Notion vs Linear / Notion versus Linear
     /^(.+?)\s+vs\.?\s+(.+?)(?:\s+for\s+|\s+in\s+|[\?.,!]|$)/i,
     /^(.+?)\s+versus\s+(.+?)(?:\s+for\s+|\s+in\s+|[\?.,!]|$)/i,
-    // Compare Notion and/with/to Linear
-    /compare\s+(.+?)\s+(?:and|with|to|vs\.?|versus)\s+(.+?)(?:\s+for\s+|\s+in\s+|[\?.,!]|$)/i,
+    // Compare / can you compare / typo "comapre" Notion and Linear
+    /(?:can\s+(?:you\s+)?)?(?:compare|comapre|compar)\s+(.+?)\s+(?:and|with|to|vs\.?|versus)\s+(.+?)(?:\s+for\s+|\s+in\s+|[\?.,!]|$)/i,
     // Notion against Linear
     /^(.+?)\s+against\s+(.+?)(?:\s+for\s+|\s+in\s+|[\?.,!]|$)/i,
   ];
@@ -68,6 +68,10 @@ function cleanEntityName(raw: string): string | undefined {
     .replace(/\s+(?:for|in|on|about|regarding|pricing|price|features?|comparison|review|reviews|market|growth|strategy)\b.*$/i, '')
     .trim();
   if (cleaned.length < 2 || cleaned.length > 60) return undefined;
+  // Reject meta pronouns that can appear in prompts like "tell me about you"
+  if (/^(you|yourself|your|me|my|we|us|our|this app|this platform)$/i.test(cleaned)) {
+    return undefined;
+  }
   // Reject sentence fragments
   if (/\b(how|what|why|when|which|should|could|would)\b/i.test(cleaned)) return undefined;
   return cleaned;

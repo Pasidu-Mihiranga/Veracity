@@ -1,11 +1,13 @@
-import { isUnclearOrGibberishPrompt } from '@/lib/agents/classify';
+import {
+  isMetaOrGreetingWithoutEntities,
+  isUnclearOrGibberishPrompt,
+} from '@/lib/agents/classify';
 import { extractEntitiesFromQuery } from '@/lib/agents/extract-entities';
 import { generateHuggingFaceText } from '@/lib/agents/gemini';
 import { DIRECT_ANSWER_SYSTEM_PROMPT } from '@/lib/agents/prompts/synthesis';
 import {
   filterHistoryForQueryScope,
   gateMemoryContext,
-  isGenericContinuePrompt,
 } from '@/lib/agents/query-scope';
 import type { ConversationMessage } from '@/lib/agents/types';
 
@@ -15,14 +17,13 @@ export async function generateDirectAnswer(
   memoryContext?: string,
 ): Promise<string> {
   if (isUnclearOrGibberishPrompt(query)) {
-    return `I couldn't understand your input ("${query}"). It appears to be a typo or unrecognized prompt.\n\nPlease enter a specific question about your product, competitors, or market strategy (for example: "Compare Notion and Linear pricing" or "What features should Vector Agents build?").`;
-  }
-
-  if (isGenericContinuePrompt(query)) {
-    return `Tell me which product or competitor you want to analyze — for example: "Compare Clay and Apollo pricing", "Is Notion winning against Linear?", or "Market trends for AI SDR tools."`;
+    return `I couldn't understand your input ("${query}"). It appears to be a typo or unrecognized prompt.\n\nPlease enter a specific question about your product, competitors, or market strategy.`;
   }
 
   const heuristic = extractEntitiesFromQuery(query);
+  if (isMetaOrGreetingWithoutEntities(query, heuristic)) {
+    return 'Veracity AI is an executive growth intelligence platform. It classifies your question, runs only the needed research agents, gathers grounded evidence across competition, pricing, positioning, and market trends, and returns a decision-ready answer. Ask about a company, competitor, market, or comparison to start.';
+  }
   const scopedMemory = gateMemoryContext(query, memoryContext, heuristic);
   const scopedHistory = filterHistoryForQueryScope(history, heuristic, 4);
 
