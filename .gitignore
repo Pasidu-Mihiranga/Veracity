@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Accidental empty files from mis-run npm/shell commands
+/ai-studio-applet@0.1.0
+/node
+
 # Next.js
 .next/
 out/

@@ -96,7 +96,7 @@ export function reconcileResearchTier(
     tier = (dualNamed ? 2 : 3) as ExecutionTier;
   }
 
-  if (dualNamed && tier === 0 && parsed.needsResearch !== false) {
+  if (dualNamed && tier === 0) {
     tier = 2;
     if (domains.length === 0) {
       domains = ['competitive', 'win-loss', 'positioning'];
