@@ -6,6 +6,12 @@ import {
   resolveProductName,
 } from '@/lib/agents/extract-entities';
 import { isPlaceholderProduct } from '@/lib/agents/entity-url';
+import {
+  filterHistoryForQueryScope,
+  gateMemoryContext,
+  isConceptualCompareQuery,
+  isGenericContinuePrompt,
+} from '@/lib/agents/query-scope';
 import { logger } from '@/lib/logger';
 import type {
   ConversationMessage,
@@ -102,7 +108,7 @@ export async function classifyQuery(
     !heuristic.product &&
     !heuristic.competitor;
 
-  if (isDirectGreetingOrConcept) {
+  if (isDirectGreetingOrConcept || isGenericContinuePrompt(query)) {
     return {
       product: 'Veracity AI',
       intent: query,
@@ -113,14 +119,28 @@ export async function classifyQuery(
     };
   }
 
-  const priorContext = history
-    .slice(-6)
+  // Conceptual dual-entity compare (roles / ecosystem) — no research agents
+  if (isConceptualCompareQuery(query, heuristic)) {
+    return {
+      product: heuristic.product!,
+      competitor: heuristic.competitor,
+      intent: query,
+      domains: [],
+      runExecution: false,
+      tier: 0,
+      tierReason: 'Layer 1 Deterministic Match: Conceptual compare (Tier 0, 0 agents)',
+    };
+  }
+
+  const scopedMemory = gateMemoryContext(query, memoryContext, heuristic);
+  const scopedHistory = filterHistoryForQueryScope(history, heuristic, 6);
+  const priorContext = scopedHistory
     .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
     .join('\n');
 
-  const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present. Prefer company/product entities over people with the same name. If the query only mentions an ambiguous personal name with no product category, still return the name but keep domains focused and do not invent a competitor.`;
+  const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present. Prefer company/product entities over people with the same name. If the query only mentions an ambiguous personal name with no product category, still return the name but keep domains focused and do not invent a competitor. Never replace brands named in the current query with brands from user memory or prior turns.`;
 
-  const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}Conversation history:
+  const userPrompt = `${scopedMemory ? `${scopedMemory}\n\n` : ''}Conversation history:
 ${priorContext || 'None'}
 
 Current query: "${query}"
@@ -140,20 +160,31 @@ Respond with JSON:
 }
 
 Domain selection & Tier rules:
-- Tier 0 (Direct Answer, 0 domains): Conversational greetings, meta-questions about Veracity AI or what it can do/capabilities, generic business concept definitions without a specific target company.
+- Tier 0 (Direct Answer, 0 domains): Conversational greetings, meta-questions about Veracity AI or what it can do/capabilities, generic business concept definitions without a specific target company, and conceptual role/ecosystem compares between two companies when the user did NOT ask for pricing/positioning/features/market research.
 - Tier 1 (1 domain): Single factual metric lookup for 1 company (e.g. pricing).
-- Tier 2 (2-3 domains): Focused comparison or positioning analysis between 2 companies (include competitive, win-loss, positioning, and pricing when both products are software).
+- Tier 2 (2-3 domains): Focused comparison or positioning analysis between 2 companies when research is requested (include competitive, win-loss, positioning, and pricing when both products are software).
 - Tier 3 (Full Swarm): Complex multi-domain strategic research prompts (e.g. "What should Vector Agents build?").
 - Tier 4: Deliverable creation prompts (write copy, campaign brief, cold email, variants).
-- Tier 5: Persona panel simulation prompts.`;
+- Tier 5: Persona panel simulation prompts.
+- Never set product/competitor from user memory when the current query already names different companies.`;
 
   try {
     const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
       maxNewTokens: 512,
       temperature: 0.1,
     });
-    const product = resolveProductName(parsed.product, heuristic);
-    const competitor = resolveCompetitorName(parsed.competitor, heuristic);
+    const product = (() => {
+      if (heuristic.product && heuristic.competitor) {
+        return heuristic.product;
+      }
+      return resolveProductName(parsed.product, heuristic);
+    })();
+    const competitor = (() => {
+      if (heuristic.product && heuristic.competitor) {
+        return heuristic.competitor;
+      }
+      return resolveCompetitorName(parsed.competitor, heuristic);
+    })();
     if (isPlaceholderProduct(product)) {
       logger.warn('classify.placeholder_product', { query, product, heuristic });
     }

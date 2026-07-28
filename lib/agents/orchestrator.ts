@@ -106,6 +106,22 @@ export async function orchestrate(
     const directAnswer = await generateDirectAnswer(query, history, memoryContext);
     const latencyMs = Date.now() - orchestrationStart;
 
+    const hasNamedCompare =
+      Boolean(product && competitor)
+      && product !== 'Veracity AI'
+      && !isPlaceholderProduct(product);
+    const suggestedFollowUps = hasNamedCompare
+      ? [
+          `How do ${product} and ${competitor} compete in the market?`,
+          `Compare ${product} and ${competitor} positioning and pricing.`,
+          `What market trends matter for ${product}?`,
+        ]
+      : [
+          'What product or competitor would you like to analyze today?',
+          'Compare your product against a key market rival.',
+          'Explore market trends for your industry.',
+        ];
+
     return {
       query,
       product,
@@ -114,11 +130,7 @@ export async function orchestrate(
       outputs: [],
       synthesizedAnswer: directAnswer,
       topRecommendations: [],
-      suggestedFollowUps: [
-        'What product or competitor would you like to analyze today?',
-        'Compare your product against a key market rival.',
-        'Explore market trends for your industry.',
-      ],
+      suggestedFollowUps,
       totalConfidence: 'high',
       generatedAt: new Date().toISOString(),
       selectionMeta: {
