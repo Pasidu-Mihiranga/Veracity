@@ -182,7 +182,7 @@ export default function VeracityDashboard() {
   } = useChatOrchestration({
     messages, setMessages, followUps, setFollowUps, currentSessionId, setCurrentSessionId,
     selectedAgentIds, selectedAgents, forceFullSweep, streamChat, userMemory, refreshUserMemory: async () => { await memoryQuery.refetch(); },
-    refreshSessions, resetDraftInput, targetFolder: selectedFolder,
+    refreshSessions, resetDraftInput, targetFolder: selectedFolder, viewMode,
   });
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {

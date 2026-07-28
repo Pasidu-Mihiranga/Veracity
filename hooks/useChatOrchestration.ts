@@ -37,6 +37,13 @@ import {
   type ChatRequestBody,
 } from '@/lib/chat-stream';
 import { extractAndUpdateMemory, buildMemoryContext, type UserMemory } from '@/lib/memory';
+import type { ProductViewMode } from '@/types/chat-ui';
+import {
+  buildChatErrorFromStreamChunk,
+  buildChatErrorPayload,
+  formatChatErrorForDisplay,
+  orchestrationLogLineForError,
+} from '@/lib/errors/chat-error';
 
 type StreamChunkHandler = (
   body: ChatRequestBody,
@@ -59,6 +66,7 @@ type UseChatOrchestrationArgs = {
   refreshSessions: () => Promise<unknown>;
   resetDraftInput: () => void;
   targetFolder?: string | null;
+  viewMode?: ProductViewMode;
 };
 
 const EMPTY_USAGE: SessionUsage = {
@@ -85,7 +93,36 @@ export function useChatOrchestration({
   refreshSessions,
   resetDraftInput,
   targetFolder,
+  viewMode = 'executive',
 }: UseChatOrchestrationArgs) {
+  const showDevErrorDetail = viewMode === 'developer';
+
+  const applyChatFailure = useCallback((
+    assistantId: number,
+    payload: ReturnType<typeof buildChatErrorPayload>,
+  ) => {
+    const display = formatChatErrorForDisplay(payload, showDevErrorDetail);
+    setMessages((prev) => prev.map((m) =>
+      m.id === assistantId
+        ? {
+          ...m,
+          content: display,
+          type: 'text' as const,
+          activeJobId: null,
+          streamError: {
+            code: payload.code,
+            userMessage: payload.userMessage,
+            detail: payload.detail,
+            correlationId: payload.correlationId,
+          },
+          orchestrationLog: [
+            ...(m.orchestrationLog ?? []),
+            orchestrationLogLineForError(payload),
+          ].slice(-48),
+        }
+        : m,
+    ));
+  }, [setMessages, showDevErrorDetail]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFollowingUp, setIsFollowingUp] = useState(false);
   const [mirofishRunning, setMirofishRunning] = useState(false);
@@ -320,17 +357,15 @@ export function useChatOrchestration({
           }
           if (chunk.type === 'error') {
             setActiveJobId(null);
-            setMessages((prev) => prev.map((m) =>
-              m.id === assistantId ? { ...m, content: `Analysis failed: ${chunk.message}`, type: 'text', activeJobId: null } : m,
-            ));
+            const payload = buildChatErrorFromStreamChunk(chunk);
+            applyChatFailure(assistantId, payload);
           }
         },
       );
     } catch (err) {
-      const message = err instanceof Error && err.message ? err.message : 'Failed to connect. Please try again.';
-      setMessages((prev) => prev.map((m) =>
-        m.id === assistantId ? { ...m, content: message } : m,
-      ));
+      const withPayload = err as { chatError?: ReturnType<typeof buildChatErrorPayload> };
+      const payload = withPayload.chatError ?? buildChatErrorPayload(err);
+      applyChatFailure(assistantId, payload);
     } finally {
       setActiveJobId(null);
       setIsLoading(false);
@@ -411,6 +446,7 @@ export function useChatOrchestration({
     setMessages,
     streamChat,
     userMemory,
+    applyChatFailure,
   ]);
 
   const handleFollowUp = useCallback(async (text: string) => {
@@ -450,6 +486,14 @@ export function useChatOrchestration({
           conversationId: currentSessionId ?? undefined,
         } as ChatRequestBody & { sessionId?: string; conversationId?: string },
         async (chunk) => {
+          if (chunk.type === 'error') {
+            const payload = buildChatErrorFromStreamChunk(chunk);
+            const display = formatChatErrorForDisplay(payload, showDevErrorDetail);
+            setFollowUps((prev) => prev.map((f) =>
+              f.id === fuId ? { ...f, answer: display, loading: false } : f,
+            ));
+            return;
+          }
           if (chunk.type !== 'result') return;
           const out = chunk.output;
           setSessionUsage((prev) => accumulateSessionUsage(prev, out.metrics));
@@ -471,9 +515,12 @@ export function useChatOrchestration({
           }
         },
       );
-    } catch {
+    } catch (err) {
+      const withPayload = err as { chatError?: ReturnType<typeof buildChatErrorPayload> };
+      const payload = withPayload.chatError ?? buildChatErrorPayload(err);
+      const display = formatChatErrorForDisplay(payload, showDevErrorDetail);
       setFollowUps((prev) => prev.map((f) =>
-        f.id === fuId ? { ...f, answer: 'Follow-up failed. Please try again.', loading: false } : f,
+        f.id === fuId ? { ...f, answer: display, loading: false } : f,
       ));
     } finally {
       setIsFollowingUp(false);
@@ -491,6 +538,7 @@ export function useChatOrchestration({
     setFollowUps,
     streamChat,
     userMemory,
+    showDevErrorDetail,
   ]);
 
   const handleComposerSend = useCallback((text: string, hasResult: boolean, images: AttachedImage[]) => {

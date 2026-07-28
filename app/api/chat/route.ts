@@ -9,6 +9,10 @@ import { inngest, inngestConfigured } from '@/lib/inngest/client';
 import { createResearchJob, newExecutionId } from '@/lib/research-jobs';
 import { getConfig } from '@/lib/config';
 import { EST_COST_PER_MODEL_CALL } from '@/lib/agents/cost-estimates';
+import {
+  buildChatErrorPayload,
+  orchestrationLogLineForError,
+} from '@/lib/errors/chat-error';
 
 export const runtime = 'nodejs';
 // Vercel Pro: up to 120s (config). Hobby plan still enforces ~60s wall clock — keep Apify wait (APIFY_MAX_WAIT_SECS) low enough to finish.
@@ -34,7 +38,13 @@ type StreamChunk =
   | { type: 'mirofish_result'; output: AgentOutput }
   | { type: 'mirofish_live_result'; output: AgentOutput }
   | { type: 'cancelled' }
-  | { type: 'error'; message: string };
+  | {
+      type: 'error';
+      message: string;
+      code?: string;
+      correlationId?: string;
+      detail?: string;
+    };
 
 function encode(chunk: StreamChunk): string {
   return `data: ${JSON.stringify(chunk)}\n\n`;
@@ -396,8 +406,24 @@ async function handleChatPost(req: NextRequest, userId: string) {
       });
     } catch (err) {
       captureException(err, { route: 'chat' });
-      const message = err instanceof Error ? err.message : 'Internal error';
-      write({ type: 'error', message });
+      const ctx = getRequestContext();
+      const payload = buildChatErrorPayload(err, ctx?.correlationId);
+      logger.error('chat.failed', {
+        code: payload.code,
+        detail: payload.detail,
+        correlationId: payload.correlationId,
+        sessionId,
+        conversationId,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      write({ type: 'orchestration_log', line: orchestrationLogLineForError(payload) });
+      write({
+        type: 'error',
+        message: payload.userMessage,
+        code: payload.code,
+        correlationId: payload.correlationId,
+        detail: payload.detail,
+      });
     } finally {
       try { controller.close(); } catch { /* already closed */ }
     }

@@ -4,6 +4,7 @@
 
 import type { AgentOutput, AgentRun, ImageAttachment, OrchestratorOutput } from '@/lib/agents/types';
 import { filterDisplaySources } from '@/lib/tools/source-validator';
+import { buildChatErrorPayload } from '@/lib/errors/chat-error';
 import type {
   ChatMessage,
   ChatStreamChunk,
@@ -225,11 +226,18 @@ export async function streamChatRequest(
   });
 
   if (res.status === 429) {
-    const payload = await res.json().catch(() => ({} as { error?: string }));
-    throw new Error(payload.error || 'Rate limit exceeded. Try again later.');
+    const correlationId = res.headers.get('x-correlation-id') ?? res.headers.get('x-request-id') ?? requestId;
+    const json = await res.json().catch(() => ({} as { error?: string }));
+    const payload = buildChatErrorPayload(
+      new Error(json.error || 'Rate limit exceeded. Try again later.'),
+      correlationId,
+    );
+    throw Object.assign(new Error(payload.userMessage), { chatError: payload });
   }
   if (!res.ok || !res.body) {
-    throw new Error(`API error ${res.status}`);
+    const correlationId = res.headers.get('x-correlation-id') ?? res.headers.get('x-request-id') ?? undefined;
+    const payload = buildChatErrorPayload(new Error(`API error ${res.status}`), correlationId ?? undefined);
+    throw Object.assign(new Error(payload.userMessage), { chatError: payload });
   }
 
   const contentType = res.headers.get('content-type') || '';

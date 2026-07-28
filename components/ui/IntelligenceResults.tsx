@@ -273,6 +273,32 @@ export function IntelligenceResults({
 
   return (
     <div className="flex flex-col gap-5">
+      {currentResult.streamError ? (
+        <div
+          role="alert"
+          className="rounded-xl px-4 py-3 text-sm leading-relaxed"
+          style={{
+            color: 'var(--foreground)',
+            background: 'color-mix(in srgb, var(--destructive, #dc2626) 10%, var(--card))',
+            border: '1px solid color-mix(in srgb, var(--destructive, #dc2626) 35%, transparent)',
+          }}
+        >
+          <p className="font-medium">{currentResult.streamError.userMessage}</p>
+          {isDevMode && currentResult.streamError.detail ? (
+            <p className="ui-mono mt-2 text-[11px] opacity-90 whitespace-pre-wrap">
+              [{currentResult.streamError.code}] {currentResult.streamError.detail}
+              {currentResult.streamError.correlationId
+                ? `\nReference: ${currentResult.streamError.correlationId}`
+                : ''}
+            </p>
+          ) : null}
+          {!isDevMode && currentResult.streamError.correlationId ? (
+            <p className="mt-1.5 text-[11px]" style={{ color: textMuted }}>
+              Reference: {currentResult.streamError.correlationId}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {/* Level 1: Hero Section (Direct Answer) */}
       <section className="results-panel overflow-hidden">
         <div
