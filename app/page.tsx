@@ -116,8 +116,9 @@ export default function VeracityDashboard() {
   const autoResizeTextarea = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
+    const maxPx = Math.min(Math.round(window.innerHeight * 0.4), 280);
     ta.style.height = 'auto';
-    ta.style.height = `${Math.min(ta.scrollHeight, 180)}px`;
+    ta.style.height = `${Math.min(ta.scrollHeight, maxPx)}px`;
   }, []);
 
   useEffect(() => { autoResizeTextarea(); }, [inputValue, autoResizeTextarea]);

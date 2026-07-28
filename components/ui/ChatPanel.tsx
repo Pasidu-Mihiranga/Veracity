@@ -201,60 +201,73 @@ export function ChatPanel({
             )}
 
             <div
-              className="query-bar-glow query-bar-float relative flex items-end w-full"
+              className={`query-bar-glow query-bar-float query-composer flex w-full flex-col ${
+                inputValue.includes('\n') || inputValue.length > 80 ? 'query-composer--expanded' : ''
+              }`}
               style={{ background: headerBg }}
             >
-              <Search size={15} className="absolute left-4 top-4 pointer-events-none" style={{ color: textSubtle }} />
-              <textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={e => { onInputChange(e.target.value); onTextareaInput(); }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!composerBusy) onSend(inputValue);
-                  }
-                }}
-                placeholder={composerPlaceholder}
-                className="query-textarea w-full pl-11 pr-[220px] py-3.5 bg-transparent outline-none focus:outline-none focus-visible:outline-none font-sans"
-                style={{ color: textMain }}
-                disabled={composerBusy}
-                rows={1}
-              />
-              <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
-                {onViewModeChange ? (
-                  <div className="relative inline-flex items-center">
-                    <select
-                      aria-label="Select Intelligence Mode"
-                      value={viewMode}
-                      onChange={(e) => onViewModeChange(e.target.value as import('@/types/chat-ui').ProductViewMode)}
-                      className="appearance-none ui-mono text-[10.5px] font-medium pl-3 pr-7 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/15 text-accent border border-accent/25 cursor-pointer outline-none capitalize transition-colors"
-                      title="Product View Mode"
-                      disabled={composerBusy}
-                    >
-                      <option value="executive">Mode: Executive</option>
-                      <option value="business">Mode: Business</option>
-                      <option value="analyst">Mode: Analyst</option>
-                      <option value="developer">Mode: Developer</option>
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-accent shrink-0 opacity-80" />
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={onAttachClick}
-                  className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
+              <div className="query-composer-input flex min-w-0 items-start gap-2.5 px-3.5 pt-3.5 sm:px-4 sm:pt-4">
+                <Search
+                  size={15}
+                  className="mt-1.5 shrink-0 pointer-events-none"
                   style={{ color: textSubtle }}
-                  aria-label="Attach image"
+                  aria-hidden
+                />
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={e => { onInputChange(e.target.value); onTextareaInput(); }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!composerBusy) onSend(inputValue);
+                    }
+                  }}
+                  placeholder={composerPlaceholder}
+                  className="query-textarea min-w-0 flex-1 bg-transparent outline-none focus:outline-none focus-visible:outline-none font-sans"
+                  style={{ color: textMain }}
                   disabled={composerBusy}
-                >
-                  <Paperclip size={14} />
-                </button>
+                  rows={1}
+                />
+              </div>
+
+              <div className="query-composer-toolbar flex flex-wrap items-center justify-between gap-2 px-3 pb-3 pt-2 sm:px-3.5 sm:pb-3.5">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  {onViewModeChange ? (
+                    <div className="relative inline-flex items-center">
+                      <select
+                        aria-label="Select Intelligence Mode"
+                        value={viewMode}
+                        onChange={(e) => onViewModeChange(e.target.value as import('@/types/chat-ui').ProductViewMode)}
+                        className="appearance-none ui-mono text-[10.5px] font-medium pl-3 pr-7 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/15 text-accent border border-accent/25 cursor-pointer outline-none capitalize transition-colors"
+                        title="Product View Mode"
+                        disabled={composerBusy}
+                      >
+                        <option value="executive">Mode: Executive</option>
+                        <option value="business">Mode: Business</option>
+                        <option value="analyst">Mode: Analyst</option>
+                        <option value="developer">Mode: Developer</option>
+                      </select>
+                      <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-accent shrink-0 opacity-80" />
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onAttachClick}
+                    className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
+                    style={{ color: textSubtle }}
+                    aria-label="Attach image"
+                    disabled={composerBusy}
+                  >
+                    <Paperclip size={14} />
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => onSend(inputValue)}
                   disabled={(!inputValue.trim() && attachedImages.length === 0) || composerBusy}
-                  className="bg-gradient-signature flex items-center justify-center w-9 h-9 rounded-lg text-[13px] font-medium disabled:opacity-35"
+                  className="bg-gradient-signature flex items-center justify-center w-9 h-9 rounded-xl text-[13px] font-medium disabled:opacity-35 shrink-0"
+                  aria-label="Send"
                 >
                   {composerBusy
                     ? <RefreshCw size={14} className="animate-spin" />

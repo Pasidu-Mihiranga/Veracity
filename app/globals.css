@@ -807,10 +807,10 @@ textarea.neu-input:focus {
 .query-bar-glow {
   position: relative;
   background: var(--surface-raised);
-  border-radius: 9999px;
+  border-radius: 28px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-inset-deep);
-  transition: box-shadow 300ms ease-out, transform 300ms ease-out, border-color 300ms ease-out;
+  transition: box-shadow 300ms ease-out, transform 300ms ease-out, border-color 300ms ease-out, border-radius 200ms ease;
 }
 
 .query-bar-glow::before { display: none; }
@@ -830,7 +830,7 @@ textarea.neu-input:focus {
 
 /* Floating composer — lifted off the bottom with soft elevation */
 .query-bar-float {
-  border-radius: 9999px;
+  border-radius: 28px;
   border: 1.5px solid var(--border-strong, rgba(0, 196, 255, 0.25));
   background: var(--card);
   box-shadow:
@@ -838,7 +838,13 @@ textarea.neu-input:focus {
     0 4px 12px rgba(15, 23, 42, 0.08),
     var(--shadow-extruded-sm);
   transform: translateY(-6px);
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease, background 200ms ease;
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease, background 200ms ease, border-radius 200ms ease;
+}
+
+.query-composer--expanded,
+.query-composer--expanded.query-bar-float,
+.query-composer--expanded.query-bar-glow {
+  border-radius: 22px;
 }
 
 .query-bar-float *:focus,
@@ -894,15 +900,33 @@ textarea.neu-input:focus {
 
 .query-textarea {
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   resize: none;
-  min-height: 48px;
-  max-height: 180px;
+  min-height: 28px;
+  max-height: min(40vh, 280px);
   overflow-y: auto;
   scrollbar-width: thin;
   background: transparent;
   border: none;
   box-shadow: none;
+  padding: 0;
+  field-sizing: content;
+}
+
+.query-composer-toolbar {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+@media (max-width: 640px) {
+  .query-textarea {
+    font-size: 14px;
+    max-height: min(36vh, 220px);
+  }
+
+  .query-composer-input {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
 }
 
 .query-textarea::-webkit-scrollbar { width: 3px; }
