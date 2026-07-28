@@ -57,6 +57,10 @@ export function CompetitiveMatrix({ output, product }: Props) {
   const recentMoves = output.recentMoves ?? [];
   const sources = output.sources ?? [];
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const contextOnly = Boolean(output.contextOnly);
+  const subjectLabel = contextOnly
+    ? 'Subject (unverified)'
+    : product;
 
   const gapStyle = (direction: CompetitorFeature['gapDirection']) => {
     if (direction === 'advantage') {
@@ -90,9 +94,29 @@ export function CompetitiveMatrix({ output, product }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="text-xs font-mono uppercase tracking-wider" style={{ color: textMuted }}>
-        Competitive battlefield
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="text-xs font-mono uppercase tracking-wider" style={{ color: textMuted }}>
+          Competitive battlefield
+        </div>
+        {contextOnly ? (
+          <span
+            className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full"
+            style={{
+              color: isDark ? '#FCD34D' : '#92400E',
+              background: isDark ? 'rgba(245,158,11,0.18)' : 'rgba(254,243,199,1)',
+              border: `1px solid ${isDark ? 'rgba(245,158,11,0.35)' : 'rgba(252,211,77,1)'}`,
+            }}
+          >
+            {output.contextOnlyLabel ?? 'Category context only'}
+          </span>
+        ) : null}
       </div>
+
+      {contextOnly ? (
+        <p className="text-xs leading-relaxed" style={{ color: textMuted }}>
+          Entity match is weak — scores below are category context, not a confirmed product-vs-peer comparison.
+        </p>
+      ) : null}
 
       {competitorSummary && (
         <p className="text-sm leading-relaxed" style={{ color: textMuted }}>
@@ -101,7 +125,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
       )}
 
       {matrix.length > 0 && (
-        <div className="overflow-x-auto rounded-xl results-panel relative">
+        <div className="overflow-x-auto rounded-xl results-panel relative" style={{ opacity: contextOnly ? 0.85 : 1 }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: isDark ? 'rgba(15,26,40,0.9)' : 'rgba(214,228,240,0.7)' }}>
@@ -112,7 +136,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
                   Feature
                 </th>
                 <th className="text-center px-3 py-2.5 text-xs font-mono uppercase tracking-wider w-[20%] text-accent">
-                  {product}
+                  {subjectLabel}
                 </th>
                 <th
                   className="text-center px-3 py-2.5 text-xs font-mono uppercase tracking-wider w-[20%]"
@@ -210,7 +234,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
         {hiringSignals.length > 0 && (
           <div className="results-panel rounded-xl p-3 flex flex-col gap-1.5">
             <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: textMuted }}>
-              Hiring Signals
+              {contextOnly ? 'Category hiring signals' : 'Hiring Signals'}
             </p>
             {hiringSignals.slice(0, 3).map((s, i) => (
               <p key={i} className="text-xs flex items-start gap-1.5" style={{ color: textMuted }}>
@@ -223,7 +247,7 @@ export function CompetitiveMatrix({ output, product }: Props) {
         {recentMoves.length > 0 && (
           <div className="results-panel rounded-xl p-3 flex flex-col gap-1.5">
             <p className="text-[10px] font-mono uppercase tracking-wider" style={{ color: textMuted }}>
-              Recent Moves
+              {contextOnly ? 'Category moves' : 'Recent Moves'}
             </p>
             {recentMoves.slice(0, 3).map((s, i) => (
               <p key={i} className="text-xs flex items-start gap-1.5" style={{ color: textMuted }}>

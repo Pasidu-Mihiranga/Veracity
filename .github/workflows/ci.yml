@@ -36,3 +36,10 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      # Offline anti-hallucination / abstain scenarios (no live LLM or secrets)
+      - name: Output quality gate
+        run: npm run test:quality
+
+      # Live HTTP smoke needs a running server + session cookie — run locally:
+      #   COOKIE='veracity_session=…' npm run test:api-smoke

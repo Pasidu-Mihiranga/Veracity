@@ -15,8 +15,12 @@
     "test": "vitest run",
     "test:quality": "npx tsx scripts/validate-output-quality.ts",
     "test:router": "npx tsx scripts/test-intent-router.ts",
+    "test:api-smoke": "node scripts/api-smoke.mjs",
+    "db:migrate:alerts": "psql \"$DATABASE_URL\" -f db/migrations/0003_alerts_timeline_decision.sql",
     "typecheck": "tsc --noEmit",
     "bench:recall": "npx tsx scripts/benchmark-recall.mjs",
+    "bench:executors": "vitest run __tests__/bench-executor-parity.test.ts",
+    "bench:executors:live": "BENCH_LIVE=1 vitest run __tests__/bench-live-sample.test.ts",
     "build:analyze": "ANALYZE=true next build",
     "prepare": "husky"
   },
@@ -28,6 +32,8 @@
   "dependencies": {
     "@google/genai": "^1.17.0",
     "@hookform/resolvers": "^5.2.1",
+    "@langchain/core": "^1.2.3",
+    "@langchain/langgraph": "^1.4.8",
     "@next/bundle-analyzer": "^16.2.11",
     "@opentelemetry/api": "^1.9.1",
     "@react-pdf/renderer": "^4.5.1",

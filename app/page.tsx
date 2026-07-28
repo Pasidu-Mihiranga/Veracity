@@ -27,6 +27,7 @@ import { UserProfileDrawer } from '@/components/profile/UserProfileDrawer';
 import { UserProfileModal } from '@/components/profile/UserProfileModal';
 import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
+import { unwrapApiPayload } from '@/lib/api-client';
 import {
   defaultSelectedAgents,
   loadSelectedAgents,
@@ -150,8 +151,9 @@ export default function VeracityDashboard() {
     const loadUnread = () => {
       void fetch('/api/alerts?unread=1')
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { alerts?: unknown[] } | null) => {
-          setAlertsUnread(d?.alerts?.length ?? 0);
+        .then((d) => {
+          const data = unwrapApiPayload<{ alerts?: unknown[] }>(d);
+          setAlertsUnread(data.alerts?.length ?? 0);
         })
         .catch(() => {});
     };
@@ -170,14 +172,17 @@ export default function VeracityDashboard() {
     setAttachedImages([]);
     requestAnimationFrame(autoResizeTextarea);
   }, [autoResizeTextarea]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+
   const {
-    isLoading, isFollowingUp, mirofishRunning, sessionUsage, handleSend, handleFollowUp,
+    isLoading, isFollowingUp, mirofishRunning, sessionUsage,
+    handleSend, handleFollowUp,
     handleComposerSend, handleExecutionPlanRefined, resetSessionUsage,
     activeJobId, compareBaseline, cancelActiveJob, requestFullSweepCompare, clearCompareBaseline,
   } = useChatOrchestration({
     messages, setMessages, followUps, setFollowUps, currentSessionId, setCurrentSessionId,
     selectedAgentIds, selectedAgents, forceFullSweep, streamChat, userMemory, refreshUserMemory: async () => { await memoryQuery.refetch(); },
-    refreshSessions, resetDraftInput,
+    refreshSessions, resetDraftInput, targetFolder: selectedFolder, viewMode,
   });
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,11 +197,13 @@ export default function VeracityDashboard() {
     setAttachedImages(prev => [...prev, ...imgs]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
-  const handleNewQuery = useCallback(() => {
+  const handleNewQuery = useCallback((folderName?: string) => {
     resetConversation();
     setExpandedDomain(null);
     setAttachedImages([]);
     resetSessionUsage();
+    if (folderName) setSelectedFolder(folderName);
+    else setSelectedFolder(null);
   }, [resetConversation, resetSessionUsage]);
   const getRunFor = (d: Domain) => getRunForDomain(currentResult?.agentRuns, d);
   const getOutputFor = (d: Domain) => getOutputForDomain(currentResult?.orchestratorOutput, d);
@@ -237,6 +244,8 @@ export default function VeracityDashboard() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
         onNewQuery={handleNewQuery}
+        selectedFolder={selectedFolder}
+        onSelectFolder={setSelectedFolder}
         sessions={sessions}
         loadingSessions={loadingSessions}
         currentSessionId={currentSessionId}

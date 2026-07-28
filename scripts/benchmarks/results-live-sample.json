@@ -1,0 +1,78 @@
+{
+  "summary": {
+    "generatedAt": "2026-07-27T21:35:48.458Z",
+    "sampleSize": 2,
+    "crashes": 0,
+    "statusMismatches": 0,
+    "avgLatencyRatio": 1.0001,
+    "gates": {
+      "crashesZero": true,
+      "statusParity": true,
+      "latencyOk": true,
+      "pass": true
+    },
+    "recommendation": "Live sample healthy — still keep flag OFF until larger live corpus meets ≤+5% / accuracy gates (ADR-0008)."
+  },
+  "rows": [
+    {
+      "id": "q013",
+      "category": "tier1_2",
+      "query": "What is Notion pricing?",
+      "domains": [
+        "pricing"
+      ],
+      "current": {
+        "ms": 64527.640166,
+        "statuses": [
+          "pricing:failed"
+        ],
+        "completed": 0,
+        "failed": 1,
+        "factCount": 0,
+        "outputIds": []
+      },
+      "langgraph": {
+        "ms": 64537.353875,
+        "statuses": [
+          "pricing:failed"
+        ],
+        "completed": 0,
+        "failed": 1,
+        "factCount": 0,
+        "outputIds": []
+      },
+      "statusOk": true,
+      "latencyRatio": 1.0002
+    },
+    {
+      "id": "q014",
+      "category": "tier1_2",
+      "query": "How much does Linear cost?",
+      "domains": [
+        "pricing"
+      ],
+      "current": {
+        "ms": 64492.185333,
+        "statuses": [
+          "pricing:failed"
+        ],
+        "completed": 0,
+        "failed": 1,
+        "factCount": 0,
+        "outputIds": []
+      },
+      "langgraph": {
+        "ms": 64491.508458000026,
+        "statuses": [
+          "pricing:failed"
+        ],
+        "completed": 0,
+        "failed": 1,
+        "factCount": 0,
+        "outputIds": []
+      },
+      "statusOk": true,
+      "latencyRatio": 1
+    }
+  ]
+}

@@ -2,14 +2,14 @@
 
 import type { RefObject } from 'react';
 import {
-  BarChart3, Bell, Bot, Brain, Building2, Crosshair, LogOut, Network, Sparkles, Sun, Moon, User,
+  BarChart3, Bell, Bot, Brain, Building2, Crosshair, Eye, LogOut, Network, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 import { featureFlags } from '@/lib/feature-flags';
 import { WorkspaceSwitcher } from '@/components/ui/WorkspaceSwitcher';
 
-export type TopTab = 'intelligence' | 'usage' | 'steal' | 'profile';
+export type TopTab = 'intelligence' | 'watchlists' | 'usage' | 'steal' | 'profile';
 
 export type DashboardHeaderProps = {
   headerIslandRef: RefObject<HTMLElement | null>;
@@ -110,6 +110,7 @@ export function DashboardHeader({
         <div className="header-island-tabs flex items-center gap-0.5 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
           {([
             { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={13} /> },
+            ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists', icon: <Eye size={13} /> }] : []),
             { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={13} /> },
             { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={13} /> },
             { id: 'profile' as const, label: 'Profile & Settings', icon: <User size={13} /> },
@@ -133,23 +134,23 @@ export function DashboardHeader({
         </div>
 
         <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
-          <div className="header-island-stats hidden md:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {onOpenAgents ? (
               <button
                 type="button"
                 onClick={onOpenAgents}
-                className="neu-pill ui-mono px-2.5 py-1 flex items-center gap-1.5 hover:opacity-80 transition-all cursor-pointer"
-                style={{ color: accentInk, fontSize: 10 }}
-                title="Configure Swarm Agents"
+                className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative hover:opacity-80 transition-all cursor-pointer"
+                style={{ color: textMuted }}
+                title={`Configure Swarm Agents (${activeAgents} active)`}
               >
-                <Bot size={12} />
-                <span>{activeAgents} agents</span>
+                <Bot size={14} />
+                {activeAgents > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-accent text-accent-foreground text-[9px] font-mono font-bold flex items-center justify-center shadow-xs">
+                    {activeAgents}
+                  </span>
+                )}
               </button>
-            ) : (
-              <span className="neu-pill ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
-                {activeAgents} agents
-              </span>
-            )}
+            ) : null}
             {mirofishRunning ? (
               <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
                 forecast live
@@ -211,28 +212,25 @@ export function DashboardHeader({
             >
               <Brain size={14} />
             </button>
-            <button
-              type="button"
-              onClick={onToggleTheme}
-              className="neu-extruded-sm w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ color: textMuted }}
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDark ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
             <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={onToggleUserMenu}
-                className="header-avatar w-9 h-9 flex items-center justify-center text-[12px] font-bold shrink-0 text-white"
+                className="header-avatar w-9 h-9 flex items-center justify-center text-[12px] font-bold shrink-0 text-white cursor-pointer hover:opacity-90 transition-opacity"
                 title={userEmail || 'Account'}
               >
                 {userEmail ? userEmail[0].toUpperCase() : <User size={13} />}
               </button>
               {showUserMenu && (
-                <div className="veracity-card absolute right-0 top-11 w-52 py-1.5 z-50">
+                <div
+                  className="absolute right-0 top-12 mt-1 w-56 p-2 z-50 rounded-2xl border border-border shadow-2xl animate-fadeIn"
+                  style={{ backgroundColor: 'var(--card)' }}
+                >
                   {userEmail && (
-                    <p className="px-3 py-2 text-[12px] font-medium truncate" style={{ color: textMuted }}>{userEmail}</p>
+                    <div className="px-3 py-2 border-b border-border/40 mb-1">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Signed in as</p>
+                      <p className="text-[12px] font-semibold truncate text-foreground mt-0.5">{userEmail}</p>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -241,18 +239,18 @@ export function DashboardHeader({
                       onTopTabChange('profile');
                       if (onOpenProfile) onOpenProfile();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-left transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
                     style={{ color: textMuted }}
                   >
-                    <User size={13} style={{ color: textSubtle }} /> Profile & Settings
+                    <User size={14} style={{ color: textSubtle }} /> Profile & Settings
                   </button>
                   <button
                     type="button"
                     onClick={onSignOut}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left transition-colors hover:bg-muted"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-left transition-colors hover:bg-destructive/10 hover:text-destructive cursor-pointer"
                     style={{ color: textMuted }}
                   >
-                    <LogOut size={13} style={{ color: textSubtle }} /> Sign out
+                    <LogOut size={14} style={{ color: textSubtle }} /> Sign out
                   </button>
                 </div>
               )}

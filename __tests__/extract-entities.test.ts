@@ -32,6 +32,12 @@ describe('extractEntitiesFromQuery', () => {
     expect(r.competitor).toBe('Zendesk');
   });
 
+  it('does not treat pronouns as product entities', () => {
+    const r = extractEntitiesFromQuery('tell me about you');
+    expect(r.product).toBeUndefined();
+    expect(r.competitor).toBeUndefined();
+  });
+
   it('resolves placeholders using heuristic', () => {
     const heuristic = extractEntitiesFromQuery('Notion vs Linear');
     expect(resolveProductName('the current product', heuristic)).toBe('Notion');

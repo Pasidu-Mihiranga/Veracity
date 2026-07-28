@@ -7,27 +7,26 @@ import { adjacentAgent } from './adjacent';
 import { executionEngineAgent } from './execution/execution-engine';
 import { mirofishAgent } from './mirofish';
 import { mirofishLiveAgent } from './mirofish-live';
-import { detectExecutionIntent } from './execution-intent';
-import { generateHuggingFaceJson, generateHuggingFaceText } from './gemini';
-import {
-  extractEntitiesFromQuery,
-  resolveCompetitorName,
-  resolveProductName,
-} from './extract-entities';
 import { isPlaceholderProduct } from './entity-url';
-import { isSynthesisFailureInterpretation } from './synthesis-fallback';
-import { normalizeMindMapTree } from './mind-map-normalize';
 import { filterAndRankSources } from '@/lib/tools/source-validator';
 import {
+  applyAbstainToArtifacts,
   applyEntitySourceFilterToOutputs,
   applyOutputQualityGate,
+  assessOutputQuality,
 } from '@/lib/agents/output-quality';
 import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
 import { computeEvidenceCoverage } from '@/lib/agents/evidence-coverage';
 import { resolveAgentSet } from '@/lib/agents/adaptive-selection';
-import { planMission, missionWaves } from '@/lib/agents/mission-planner';
+import { planMission } from '@/lib/agents/mission-planner';
 import { shouldRunExecution as planExecution } from '@/lib/agents/execution-planner';
 import { buildMissionSummary } from '@/lib/agents/mission-summary';
+import { getWorkflowExecutor } from '@/lib/agents/workflow';
+import { classifyQuery } from '@/lib/agents/classify';
+import { synthesize } from '@/lib/agents/synthesize';
+import { generateMindMap } from '@/lib/agents/mind-map';
+import { generateDirectAnswer } from '@/lib/agents/direct-answer';
+import { EST_COST_PER_MODEL_CALL } from '@/lib/agents/cost-estimates';
 import { logger } from '@/lib/logger';
 import type {
   AgentConfig,
@@ -36,26 +35,15 @@ import type {
   AgentRun,
   OrchestratorOutput,
   RunMetrics,
-  Recommendation,
   ConversationMessage,
   ConfidenceLevel,
   IntelligenceDomain,
   ImageAttachment,
-  MindMapOutput,
-  MindMapNode,
 } from './types';
 import { scoreToLevel } from './types';
 
-// ── Cost estimation constants ───────────────────────────────────────────────
-// Lightweight model-call estimate used for the UI metrics readout.
-// The exact provider cost varies, so this intentionally stays heuristic.
-const EST_INPUT_TOKENS_PER_CALL = 2000;
-const EST_OUTPUT_TOKENS_PER_CALL = 1000;
-const COST_PER_INPUT_TOKEN = 0.10 / 1_000_000;
-const COST_PER_OUTPUT_TOKEN = 0.40 / 1_000_000;
-const EST_COST_PER_MODEL_CALL =
-  EST_INPUT_TOKENS_PER_CALL * COST_PER_INPUT_TOKEN +
-  EST_OUTPUT_TOKENS_PER_CALL * COST_PER_OUTPUT_TOKEN;
+export type { ExecutionTier } from '@/lib/agents/classify';
+export { isUnclearOrGibberishPrompt } from '@/lib/agents/classify';
 
 // Gemini model is resolved inside lib/agents/gemini.ts via GEMINI_MODEL env
 // var (default: gemini-2.5-flash). We deliberately don't override per-call
@@ -73,29 +61,6 @@ const ALL_AGENTS: AgentConfig[] = [
 // mirofishAgent is opt-in and runs separately after the main result is sent
 // (see runMirofishAgent below)
 
-export type ExecutionTier = 0 | 1 | 2 | 3 | 4 | 5;
-
-interface ClassificationResult {
-  product: string;
-  competitor?: string;
-  productUrl?: string;
-  competitorUrl?: string;
-  domains: IntelligenceDomain[];
-  intent: string;
-  runExecution: boolean;
-  tier: ExecutionTier;
-  tierReason: string;
-}
-
-const VALID_DOMAINS: IntelligenceDomain[] = [
-  'market-trends',
-  'competitive',
-  'win-loss',
-  'pricing',
-  'positioning',
-  'adjacent',
-];
-
 interface OrchestrateOptions {
   injectedContext?: string; // extra context injected into agents and synthesizer (e.g. feedback loop)
   forceExecution?: boolean; // force stage-2 execution even when classifier says false
@@ -108,474 +73,6 @@ interface OrchestrateOptions {
   onMissionSummary?: (summary: import('@/lib/agents/mission-summary').MissionSummary) => void | Promise<void>;
   /** Async cancel check between mission waves */
   shouldCancel?: () => boolean | Promise<boolean>;
-}
-
-export function isUnclearOrGibberishPrompt(query: string): boolean {
-  const trimmed = query.trim();
-  if (trimmed.length < 2) return true;
-
-  const words = trimmed.split(/\s+/);
-  if (words.length === 1) {
-    const w = words[0].toLowerCase();
-    if (/^(hi|hello|hey|help|cac|nrr|ltv|roi|saas|gtm|sdr|icp|pricing|clay|linear|notion|figma|apollo)$/i.test(w)) {
-      return false;
-    }
-    const vowels = w.match(/[aeiou]/gi);
-    if (!vowels && w.length >= 3) return true;
-    if (vowels && (w.length / vowels.length > 4) && w.length >= 6) return true;
-    if (/(.)\1{3,}/.test(w)) return true;
-    if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(w)) return true;
-  }
-  return false;
-}
-
-async function classifyQuery(
-  query: string,
-  history: ConversationMessage[],
-  images: ImageAttachment[] = [],
-  memoryContext?: string,
-): Promise<ClassificationResult> {
-  const qTrim = query.trim();
-  const qLower = qTrim.toLowerCase();
-
-  if (isUnclearOrGibberishPrompt(query)) {
-    return {
-      product: 'Veracity AI',
-      intent: 'Unclear or typo input',
-      domains: [],
-      runExecution: false,
-      tier: 0,
-      tierReason: 'Layer 1 Match: Gibberish/Typo Input',
-    };
-  }
-
-  const heuristic = extractEntitiesFromQuery(query);
-  const regexExecution = detectExecutionIntent(query);
-
-  // ── Layer 1: Fast Deterministic Rules (0ms Overhead) ──────────────────────
-  const isMetaPlatformQuery =
-    /\b(your|yourself|this app|this platform|veracity|you use|you work|you provide|your api|api provider|api povider|your backend|your model|your LLM|your engine|your stack|your system|your pricing|your features)\b/i.test(qLower) &&
-    !heuristic.product &&
-    !heuristic.competitor;
-
-  const isDirectGreetingOrConcept =
-    (/^(hi|hello|hey|greetings|help|who are you|what can you do|what type of|what do you do|how do you work|what are your|explain what|tell me about|what is cac|what is nrr|explain cac|explain churn)\b/i.test(qLower) ||
-     /(can you|capabilities|help me|features|you provide|your purpose|yourself|api provider|api povider)\b/i.test(qLower) ||
-     isMetaPlatformQuery) &&
-    !heuristic.product &&
-    !heuristic.competitor;
-
-  if (isDirectGreetingOrConcept) {
-    return {
-      product: 'Veracity AI',
-      intent: query,
-      domains: [],
-      runExecution: false,
-      tier: 0,
-      tierReason: 'Layer 1 Deterministic Match: Tier 0 Direct Answer (0ms)',
-    };
-  }
-
-  // Build context from prior messages
-  const priorContext = history
-    .slice(-6) // last 3 turns
-    .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
-    .join('\n');
-
-  // ── Layer 2: Fast Structured Classifier ───────────────────────────────────
-  const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information using conversation history and persistent user memory. Always return valid JSON. Never use placeholder product names like "the current product" or "the product" — extract real brand names from the query when present. Prefer company/product entities over people with the same name. If the query only mentions an ambiguous personal name with no product category, still return the name but keep domains focused and do not invent a competitor.`;
-
-  const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}Conversation history:
-${priorContext || 'None'}
-
-Current query: "${query}"
-${images.length > 0 ? `\nAttached images: ${images.length}. Use them as contextual metadata only; the specialist agents inspect the actual image content.` : ''}
-${heuristic.product ? `\nHeuristic hint — product: "${heuristic.product}"${heuristic.competitor ? `, competitor: "${heuristic.competitor}"` : ''}. Prefer these when they match the query.` : ''}
-
-Respond with JSON:
-{
-  "product": string,         // The product being analysed (real brand name; infer from context if not explicit)
-  "competitor": string | null,  // Competitor name if mentioned or inferable from context
-  "productUrl": string | null,  // Product website if known (e.g. vectoragents.ai)
-  "competitorUrl": string | null,
-  "domains": string[],       // Which intelligence domains to activate. Options: market-trends, competitive, win-loss, pricing, positioning, adjacent
-  "intent": string,          // One-line description of what the user wants to know
-  "runExecution": boolean,   // true if the query is execution-intent (write copy, draft outreach, campaign brief, cold email, LinkedIn post, variants)
-  "tier": number             // Execution tier: 0 (direct chat <1s), 1 (single search ~2.5s), 2 (targeted 2-agent ~5s), 3 (full swarm ~12s), 4 (execution engine ~18s), 5 (persona simulation ~35s)
-}
-
-Domain selection & Tier rules:
-- Tier 0 (Direct Answer, 0 domains): Conversational greetings, meta-questions about Veracity AI or what it can do/capabilities, generic business concept definitions without a specific target company.
-- Tier 1 (1 domain): Single factual metric lookup for 1 company (e.g. pricing).
-- Tier 2 (2-3 domains): Focused comparison or positioning analysis between 2 companies (include competitive, win-loss, positioning).
-- Tier 3 (Full Swarm): Complex multi-domain strategic research prompts (e.g. "What should Vector Agents build?").
-- Tier 4: Deliverable creation prompts (write copy, campaign brief, cold email, variants).
-- Tier 5: Persona panel simulation prompts.`;
-
-  try {
-    const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
-      maxNewTokens: 512,
-      temperature: 0.1,
-    });
-    const product = resolveProductName(parsed.product, heuristic);
-    const competitor = resolveCompetitorName(parsed.competitor, heuristic);
-    if (isPlaceholderProduct(product)) {
-      logger.warn('classify.placeholder_product', { query, product, heuristic });
-    }
-    let rawTier = Number(parsed.tier);
-    if (isNaN(rawTier)) {
-      rawTier = regexExecution ? 4 : 3;
-    }
-
-    // Safety check: Override rawTier to 0 if query asks about "your..." or platform capabilities/providers
-    const hasExplicitBrandInQuery = heuristic.product || heuristic.competitor || /\b(clay|notion|linear|figma|apollo|vector agents|lilian|gong|hubspot|salesforce)\b/i.test(qLower);
-    if (!hasExplicitBrandInQuery && /\b(your|yourself|this app|this platform|you use|you work|api provider|api povider|your model|your engine|backend|system)\b/i.test(qLower)) {
-      rawTier = 0;
-    } else if ((!product || isPlaceholderProduct(product) || product === 'Veracity AI') && !competitor) {
-      if (/^(hi|hello|hey|greetings|help|who are you|what can you do|what type of|what do you do|how do you work)\b/i.test(qLower)) {
-        rawTier = 0;
-      }
-    }
-
-    const tier: ExecutionTier = (rawTier >= 0 && rawTier <= 5) ? (rawTier as ExecutionTier) : (regexExecution ? 4 : 3);
-    const domains = tier === 0 ? [] : normalizeDomains(parsed.domains);
-
-    return {
-      product,
-      competitor,
-      productUrl: (parsed.productUrl as string) || undefined,
-      competitorUrl: (parsed.competitorUrl as string) || undefined,
-      domains,
-      intent: (parsed.intent as string) || query,
-      runExecution: Boolean(parsed.runExecution) || regexExecution,
-      tier,
-      tierReason: `Layer 2 LLM Match: Tier ${tier}`,
-    };
-  } catch (err) {
-    logger.error('classify.failed', {
-      query,
-      error: err instanceof Error ? err.message : String(err),
-      heuristic,
-    });
-    // Layer 3 Safety Fallback: Default to Tier 3 Full Swarm for 100% quality guarantee
-    return {
-      product: resolveProductName(undefined, heuristic, 'unknown product'),
-      competitor: resolveCompetitorName(undefined, heuristic),
-      domains: ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'],
-      intent: query,
-      runExecution: regexExecution,
-      tier: regexExecution ? 4 : 3,
-      tierReason: 'Layer 3 Safety Fallback: Tier 3 Full Swarm',
-    };
-  }
-}
-
-// Strip markdown code fences Gemini sometimes wraps around JSON
-function stripJsonFences(raw: string): string {
-  return raw
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
-}
-
-function safeParseJson(raw: string): Record<string, unknown> {
-  try {
-    return JSON.parse(stripJsonFences(raw));
-  } catch {
-    // Try extracting first JSON object/array from the string
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) {
-      try { return JSON.parse(match[0]); } catch { /* ignore */ }
-    }
-    return {};
-  }
-}
-
-function normalizeDomains(rawDomains: unknown): IntelligenceDomain[] {
-  if (!Array.isArray(rawDomains)) {
-    return ['market-trends', 'competitive', 'win-loss'];
-  }
-  const filtered = rawDomains
-    .filter((domain): domain is IntelligenceDomain =>
-      typeof domain === 'string' && VALID_DOMAINS.includes(domain as IntelligenceDomain),
-    );
-  if (filtered.length >= 3) return filtered;
-  const merged = [...new Set([...filtered, 'market-trends', 'competitive', 'win-loss'])];
-  return merged.slice(0, 6) as IntelligenceDomain[];
-}
-
-// ── Synthesizer — merges all agent outputs into a final answer ────────────────
-async function synthesize(
-  query: string,
-  outputs: AgentOutput[],
-  history: ConversationMessage[],
-  images: ImageAttachment[] = [],
-  memoryContext?: string,
-  product?: string,
-  competitor?: string,
-): Promise<{ answer: string; recommendations: Recommendation[]; followUps: string[] }> {
-  const priorSummary = history
-    .slice(-4)
-    .filter(m => m.role === 'assistant')
-    .map(m => m.content.slice(0, 300))
-    .join('\n');
-
-  const outputSummaries = outputs.map(o => ({
-    domain: o.domain,
-    confidence: o.confidence,
-    facts: o.facts.slice(0, 4),
-    interpretation: o.interpretation.slice(0, 3),
-    sources: o.sources.slice(0, 4).map(s => ({ title: s.title, url: s.url })),
-  }));
-
-  const citedTitles = outputs
-    .flatMap(o => o.sources)
-    .slice(0, 16)
-    .map(s => s.title)
-    .filter(Boolean);
-
-  const prompt = `You are the synthesis layer of a multi-agent growth intelligence system. Write a clear, simple answer a busy founder can understand in 30 seconds — plain English, not consultant jargon.
-
-Original query: "${query}"
-Resolved product: "${product ?? 'unknown'}"${competitor ? `\nResolved competitor: "${competitor}"` : ''}
-${memoryContext ? `${memoryContext}\n` : ''}${priorSummary ? `Prior conversation context:\n${priorSummary}\n` : ''}
-Agent findings from ${outputs.length} specialist agents:
-${JSON.stringify(outputSummaries, null, 2)}
-
-Available source titles (for grounding only — do not invent URLs):
-${JSON.stringify(citedTitles, null, 2)}
-
-Rules:
-1. Lead with the direct recommendation or answer in sentence 1 — BUT only if findings clearly support it.
-2. LANGUAGE (mandatory):
-   - Use short sentences and everyday words.
-   - Avoid buzzwords: "opinionated", "system of action", "system of record", "agentic", "cognitive load", "verticalize", "commoditize", "ICP" unless you immediately explain in plain words.
-   - Prefer "what to do" and "why it matters" over abstract strategy language.
-3. ANTI-HALLUCINATION (mandatory):
-   - Use ONLY facts present in agent findings / source titles above.
-   - Do NOT invent product categories, vertical pivots, rebrands, or competitors not supported by findings.
-   - Do NOT mention other products from memory (e.g. Lilian) unless they appear in the current query or findings.
-   - If sources look like people, resumes, or LinkedIn personal profiles for "${product ?? 'the product'}", say evidence is ambiguous and ask for the official company URL instead of inventing strategy.
-   - If evidence is thin or conflicting, set recommendation confidence to "low", avoid "immediate" priority, and state uncertainty in plain language.
-   - Never claim a market growth % or industry ranking unless it appears in the findings.
-4. Clean prose only — no [WEB]/[NEWS]/[REDDIT] labels.
-5. Be specific when evidence supports it: name products, buyer types, workflows, pricing from the findings. Avoid vague filler.
-6. Keep "answer" under 120 words.
-7. Exactly 2-3 recommendations. Each title must be a simple action (verb-first, ≤8 words). Evidence must quote a concrete finding (or say "not enough evidence").
-8. Prefer recommendations tagged immediate ONLY when findings strongly support shipping now.
-9. Follow-ups must be simple decision questions about THIS product/competitor only.
-
-Return ONLY valid JSON:
-{
-  "answer": "string",
-  "recommendations": [
-    {
-      "title": "string",
-      "rationale": "string",
-      "evidence": ["string"],
-      "confidence": "high" | "medium" | "low",
-      "priority": "immediate" | "short-term" | "strategic"
-    }
-  ],
-  "followUps": ["string", "string", "string"]
-}`;
-
-  try {
-    const imageNote = images.length > 0
-      ? `\nThe user has also attached ${images.length} image(s). Reference their visual content (text, UI elements, charts, pricing tables, etc.) directly in your answer.`
-      : '';
-    const raw = await generateHuggingFaceText(prompt + imageNote, {
-      maxNewTokens: 768,
-      temperature: 0.15,
-    });
-    const parsed = safeParseJson(raw);
-    return {
-      answer: (parsed.answer as string) || buildFallbackAnswer(outputs, query),
-      recommendations: (parsed.recommendations as Recommendation[]) ?? [],
-      followUps: (parsed.followUps as string[]) ?? [],
-    };
-  } catch (err) {
-    logger.error('orchestrator.synthesis_failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return {
-      answer: buildFallbackAnswer(outputs, query),
-      recommendations: [],
-      followUps: [],
-    };
-  }
-}
-
-function buildFallbackAnswer(outputs: AgentOutput[], query: string): string {
-  if (outputs.length === 0) {
-    return `I couldn't retrieve signal data for "${query}". Please check your API keys and try again.`;
-  }
-
-  const synthesisFailures = outputs.filter((o) => isSynthesisFailureInterpretation(o.interpretation));
-  const errorLines = synthesisFailures
-    .map((o) => o.interpretation.find((line) => line.startsWith('SYNTHESIS_ERROR:')))
-    .filter((line): line is string => Boolean(line));
-
-  if (synthesisFailures.length === outputs.length && errorLines.length > 0) {
-    const uniqueErrors = [...new Set(errorLines)].slice(0, 3);
-    return [
-      `I collected live search signals for "${query}", but AI analysis failed for every domain.`,
-      '',
-      'Exception(s):',
-      ...uniqueErrors.map((e) => `• ${e.replace(/^SYNTHESIS_ERROR:\s*/, '')}`),
-      '',
-      'Check GEMINI_API_KEY / GEMINI_MODEL. Prefer gemini-flash-latest or gemini-3.5-flash (free). gemini-2.5-flash is blocked for many new keys. Then rerun. Domain cards still show raw snippets only.',
-    ].join('\n');
-  }
-
-  // Produce clean prose from agent outputs, filtering out raw tool prefixes
-  const cleanFacts = outputs
-    .flatMap(o => o.facts)
-    .filter(f => !f.startsWith('[') && !f.startsWith('SYNTHESIS_ERROR:'))
-    .slice(0, 4);
-  const domains = outputs.map(o => o.domain.replace(/-/g, ' ')).join(', ');
-  const warning = synthesisFailures.length > 0
-    ? `\n\nWarning: AI synthesis failed for ${synthesisFailures.length}/${outputs.length} domains (${errorLines[0]?.replace(/^SYNTHESIS_ERROR:\s*/, '') ?? 'see domain cards'}).`
-    : '';
-  if (cleanFacts.length > 0) {
-    return `Based on intelligence gathered across ${domains}:\n\n${cleanFacts.map(f => `• ${f}`).join('\n')}${warning}`;
-  }
-  return `Intelligence gathered from ${outputs.length} agents covering: ${domains}. Expand the Agent Findings below for detailed insights.${warning}`;
-}
-
-// ── Mind map generator — executive strategy / issue-tree map ─────────────────
-async function generateMindMap(
-  query: string,
-  product: string,
-  outputs: AgentOutput[],
-): Promise<MindMapOutput | null> {
-  if (outputs.length === 0) return null;
-
-  const outputSummaries = outputs.map(o => ({
-    domain: o.domain,
-    confidence: o.confidence,
-    confidenceScore: o.confidenceScore,
-    facts: o.facts.slice(0, 5),
-    interpretation: o.interpretation.slice(0, 3),
-  }));
-
-  const systemPrompt = `You build executive strategy mind maps (issue-tree / pillar style), not decorative spider diagrams.
-Return valid JSON only. Prefer short keyword labels. Put long explanation in "detail".`;
-
-  const userPrompt = `Product: "${product}"
-Query: "${query}"
-Agent findings:
-${JSON.stringify(outputSummaries, null, 2)}
-
-Build a STRATEGY MIND MAP that answers the query.
-
-STRUCTURE (strict):
-- centralTopic: rephrase the USER QUESTION as 3-6 words (NOT a domain name like "Market Trend Alignment")
-- Exactly 5 branches (pillars). Prefer this decision set when the query is about what to build:
-  1) Specialize / ICP workflow to ship
-  2) Prove ROI / reliability
-  3) Pricing model
-  4) Positioning narrative
-  5) Avoid / do-not-build
-- Each branch: 2-3 children max. No grandchildren unless essential (max 1 level of grandchildren).
-- Branch labels: 2-5 words. Child labels: 3-7 words. Imperative or noun phrases — NOT full sentences.
-- Branch labels MUST be unique and MUST NOT equal centralTopic.
-- Every node needs non-empty "detail" (1 sentence evidence).
-- Each branch sets sourceAgent to the best matching domain and confidence from findings.
-- sentiment: positive | neutral | negative | warning
-
-Return JSON:
-{
-  "centralTopic": "string",
-  "summary": "string — one line thesis",
-  "branches": [
-    {
-      "id": "branch-1",
-      "label": "string",
-      "detail": "string",
-      "sentiment": "positive" | "neutral" | "negative" | "warning",
-      "confidence": "high" | "medium" | "low",
-      "sourceAgent": "market-trends" | "competitive" | "win-loss" | "pricing" | "positioning" | "adjacent",
-      "children": [
-        {
-          "id": "leaf-1-1",
-          "label": "string",
-          "detail": "string",
-          "sentiment": "positive" | "neutral" | "negative" | "warning"
-        }
-      ]
-    }
-  ]
-}`;
-
-  try {
-    const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
-      maxNewTokens: 2048,
-      temperature: 0.15,
-    });
-
-    const normalized = normalizeMindMapTree({
-      centralTopic: parsed.centralTopic,
-      summary: parsed.summary,
-      branches: parsed.branches,
-      product,
-      query,
-    });
-    if (normalized.branches.length === 0) return null;
-
-    const avgScore = outputs.reduce((s, o) => s + o.confidenceScore, 0) / outputs.length;
-
-    return {
-      agentId: 'mind-map-synthesis',
-      domain: 'market-trends',
-      confidence: scoreToLevel(avgScore),
-      confidenceScore: avgScore,
-      facts: [],
-      interpretation: [],
-      sources: filterAndRankSources(outputs.flatMap(o => o.sources), 10),
-      generatedAt: new Date().toISOString(),
-      artifactType: 'mind-map',
-      centralTopic: normalized.centralTopic,
-      branches: normalized.branches,
-      summary: normalized.summary,
-    };
-  } catch (err) {
-    logger.error('mindmap.generation_failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
-  }
-}
-
-async function generateDirectAnswer(
-  query: string,
-  history: ConversationMessage[],
-  memoryContext?: string,
-): Promise<string> {
-  if (isUnclearOrGibberishPrompt(query)) {
-    return `I couldn't understand your input ("${query}"). It appears to be a typo or unrecognized prompt.\n\nPlease enter a specific question about your product, competitors, or market strategy (for example: "Compare Notion and Linear pricing" or "What features should Vector Agents build?").`;
-  }
-
-  const priorContext = history
-    .slice(-4)
-    .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 300)}`)
-    .join('\n');
-
-  const systemPrompt = `You are Veracity AI, an authoritative executive growth intelligence consultant. Answer the user's question directly, clearly, and helpfully in plain English prose (<100 words). Do not use buzzwords like "agentic", "cognitive load", or "verticalize".`;
-
-  const userPrompt = `${memoryContext ? `${memoryContext}\n\n` : ''}${priorContext ? `Conversation history:\n${priorContext}\n\n` : ''}User question: "${query}"`;
-  const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-
-  try {
-    const text = await generateHuggingFaceText(combinedPrompt, {
-      maxNewTokens: 256,
-      temperature: 0.2,
-    });
-    return text.trim();
-  } catch {
-    return `Hello! I am Veracity AI, your executive growth intelligence platform. Ask me any question to analyze competitors, compare positioning, audit pricing, or forecast market trends.`;
-  }
 }
 
 // ── Main orchestrator ─────────────────────────────────────────────────────────
@@ -609,6 +106,20 @@ export async function orchestrate(
     const directAnswer = await generateDirectAnswer(query, history, memoryContext);
     const latencyMs = Date.now() - orchestrationStart;
 
+    const hasNamedCompare =
+      Boolean(product && competitor)
+      && product !== 'Veracity AI'
+      && !isPlaceholderProduct(product);
+    const suggestedFollowUps = hasNamedCompare
+      ? [
+          `How do ${product} and ${competitor} compete in the market?`,
+          `Compare ${product} and ${competitor} positioning and pricing.`,
+          `What market trends matter for ${product}?`,
+        ]
+      : [
+          'Name a product or competitor for a full research sweep.',
+        ];
+
     return {
       query,
       product,
@@ -617,11 +128,7 @@ export async function orchestrate(
       outputs: [],
       synthesizedAnswer: directAnswer,
       topRecommendations: [],
-      suggestedFollowUps: [
-        'What product or competitor would you like to analyze today?',
-        'Compare your product against a key market rival.',
-        'Explore market trends for your industry.',
-      ],
+      suggestedFollowUps,
       totalConfidence: 'high',
       generatedAt: new Date().toISOString(),
       selectionMeta: {
@@ -707,6 +214,19 @@ export async function orchestrate(
     if (targeted.length > 0) researchIds = targeted;
   }
 
+  // Dual-entity compares: auto-include pricing (free-tier: one extra agent, no manual toggle)
+  const uiAllowsPricing =
+    !options?.selectedAgents?.length ||
+    options.selectedAgents.includes('pricing');
+  if (
+    competitor &&
+    uiAllowsPricing &&
+    !researchIds.includes('pricing') &&
+    !isPlaceholderProduct(competitor)
+  ) {
+    researchIds = [...researchIds, 'pricing'];
+  }
+
   const agentsToRun = ALL_AGENTS.filter((a) => researchIds.includes(a.id as IntelligenceDomain));
   const missionSteps = planMission([
     ...researchIds,
@@ -738,67 +258,25 @@ export async function orchestrate(
   log?.(`Dividing work across ${agentsToRun.length} specialist agents (${sweepLabel})…`);
   log?.('Orchestrating parallel research — search, fetch, and extract…');
 
-  // Initialise agent run tracking
-  const agentRuns: AgentRun[] = agentsToRun.map(a => ({
-    agentId: a.id,
-    name: a.name,
-    status: 'pending',
-  }));
-
-  // Step 3: Fan-out in mission waves (respect deps + cancel between waves)
-  const agentLatencies: Record<string, number> = {};
+  // Step 3: Fan-out via WorkflowExecutor (CurrentExecutor today; LangGraph optional later)
   const researchOnlySteps = missionSteps.filter((s) => s.agentId !== 'execution-engine');
-  const waves = missionWaves(researchOnlySteps);
-  const outputs: AgentOutput[] = [];
-  const runIndex = new Map(agentsToRun.map((a, i) => [a.id, i]));
-
-  const runOneAgent = async (agent: (typeof agentsToRun)[number]): Promise<AgentOutput | null> => {
-    const i = runIndex.get(agent.id) ?? 0;
-    const agentStart = Date.now();
-    agentRuns[i] = { ...agentRuns[i], status: 'running', startedAt: new Date().toISOString() };
-    onAgentUpdate?.(agentRuns[i]);
-    try {
-      const output = await agent.run({ ...agentContext, scratchpad: { ...scratchpad } });
-      agentLatencies[agent.id] = Date.now() - agentStart;
-      const synthError = output.interpretation.find((line) => line.startsWith('SYNTHESIS_ERROR:'));
-      if (synthError) {
-        agentRuns[i] = {
-          ...agentRuns[i],
-          status: 'failed',
-          completedAt: new Date().toISOString(),
-          error: synthError.replace(/^SYNTHESIS_ERROR:\s*/, ''),
-        };
-      } else {
-        agentRuns[i] = { ...agentRuns[i], status: 'completed', completedAt: new Date().toISOString() };
-        for (const f of output.facts.slice(0, 3)) {
-          scratchpad.productFacts.push(f);
-        }
-      }
-      onAgentUpdate?.(agentRuns[i]);
-      return synthError ? null : output;
-    } catch (err) {
-      agentLatencies[agent.id] = Date.now() - agentStart;
-      const error = err instanceof Error ? err.message : String(err);
-      agentRuns[i] = { ...agentRuns[i], status: 'failed', completedAt: new Date().toISOString(), error };
-      onAgentUpdate?.(agentRuns[i]);
-      return null;
-    }
-  };
-
-  for (const wave of waves) {
-    if (options?.shouldCancel && (await options.shouldCancel())) {
-      log?.('Cancel requested — stopping remaining mission waves.');
-      throw new Error('Job cancelled');
-    }
-    const waveAgents = wave
-      .map((s) => agentsToRun.find((a) => a.id === s.agentId))
-      .filter(Boolean) as typeof agentsToRun;
-    if (waveAgents.length === 0) continue;
-    const settled = await Promise.allSettled(waveAgents.map((a) => runOneAgent(a)));
-    for (const r of settled) {
-      if (r.status === 'fulfilled' && r.value) outputs.push(r.value);
-    }
-  }
+  const executor = getWorkflowExecutor();
+  const waveResult = await executor.execute(
+    {
+      steps: researchOnlySteps,
+      agents: agentsToRun,
+      context: agentContext,
+      scratchpad,
+    },
+    {
+      onAgentUpdate: (run) => onAgentUpdate?.(run),
+      onOrchestrationLog: log,
+      shouldCancel: options?.shouldCancel,
+    },
+  );
+  const agentRuns: AgentRun[] = [...waveResult.agentRuns];
+  const outputs: AgentOutput[] = [...waveResult.outputs];
+  const agentLatencies: Record<string, number> = { ...waveResult.agentLatencies };
 
   // Each research agent makes ~1 model call
   modelCallCount += agentsToRun.length;
@@ -843,11 +321,27 @@ export async function orchestrate(
   const filtered = applyEntitySourceFilterToOutputs(outputs, product, competitor);
   const researchOutputs = filtered.outputs;
 
+  // Early entity-quality peek (sources only) so mind map can prefer identity-first pillars
+  const preGateSources = researchOutputs.flatMap((o) => o.sources);
+  const preGateAvg = researchOutputs.length > 0
+    ? researchOutputs.reduce((sum, o) => sum + o.confidenceScore, 0) / researchOutputs.length
+    : 0.5;
+  const earlyQuality = assessOutputQuality({
+    product,
+    competitor,
+    sources: preGateSources,
+    answer: '',
+    recommendations: [],
+    agentConfidenceAvg: preGateAvg,
+  });
+
   // Step 5: Synthesise + generate mind map in parallel (2 model calls)
   log?.('Reasoning over findings — synthesizing answer and strategic mind map…');
   const [synthesisResult, mindMapResult] = await Promise.all([
     synthesize(query, researchOutputs, history, images, synthesisMemoryContext, product, competitor),
-    generateMindMap(query, product, researchOutputs),
+    generateMindMap(query, product, researchOutputs, {
+      identityFirst: earlyQuality.shouldAbstainFromStrongClaims,
+    }),
   ]);
   modelCallCount += 2; // synthesis + mind map
 
@@ -884,13 +378,18 @@ export async function orchestrate(
       matched: guarded.quality.matchedSourceCount,
       total: guarded.quality.totalSourceCount,
     });
-    log?.('Evidence quality check flagged thin or ambiguous grounding — softening claims…');
+    log?.('Evidence quality check flagged thin or ambiguous grounding — softening claims and Stage-1 cards…');
   }
 
   const answer = guarded.answer;
   const followUps = guarded.followUps;
   const totalConfidence = guarded.totalConfidence;
-  const outputsFinal = researchOutputs;
+  // Soft-label Stage-1 / sanitize competitive signals / identity-first mind map
+  const outputsFinal = applyAbstainToArtifacts(researchOutputs, {
+    product,
+    competitor,
+    quality: guarded.quality,
+  });
 
   // Step 7b: Bind recommendation evidence → source URLs (Evidence Trail)
   const recommendations = bindEvidenceToSources(

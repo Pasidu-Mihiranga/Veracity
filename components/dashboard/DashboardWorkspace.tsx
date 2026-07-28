@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
@@ -9,6 +9,8 @@ import { ChatPanel } from '@/components/ui/ChatPanel';
 import { AgentProgressGrid } from '@/components/ui/AgentProgressGrid';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { AppErrorBoundary } from '@/components/ui/AppErrorBoundary';
+
+import { IntelligenceResults } from '@/components/ui/IntelligenceResults';
 
 const ApiUsagePanel = dynamic(() => import('@/components/ApiUsagePanel').then((m) => m.ApiUsagePanel), {
   loading: () => <PanelSkeleton label="Loading usage" height={280} />,
@@ -22,12 +24,12 @@ const ExpandedDomainPanel = dynamic(() => import('@/components/ui/ExpandedDomain
   loading: () => <PanelSkeleton label="Loading domain" height={240} />,
   ssr: false,
 });
-const IntelligenceResults = dynamic(() => import('@/components/ui/IntelligenceResults').then((m) => m.IntelligenceResults), {
-  loading: () => <PanelSkeleton label="Loading results" rows={5} height={360} />,
-  ssr: false,
-});
 const ProfileSettingsView = dynamic(() => import('@/components/profile/ProfileSettingsView').then((m) => m.ProfileSettingsView), {
   loading: () => <PanelSkeleton label="Loading profile" height={320} />,
+  ssr: false,
+});
+const WatchlistsView = dynamic(() => import('@/components/watchlists/WatchlistsView').then((m) => m.WatchlistsView), {
+  loading: () => <PanelSkeleton label="Loading watchlists" height={320} />,
   ssr: false,
 });
 
@@ -164,6 +166,9 @@ export function DashboardWorkspace({
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
+  const handleAgentProgressHidden = useCallback(() => {
+    onResetHeader?.();
+  }, [onResetHeader]);
 
   useLayoutEffect(() => {
     if (mainScrollRef.current) {
@@ -196,6 +201,7 @@ export function DashboardWorkspace({
             />
           )}
           {topTab === 'steal' && <StealStrategyPanel />}
+          {topTab === 'watchlists' && <WatchlistsView />}
           {topTab === 'profile' && <ProfileSettingsView userEmail={userEmail ?? null} userMemory={userMemory} />}
           {topTab === 'intelligence' && (
             <>
@@ -234,11 +240,7 @@ export function DashboardWorkspace({
                   missionSteps={missionSteps}
                   activeJobId={activeJobId}
                   onCancelJob={onCancelJob}
-                  onHidden={() => {
-                    if (onResetHeader) {
-                      onResetHeader();
-                    }
-                  }}
+                  onHidden={handleAgentProgressHidden}
                   {...chrome}
                 />
               </AppErrorBoundary>

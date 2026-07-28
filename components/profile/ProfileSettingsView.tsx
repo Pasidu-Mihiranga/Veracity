@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Building2, Globe, Crosshair, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Brain, Tag } from 'lucide-react';
+import { User, Building2, Globe, Crosshair, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Brain, Tag, Sun, Moon, Palette, Trash2 } from 'lucide-react';
 import { loadUserProfile, saveUserProfile, UserProfile } from '@/lib/user-profile';
-import type { UserMemory } from '@/lib/memory';
+import { getFactText, updateUserMemoryFacts, type MemoryFact, type UserMemory } from '@/lib/memory';
+import { useTheme } from '@/lib/theme-provider';
 
 interface ProfileSettingsViewProps {
   userEmail: string | null;
@@ -14,6 +15,7 @@ export function ProfileSettingsView({
   userEmail,
   userMemory,
 }: ProfileSettingsViewProps) {
+  const { theme, setThemeMode } = useTheme();
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
   const [role, setRole] = useState(() => profile.role || userMemory?.role || '');
   const [industry, setIndustry] = useState(() => profile.industry || '');
@@ -23,6 +25,7 @@ export function ProfileSettingsView({
   const [competitors, setCompetitors] = useState<string[]>(() =>
     profile.competitors?.length ? profile.competitors : (userMemory?.competitors || []),
   );
+  const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>(() => userMemory?.facts ?? []);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
@@ -30,42 +33,57 @@ export function ProfileSettingsView({
       if (!role && userMemory.role) setRole(userMemory.role);
       if (!company && userMemory.company) setCompany(userMemory.company);
       if (competitors.length === 0 && userMemory.competitors?.length) setCompetitors(userMemory.competitors);
+      if (userMemory.facts) setMemoryFacts(userMemory.facts);
     }
   }, [userMemory, role, company, competitors.length]);
 
   const handleAddCompetitor = () => {
     const trimmed = competitorInput.trim();
     if (trimmed && !competitors.includes(trimmed)) {
-      setCompetitors([...competitors, trimmed]);
+      setCompetitors((prev) => [...prev, trimmed]);
       setCompetitorInput('');
     }
   };
 
   const handleRemoveCompetitor = (name: string) => {
-    setCompetitors(competitors.filter((c) => c !== name));
+    setCompetitors((prev) => prev.filter((c) => c !== name));
+  };
+
+  const handleDeleteFact = async (indexToDelete: number) => {
+    const updated = memoryFacts.filter((_, idx) => idx !== indexToDelete);
+    setMemoryFacts(updated);
+    await updateUserMemoryFacts(updated);
+  };
+
+  const handleClearAllFacts = async () => {
+    setMemoryFacts([]);
+    await updateUserMemoryFacts([]);
   };
 
   const handleSave = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const updated = saveUserProfile({
+    const updated: UserProfile = {
+      ...profile,
       role: role.trim(),
       industry: industry.trim(),
       company: company.trim(),
       websiteUrl: websiteUrl.trim(),
       competitors,
-    });
+    };
     setProfile(updated);
+    saveUserProfile(updated);
+
+    // Also persist baseline updates into backend user_memory table
+    void updateUserMemoryFacts(memoryFacts);
+
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setTimeout(() => setSavedSuccess(false), 2500);
   };
 
   const isProfileIncomplete = !company || !role || competitors.length === 0;
-  const factsList = userMemory?.facts ?? [];
-  const interestsList = userMemory?.interests ?? [];
-  const productsList = userMemory?.products ?? [];
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
+    <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
       {/* Top Header Card */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
@@ -91,10 +109,10 @@ export function ProfileSettingsView({
         <button
           type="button"
           onClick={() => handleSave()}
-          className="px-5 py-2.5 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
         >
-          <CheckCircle2 size={14} />
-          {savedSuccess ? 'Saved!' : 'Save Baseline'}
+          <CheckCircle2 size={14} className="text-white" />
+          <span className="text-white">{savedSuccess ? 'Saved!' : 'Save Baseline'}</span>
         </button>
       </div>
 
@@ -112,165 +130,232 @@ export function ProfileSettingsView({
       )}
 
       {/* Main Editable Profile Grid */}
-      <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         {/* Card 1: Account Identity */}
         <div
-          className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm"
+          className="rounded-2xl p-6 bg-card border border-border flex flex-col justify-between gap-4 shadow-sm h-full"
           style={{ boxShadow: 'var(--shadow-extruded)' }}
         >
-          <div className="flex items-center gap-2 pb-3 border-b border-border/50">
-            <ShieldCheck size={16} className="text-accent" />
-            <h3 className="text-sm font-bold text-foreground">Account Identity</h3>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Account Email
-              </label>
-              <input
-                type="text"
-                disabled
-                value={userEmail || 'Executive User'}
-                className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-xs font-mono text-muted-foreground cursor-not-allowed opacity-80"
-              />
+          <div>
+            <div className="flex items-center gap-2 pb-3 border-b border-border/50 mb-4">
+              <ShieldCheck size={16} className="text-accent" />
+              <h3 className="text-sm font-bold text-foreground">Account Identity</h3>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Executive Role / Title
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. VP of Product, CEO, GTM Director"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Target Category / Industry
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. B2B SaaS, AI/ML, FinTech"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Company & Product Baseline */}
-        <div
-          className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm"
-          style={{ boxShadow: 'var(--shadow-extruded)' }}
-        >
-          <div className="flex items-center gap-2 pb-3 border-b border-border/50">
-            <Building2 size={16} className="text-accent" />
-            <h3 className="text-sm font-bold text-foreground">Company Baseline</h3>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Company / Product Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Vector Agents"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                Official Website URL
-              </label>
-              <div className="relative">
-                <Globe size={14} className="absolute left-3.5 top-3.5 text-muted-foreground" />
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                  Account Email
+                </label>
                 <input
-                  type="url"
-                  placeholder="https://vectoragents.ai"
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                  type="text"
+                  disabled
+                  value={userEmail || 'Executive User'}
+                  className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-xs font-mono text-muted-foreground cursor-not-allowed opacity-80"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                  Executive Role / Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. VP of Product, CEO, GTM Director"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                  Target Category / Industry
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. B2B SaaS, AI/ML, FinTech"
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Tracked Competitors */}
+        {/* Card 2: Theme & Visual Mode */}
         <div
-          className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm md:col-span-2"
+          className="rounded-2xl p-6 bg-card border border-border flex flex-col justify-between gap-4 shadow-sm h-full"
           style={{ boxShadow: 'var(--shadow-extruded)' }}
         >
-          <div className="flex items-center justify-between pb-3 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <Crosshair size={16} className="text-accent" />
-              <h3 className="text-sm font-bold text-foreground">Competitor Intelligence Radar</h3>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {competitors.length} tracked entities
-            </span>
-          </div>
-
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-              Monitored Competitors
-            </label>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                placeholder="e.g. Clay, Apollo, Gong"
-                value={competitorInput}
-                onChange={(e) => setCompetitorInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCompetitor())}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
-              />
-              <button
-                type="button"
-                onClick={handleAddCompetitor}
-                className="px-5 py-2.5 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-opacity"
-              >
-                Add Competitor
-              </button>
+            <div className="flex items-center justify-between pb-3 border-b border-border/50 mb-4">
+              <div className="flex items-center gap-2">
+                <Palette size={16} className="text-accent" />
+                <h3 className="text-sm font-bold text-foreground">Theme & Visual Mode</h3>
+              </div>
+              <span className="text-[11px] font-mono capitalize px-2 py-0.5 rounded bg-accent/10 text-accent font-semibold">
+                {theme} mode active
+              </span>
             </div>
 
-            <div className="flex flex-wrap gap-2 min-h-[56px] p-3 rounded-xl bg-accent/5 border border-border/50">
-              {competitors.length === 0 ? (
-                <span className="text-xs text-muted-foreground italic flex items-center gap-1.5 p-1">
-                  <Sparkles size={13} /> No competitors added yet. Type a name above to build your radar.
-                </span>
-              ) : (
-                competitors.map((c) => (
-                  <span
-                    key={c}
-                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-accent/15 border border-accent/30 text-xs font-semibold text-accent shadow-xs"
-                  >
-                    {c}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCompetitor(c)}
-                      className="hover:text-destructive text-xs font-bold transition-colors ml-1"
-                    >
-                      ✕
-                    </button>
+            <div className="flex flex-col gap-3">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Select Preferred Theme
+              </label>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setThemeMode('light')}
+                  className={`p-4.5 rounded-xl border flex flex-col items-center justify-center gap-3 transition-all cursor-pointer min-h-[140px] ${
+                    theme === 'light'
+                      ? 'border-accent bg-accent/15 text-accent shadow-sm font-bold'
+                      : 'border-border bg-accent/5 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center">
+                    <Sun size={20} />
+                  </div>
+                  <div className="text-center">
+                    <span className="text-xs font-bold block">Light Mode</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">Crisp daylight theme</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setThemeMode('dark')}
+                  className={`p-4.5 rounded-xl border flex flex-col items-center justify-center gap-3 transition-all cursor-pointer min-h-[140px] ${
+                    theme === 'dark'
+                      ? 'border-accent bg-accent/15 text-accent shadow-sm font-bold'
+                      : 'border-border bg-accent/5 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-blue-500/15 text-blue-400 flex items-center justify-center">
+                    <Moon size={20} />
+                  </div>
+                  <div className="text-center">
+                    <span className="text-xs font-bold block">Dark Mode</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 block">Executive dark theme</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Company & Product Baseline */}
+        <div
+          className="rounded-2xl p-6 bg-card border border-border flex flex-col justify-between gap-4 shadow-sm h-full"
+          style={{ boxShadow: 'var(--shadow-extruded)' }}
+        >
+          <div>
+            <div className="flex items-center gap-2 pb-3 border-b border-border/50 mb-4">
+              <Building2 size={16} className="text-accent" />
+              <h3 className="text-sm font-bold text-foreground">Company Baseline</h3>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                  Company / Product Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Vector Agents"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                  Official Website URL
+                </label>
+                <div className="relative">
+                  <Globe size={14} className="absolute left-3.5 top-3.5 text-muted-foreground" />
+                  <input
+                    type="url"
+                    placeholder="https://vectoragents.ai"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Tracked Competitors Radar */}
+        <div
+          className="rounded-2xl p-6 bg-card border border-border flex flex-col justify-between gap-4 shadow-sm h-full"
+          style={{ boxShadow: 'var(--shadow-extruded)' }}
+        >
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-border/50 mb-4">
+              <div className="flex items-center gap-2">
+                <Crosshair size={16} className="text-accent" />
+                <h3 className="text-sm font-bold text-foreground">Competitor Intelligence Radar</h3>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {competitors.length} tracked entities
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                Monitored Competitors
+              </label>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  placeholder="e.g. Clay, Apollo, Gong"
+                  value={competitorInput}
+                  onChange={(e) => setCompetitorInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCompetitor())}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCompetitor}
+                  className="px-4.5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
+                >
+                  <span className="text-white">Add Competitor</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 min-h-[56px] p-3 rounded-xl bg-accent/5 border border-border/50">
+                {competitors.length === 0 ? (
+                  <span className="text-xs text-muted-foreground italic flex items-center gap-1.5 p-1">
+                    <Sparkles size={13} /> No competitors added yet. Type a name above to build your radar.
                   </span>
-                ))
-              )}
+                ) : (
+                  competitors.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-accent/15 border border-accent/30 text-xs font-semibold text-accent shadow-xs"
+                    >
+                      {c}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCompetitor(c)}
+                        className="hover:text-destructive text-xs font-bold transition-colors ml-1"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
       </form>
 
-      {/* Card 4: AI-Extracted Personalized Memory Facts */}
+      {/* Card 5: AI-Extracted Personalized Memory Facts */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm"
         style={{ boxShadow: 'var(--shadow-extruded)' }}
@@ -280,80 +365,57 @@ export function ProfileSettingsView({
             <Brain size={16} className="text-accent" />
             <h3 className="text-sm font-bold text-foreground">AI-Extracted Personalized Memory</h3>
           </div>
-          <span className="text-xs text-muted-foreground font-mono">
-            {factsList.length} extracted facts
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground font-mono">
+              {memoryFacts.length} extracted facts
+            </span>
+            {memoryFacts.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAllFacts}
+                className="text-[11px] text-red-500 hover:text-red-600 hover:underline font-semibold transition-colors cursor-pointer"
+              >
+                Clear Memory
+              </button>
+            )}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground">
           Below are durable facts automatically extracted by Veracity AI from explicit user statements across your research sessions.
         </p>
 
-        {/* Fact Cards */}
-        {factsList.length === 0 ? (
-          <div className="p-4 rounded-xl bg-accent/5 border border-border/50 text-center">
-            <p className="text-xs text-muted-foreground italic">
-              No cross-session facts extracted yet. Ask research questions stating your business context (e.g. &quot;We build B2B SDR tools...&quot;) to populate.
-            </p>
+        {memoryFacts.length === 0 ? (
+          <div className="p-4 rounded-xl bg-accent/5 border border-border/40 text-xs text-muted-foreground italic">
+            No durable facts extracted yet. Ask research questions in Intelligence mode to build domain memory automatically.
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {factsList.map((f, i) => (
-              <div key={i} className="p-3.5 rounded-xl bg-accent/5 border border-border/60 flex items-start gap-3">
-                <Tag size={14} className="text-accent shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-foreground font-medium">{f.fact}</p>
-                  <span className="text-[10px] text-muted-foreground font-mono mt-0.5 block">
-                    Recorded {new Date(f.created_at).toLocaleDateString()}
-                  </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {memoryFacts.map((fact, idx) => {
+              const text = getFactText(fact);
+              return (
+                <div
+                  key={idx}
+                  className="group relative p-3.5 rounded-xl bg-accent/5 border border-border/40 flex items-start justify-between gap-2.5 text-xs hover:border-accent/30 transition-colors"
+                >
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                    <Tag size={14} className="text-accent shrink-0 mt-0.5" />
+                    <span className="text-foreground leading-relaxed break-words">{text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteFact(idx)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-600 hover:bg-red-500/15 rounded-md transition-all cursor-pointer shrink-0"
+                    title="Remove fact"
+                  >
+                    <Trash2 size={12} className="text-red-500" />
+                  </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Product & Interest Topics */}
-        {(productsList.length > 0 || interestsList.length > 0) && (
-          <div className="pt-2 border-t border-border/40 flex flex-col gap-3">
-            {productsList.length > 0 && (
-              <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                  Extracted Products
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {productsList.map((p, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-xs font-medium">
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {interestsList.length > 0 && (
-              <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                  Strategic Focus Topics
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {interestsList.map((interest, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-xs font-medium">
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         )}
       </div>
-
-      {/* Save Notification Toast */}
-      {savedSuccess && (
-        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl bg-accent text-accent-foreground text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
-          <CheckCircle2 size={16} /> Profile settings updated & saved!
-        </div>
-      )}
     </div>
   );
 }

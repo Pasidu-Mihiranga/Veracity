@@ -43,6 +43,13 @@ export type ChatMessage = {
   progressPct?: number;
   missionSummary?: Record<string, unknown> | null;
   activeJobId?: string | null;
+  /** Set when the chat stream fails — userMessage is shown in the bubble; detail is for developer mode */
+  streamError?: {
+    code: string;
+    userMessage: string;
+    detail: string;
+    correlationId?: string;
+  };
 };
 
 export type FollowUp = {
@@ -79,4 +86,10 @@ export type ChatStreamChunk =
   | { type: 'mirofish_result'; output: import('@/lib/agents/types').AgentOutput }
   | { type: 'mirofish_live_result'; output: import('@/lib/agents/types').AgentOutput }
   | { type: 'cancelled' }
-  | { type: 'error'; message: string };
+  | {
+      type: 'error';
+      message: string;
+      code?: string;
+      correlationId?: string;
+      detail?: string;
+    };

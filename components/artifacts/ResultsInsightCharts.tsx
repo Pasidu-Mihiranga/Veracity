@@ -119,9 +119,9 @@ export function ResultsInsightCharts({ message, outputs }: Props) {
 
   return (
     <section className="results-panel p-5 lg:p-6">
-      <p className="results-section-title mb-1">Insight charts</p>
+      <p className="results-section-title mb-1">Quick summary charts</p>
       <p className="ui-caption mb-5" style={{ color: textMuted }}>
-        Snapshot of competitive gaps, agent confidence, and recommendation urgency
+        A fast visual summary of what looks strong, weak, or still uncertain in this answer
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -130,9 +130,9 @@ export function ResultsInsightCharts({ message, outputs }: Props) {
             className="rounded-2xl p-4 flex flex-col"
             style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
           >
-            <p className="ui-title mb-1">Competitive gap mix</p>
+            <p className="ui-title mb-1">Strengths vs weaknesses</p>
             <p className="ui-caption mb-3" style={{ color: textSubtle }}>
-              Share of features by gap vs competitors
+              Share of comparison points where you look stronger, similar, or weaker
             </p>
             <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -172,9 +172,9 @@ export function ResultsInsightCharts({ message, outputs }: Props) {
             className="rounded-2xl p-4 flex flex-col"
             style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
           >
-            <p className="ui-title mb-1">Domain confidence</p>
+            <p className="ui-title mb-1">Confidence by research area</p>
             <p className="ui-caption mb-3" style={{ color: textSubtle }}>
-              High = 3 · Medium = 2 · Low = 1
+              Higher bars mean the system found clearer evidence for that area
             </p>
             <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -211,9 +211,9 @@ export function ResultsInsightCharts({ message, outputs }: Props) {
             className="rounded-2xl p-4 flex flex-col"
             style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
           >
-            <p className="ui-title mb-1">Recommendation urgency</p>
+            <p className="ui-title mb-1">Recommended actions by urgency</p>
             <p className="ui-caption mb-3" style={{ color: textSubtle }}>
-              Count by priority band
+              How many suggested next steps fall into each urgency bucket
             </p>
             <div className="w-full h-[220px]">
               <ResponsiveContainer width="100%" height="100%">

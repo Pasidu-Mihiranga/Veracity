@@ -18,10 +18,10 @@ export function MissionSummaryCard({ summary }: Props) {
     <div className="veracity-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          Mission plan
+          What the system checked
         </span>
         <span className="text-[10px] font-mono text-muted-foreground">
-          Est. {agentCount} agents · ~{estimatedSeconds}s · ~${estimatedCostUsd.toFixed(3)}
+          About {agentCount} research steps · ~{estimatedSeconds}s · ~${estimatedCostUsd.toFixed(3)}
         </span>
       </div>
       <ul className="flex flex-col gap-1.5 m-0 p-0 list-none">

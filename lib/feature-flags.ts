@@ -24,13 +24,13 @@ export const featureFlags = {
   /** Phase 5 — durable audit logs for exports / sweeps */
   auditLogs: envFlag('NEXT_PUBLIC_FF_AUDIT_LOGS', false),
   /** Phase 5 — strategic watchlists UI */
-  watchlists: envFlag('NEXT_PUBLIC_FF_WATCHLISTS', false),
+  watchlists: envFlag('NEXT_PUBLIC_FF_WATCHLISTS', true),
   /** Phase 5 — weekly monitoring + in-app alerts */
-  alerts: envFlag('NEXT_PUBLIC_FF_ALERTS', false),
+  alerts: envFlag('NEXT_PUBLIC_FF_ALERTS', true),
   /** Phase 3 — Decision Memory store */
   decisionMemory: envFlag('NEXT_PUBLIC_FF_DECISION_MEMORY', true),
   /** Phase 5 — Competitive Timeline + Trend Summary */
-  competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', false),
+  competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', true),
   /** Phase 3 — cross-session feedback learning injection */
   feedbackLearning: envFlag('NEXT_PUBLIC_FF_FEEDBACK_LEARNING', true),
   /** Phase 6 — multi-tenant workspaces */
@@ -53,6 +53,11 @@ export const featureFlags = {
   kgMaintenance: envFlag('NEXT_PUBLIC_FF_KG_MAINTENANCE', false),
   /** Phase 7 — graph analytics widgets */
   kgAnalytics: envFlag('NEXT_PUBLIC_FF_KG_ANALYTICS', false),
+  /**
+   * Architecture — LangGraph wave executor (ADR-0004 / ADR-0007 / ADR-0008).
+   * Default OFF in code. Set NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1 locally to test.
+   */
+  langgraphExecutor: envFlag('NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR', false),
 } as const;
 
 export type FeatureFlagKey = keyof typeof featureFlags;

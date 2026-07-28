@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { featureFlags } from '@/lib/feature-flags';
 import { PermissionError } from '@/lib/rbac';
@@ -13,13 +13,21 @@ import {
   requireWorkspaceAccess,
   resolveTenantFromCookies,
 } from '@/lib/workspace';
+import { apiError, apiSuccess, parseAndValidateJson } from '@/lib/api-response';
+
+const watchlistPostSchema = z.object({
+  name: z.string().optional(),
+  product: z.string().optional(),
+  seedFromMemory: z.boolean().optional(),
+  competitors: z.array(z.string()).optional(),
+});
 
 export async function GET() {
   if (!featureFlags.watchlists) {
-    return NextResponse.json({ watchlists: [] });
+    return apiSuccess({ watchlists: [] });
   }
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user) return apiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const tenant = await resolveTenantFromCookies(user.id, user.email);
   const lists = await listWatchlists(user.id, tenant.workspaceId);
@@ -29,15 +37,15 @@ export async function GET() {
       items: await listWatchlistItems(w.id),
     })),
   );
-  return NextResponse.json({ watchlists: withItems });
+  return apiSuccess({ watchlists: withItems });
 }
 
 export async function POST(req: Request) {
   if (!featureFlags.watchlists) {
-    return NextResponse.json({ error: 'Watchlists disabled' }, { status: 403 });
+    return apiError('Watchlists disabled', 403, 'FEATURE_DISABLED');
   }
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user) return apiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const tenant = await resolveTenantFromCookies(user.id, user.email);
   if (featureFlags.workspaces && tenant.workspaceId) {
@@ -45,23 +53,16 @@ export async function POST(req: Request) {
       await requireWorkspaceAccess(user.id, tenant.workspaceId, 'watchlist.manage');
     } catch (err) {
       if (err instanceof PermissionError) {
-        return NextResponse.json({ error: err.message }, { status: err.status });
+        return apiError(err.message, err.status, 'FORBIDDEN');
       }
       throw err;
     }
   }
 
-  let body: {
-    name?: string;
-    product?: string;
-    seedFromMemory?: boolean;
-    competitors?: string[];
-  };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  const parsed = await parseAndValidateJson(req, watchlistPostSchema);
+  if (!parsed.success) return parsed.response;
+
+  const body = parsed.data;
 
   let product = body.product?.trim() || '';
   let competitors = body.competitors ?? [];
@@ -75,7 +76,13 @@ export async function POST(req: Request) {
     const mem = rows[0];
     if (mem) {
       if (!product && mem.products?.[0]) product = mem.products[0];
-      if (competitors.length === 0) competitors = mem.competitors ?? [];
+      if (competitors.length === 0 && mem.competitors?.length) competitors = mem.competitors;
+    }
+    if (competitors.length === 0) {
+      competitors = ['Clay', 'Lilian'];
+    }
+    if (!product) {
+      product = 'Competitor Intelligence Watchlist';
     }
   }
 
@@ -93,5 +100,5 @@ export async function POST(req: Request) {
   }
 
   const items = await listWatchlistItems(watchlist.id);
-  return NextResponse.json({ watchlist: { ...watchlist, items } });
+  return apiSuccess({ watchlist: { ...watchlist, items } }, 201);
 }

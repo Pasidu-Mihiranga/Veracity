@@ -1,4 +1,5 @@
 import type { AgentSource } from '@/lib/agents/types';
+import { cleanCanonicalUrl } from '@/lib/agents/entity-url';
 
 // ── Blocked domains ─────────────────────────────────────────────────────────
 // Search-engine result pages, our own app, and generic non-source URLs that
@@ -288,22 +289,16 @@ export function filterDisplaySources(
   for (const s of sources) {
     if (!isValidSourceUrl(s.url)) continue;
 
-    let normalised: string;
-    try {
-      const parsed = new URL(s.url);
-      parsed.hash = '';
-      normalised = parsed.toString().replace(/\/+$/, '');
-    } catch {
-      continue;
-    }
+    const normalised = cleanCanonicalUrl(s.url);
+    if (!normalised) continue;
 
     if (seen.has(normalised)) continue;
     seen.add(normalised);
 
     valid.push({
-      title: cleanSourceTitle(s.title, s.url),
-      url: s.url,
-      trusted: isTrustedSource(s.url),
+      title: cleanSourceTitle(s.title, normalised),
+      url: normalised,
+      trusted: isTrustedSource(normalised),
     });
   }
 

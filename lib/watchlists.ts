@@ -30,10 +30,38 @@ export type WatchlistItemRow = {
   created_at: string;
 };
 
+export async function ensureWatchlistTablesExist(): Promise<void> {
+  await query(`
+    CREATE TABLE IF NOT EXISTS watchlists (
+      id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      workspace_id  uuid,
+      name          text NOT NULL,
+      product       text NOT NULL,
+      enabled       boolean NOT NULL DEFAULT true,
+      last_sweep_at timestamptz,
+      next_sweep_at timestamptz,
+      health_status text NOT NULL DEFAULT 'stale',
+      created_at    timestamptz NOT NULL DEFAULT now(),
+      updated_at    timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS watchlist_items (
+      id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      watchlist_id   uuid NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
+      competitor     text NOT NULL,
+      competitor_url text,
+      enabled        boolean NOT NULL DEFAULT true,
+      created_at     timestamptz NOT NULL DEFAULT now()
+    );
+  `).catch(() => null);
+}
+
 export async function listWatchlists(
   userId: string,
   workspaceId?: string | null,
 ): Promise<WatchlistRow[]> {
+  await ensureWatchlistTablesExist();
   const scope = withTenantScope(
     { userId, workspaceId: workspaceId ?? null },
     1,
@@ -68,6 +96,7 @@ export async function createWatchlist(input: {
   product: string;
   enabled?: boolean;
 }): Promise<WatchlistRow> {
+  await ensureWatchlistTablesExist();
   const next = nextMondaySweepUtc();
   const enabled = input.enabled !== false;
   if (featureFlags.workspaces && input.workspaceId) {
@@ -161,7 +190,20 @@ export async function deleteWatchlist(id: string, userId: string): Promise<boole
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function listWatchlistItems(watchlistId: string): Promise<WatchlistItemRow[]> {
+export async function listWatchlistItems(
+  watchlistId: string,
+  userId?: string,
+): Promise<WatchlistItemRow[]> {
+  if (userId) {
+    const { rows } = await query<WatchlistItemRow>(
+      `SELECT wi.* FROM watchlist_items wi
+       JOIN watchlists w ON wi.watchlist_id = w.id
+       WHERE wi.watchlist_id = $1 AND w.user_id = $2
+       ORDER BY wi.created_at ASC`,
+      [watchlistId, userId],
+    );
+    return rows;
+  }
   const { rows } = await query<WatchlistItemRow>(
     `SELECT * FROM watchlist_items WHERE watchlist_id = $1 ORDER BY created_at ASC`,
     [watchlistId],
@@ -173,7 +215,12 @@ export async function addWatchlistItem(input: {
   watchlistId: string;
   competitor: string;
   competitorUrl?: string | null;
-}): Promise<WatchlistItemRow> {
+  userId?: string;
+}): Promise<WatchlistItemRow | null> {
+  if (input.userId) {
+    const wl = await getWatchlistForUser(input.watchlistId, input.userId);
+    if (!wl) return null;
+  }
   const { rows } = await query<WatchlistItemRow>(
     `INSERT INTO watchlist_items (watchlist_id, competitor, competitor_url)
      VALUES ($1, $2, $3)

@@ -216,7 +216,7 @@ export function ChatPanel({
                   }
                 }}
                 placeholder={composerPlaceholder}
-                className="query-textarea w-full pl-11 pr-[220px] py-3.5 bg-transparent outline-none font-sans"
+                className="query-textarea w-full pl-11 pr-[220px] py-3.5 bg-transparent outline-none focus:outline-none focus-visible:outline-none font-sans"
                 style={{ color: textMain }}
                 disabled={composerBusy}
                 rows={1}

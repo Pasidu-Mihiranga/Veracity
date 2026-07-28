@@ -157,13 +157,13 @@ describe('diff sweep', () => {
   });
 });
 
-describe('phase 5 flags default off', () => {
-  it('keeps continuous platform flags off by default', () => {
+describe('phase 5 flags default configuration', () => {
+  it('checks active and default platform flags', () => {
     expect(featureFlags.auditLogs).toBe(false);
-    expect(featureFlags.watchlists).toBe(false);
-    expect(featureFlags.alerts).toBe(false);
-    expect(featureFlags.decisionMemory).toBe(false);
-    expect(featureFlags.competitiveTimeline).toBe(false);
-    expect(featureFlags.feedbackLearning).toBe(false);
+    expect(featureFlags.watchlists).toBe(true);
+    expect(featureFlags.alerts).toBe(true);
+    expect(featureFlags.decisionMemory).toBe(true);
+    expect(featureFlags.competitiveTimeline).toBe(true);
+    expect(featureFlags.feedbackLearning).toBe(true);
   });
 });

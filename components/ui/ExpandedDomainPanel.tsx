@@ -59,6 +59,17 @@ export function ExpandedDomainPanel({
             {meta.label}
           </span>
           {output && <ConfidenceBadge level={output.confidence} />}
+          {output?.contextOnly ? (
+            <span
+              className="text-[8px] font-mono font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full"
+              style={{
+                color: isDark ? '#FCD34D' : '#92400E',
+                background: isDark ? 'rgba(245,158,11,0.18)' : 'rgba(254,243,199,1)',
+              }}
+            >
+              {output.contextOnlyLabel ?? 'Category context only'}
+            </span>
+          ) : null}
           <span
             className="neu-pill-accent text-[9px] font-mono font-semibold uppercase tracking-widest px-2.5 py-0.5"
             style={{ color: accent }}

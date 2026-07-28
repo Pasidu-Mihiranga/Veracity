@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { generateHuggingFaceJson } from '@/lib/agents/gemini';
 import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import type { UserMemory, MemoryFact } from '@/lib/memory';
+import { apiError, apiSuccess, parseAndValidateJson } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 
@@ -21,9 +23,32 @@ const EMPTY_MEMORY: UserMemory = {
   updated_at: new Date().toISOString(),
 };
 
+const memoryPostSchema = z.object({
+  sessionId: z.string().optional(),
+  userQuery: z.string().optional(),
+  assistantAnswer: z.string().optional(),
+  existingMemory: z.object({
+    role: z.string().nullable().optional(),
+    company: z.string().nullable().optional(),
+    products: z.array(z.string()).default([]),
+    competitors: z.array(z.string()).default([]),
+    interests: z.array(z.string()).default([]),
+    facts: z.array(z.any()).default([]),
+    raw_summary: z.string().nullable().optional(),
+    updated_at: z.string().optional(),
+  }).optional(),
+});
+
+const memoryPatchSchema = z.object({
+  facts: z.array(z.any()).optional(),
+  role: z.string().optional(),
+  company: z.string().optional(),
+  competitors: z.array(z.string()).optional(),
+});
+
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ memory: EMPTY_MEMORY }, { status: 401 });
+  if (!user) return apiError('Not authenticated', 401, 'UNAUTHORIZED');
 
   const { rows } = await query(
     `SELECT role, company, products, competitors, interests, facts, raw_summary, updated_at
@@ -31,9 +56,9 @@ export async function GET() {
     [user.id],
   );
   const data = rows[0];
-  if (!data) return NextResponse.json({ memory: EMPTY_MEMORY });
+  if (!data) return apiSuccess({ memory: EMPTY_MEMORY });
 
-  return NextResponse.json({
+  return apiSuccess({
     memory: {
       role: data.role ?? null,
       company: data.company ?? null,
@@ -149,4 +174,45 @@ Return JSON with this exact shape:
     console.error('memory route error:', err);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+}
+
+export async function PATCH(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const { facts, role, company, competitors } = body as {
+    facts?: MemoryFact[];
+    role?: string;
+    company?: string;
+    competitors?: string[];
+  };
+
+  await query(
+    `INSERT INTO user_memory (user_id, role, company, competitors, facts, updated_at)
+     VALUES ($1, $2, $3, $4, $5::jsonb, now())
+     ON CONFLICT (user_id) DO UPDATE SET
+       role = COALESCE(EXCLUDED.role, user_memory.role),
+       company = COALESCE(EXCLUDED.company, user_memory.company),
+       competitors = COALESCE(EXCLUDED.competitors, user_memory.competitors),
+       facts = EXCLUDED.facts,
+       updated_at = now()`,
+    [
+      user.id,
+      role ?? null,
+      company ?? null,
+      competitors ?? [],
+      JSON.stringify(facts ?? []),
+    ],
+  );
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
+  await query(`UPDATE user_memory SET facts = '[]'::jsonb, updated_at = now() WHERE user_id = $1`, [user.id]);
+  return NextResponse.json({ ok: true });
 }

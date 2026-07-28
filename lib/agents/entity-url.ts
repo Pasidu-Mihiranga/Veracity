@@ -88,3 +88,97 @@ export function productSiteUrl(ctx: Pick<AgentContext, 'product' | 'productUrl'>
   if (!/^[a-z0-9]+$/.test(slug)) return null;
   return `https://${slug}.com`;
 }
+
+// ── Tracking query parameters ───────────────────────────────────────────────
+const TRACKING_PARAMS = new Set([
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'gclid',
+  'fbclid',
+  'ref',
+  'referrer',
+  'redirect_url',
+  'mc_eid',
+  '_ga',
+]);
+
+/**
+ * Strips tracking parameters, affiliate tokens, and fragment hashes from URLs.
+ */
+export function cleanCanonicalUrl(rawUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const trimmed = rawUrl.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+
+    const cleanedParams = new URLSearchParams();
+    parsed.searchParams.forEach((val, key) => {
+      if (!TRACKING_PARAMS.has(key.toLowerCase()) && !key.toLowerCase().startsWith('utm_')) {
+        cleanedParams.append(key, val);
+      }
+    });
+
+    parsed.search = cleanedParams.toString();
+    parsed.hash = '';
+
+    let finalUrl = parsed.toString();
+    if (parsed.pathname === '/' && !parsed.search) {
+      finalUrl = finalUrl.replace(/\/$/, '');
+    }
+    return finalUrl;
+  } catch {
+    return trimmed;
+  }
+}
+
+/**
+ * Performs a fast HTTP HEAD request to check if a source URL is live (returns 2xx/3xx status).
+ */
+export async function pingSourceUrl(url: string, timeoutMs: number = 1000): Promise<boolean> {
+  const cleaned = cleanCanonicalUrl(url);
+  if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    return false;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const res = await fetch(cleaned, {
+      method: 'HEAD',
+      headers: {
+        'User-Agent': 'VeracityBot/1.0 (Growth Intelligence Platform; +https://veracity.ai)',
+      },
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+
+    if (res.ok || (res.status >= 300 && res.status < 400)) {
+      return true;
+    }
+
+    if (res.status === 405) {
+      const getController = new AbortController();
+      const getTimer = setTimeout(() => getController.abort(), timeoutMs);
+      const getRes = await fetch(cleaned, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'VeracityBot/1.0 (Growth Intelligence Platform; +https://veracity.ai)',
+        },
+        signal: getController.signal,
+      }).finally(() => clearTimeout(getTimer));
+
+      return getRes.ok || (getRes.status >= 300 && getRes.status < 400);
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}

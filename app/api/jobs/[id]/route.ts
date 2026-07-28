@@ -17,15 +17,23 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return json({ error: 'Not authenticated' }, 401);
   const { id } = await ctx.params;
-  const job = await getResearchJobForUser(id, user.id);
-  if (!job) return json({ error: 'Job not found' }, 404);
-  return json({
-    id: job.id,
-    status: job.status,
-    progress: job.progress,
-    metrics: job.metrics,
-    mission_summary: job.mission_summary,
-    cancel_requested: job.cancel_requested,
-    error: job.error,
-  });
+  try {
+    const job = await getResearchJobForUser(id, user.id);
+    if (!job) return json({ error: 'Job not found' }, 404);
+    return json({
+      id: job.id,
+      status: job.status,
+      progress: job.progress,
+      metrics: job.metrics,
+      mission_summary: job.mission_summary,
+      cancel_requested: job.cancel_requested,
+      error: job.error,
+    });
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === '42P01') {
+      return json({ error: 'Job store unavailable', warning: 'research_jobs table missing' }, 404);
+    }
+    throw err;
+  }
 }

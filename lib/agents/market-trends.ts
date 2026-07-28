@@ -160,7 +160,8 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
 Rules:
 - Separate FACTS (verifiable from sources) from INTERPRETATION (analyst view).
 - Never hallucinate. Only state what the signals support.
-- Be specific: name trends, estimate directions and magnitudes.
+- Be specific: name trends and directions. Do NOT invent precise scores like "100/100", exact average HN scores, or market % unless the raw signals contain that number.
+- If quantifying engagement, say "estimated" or "directional" and keep magnitudes coarse.
 - Output valid JSON matching the schema exactly.
 ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
 

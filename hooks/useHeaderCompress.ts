@@ -17,9 +17,9 @@ export function useHeaderCompress() {
     const el = mainScrollRef.current;
     if (!el) return;
     const y = el.scrollTop;
-    if (y > 25 && !headerCompact) {
+    if (y > 15 && !headerCompact) {
       setHeaderCompact(true);
-    } else if (y < 10 && headerCompact) {
+    } else if (y < 5 && headerCompact) {
       setHeaderCompact(false);
     }
   }, [headerCompact]);

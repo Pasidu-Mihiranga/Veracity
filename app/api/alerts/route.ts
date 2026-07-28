@@ -12,12 +12,21 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const url = new URL(req.url);
-  const alerts = await listAlerts(user.id, {
-    unread: url.searchParams.get('unread') === '1',
-    severity: url.searchParams.get('severity') ?? undefined,
-    competitor: url.searchParams.get('competitor') ?? undefined,
-  });
-  return NextResponse.json({ alerts });
+  try {
+    const alerts = await listAlerts(user.id, {
+      unread: url.searchParams.get('unread') === '1',
+      severity: url.searchParams.get('severity') ?? undefined,
+      competitor: url.searchParams.get('competitor') ?? undefined,
+    });
+    return NextResponse.json({ alerts });
+  } catch (err) {
+    const code = (err as { code?: string })?.code;
+    // Local DBs may lag migrations — degrade to empty inbox instead of 500.
+    if (code === '42P01') {
+      return NextResponse.json({ alerts: [], warning: 'alert_events table missing — run db:setup / migrations' });
+    }
+    throw err;
+  }
 }
 
 export async function POST(req: Request) {

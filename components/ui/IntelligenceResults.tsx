@@ -26,6 +26,7 @@ import {
   rateRecommendation, recommendationKey, type RecommendationRating,
 } from '@/lib/feedback';
 import { confidenceFromRecLevel } from '@/lib/decision-policy';
+import { selectReportTemplate } from '@/lib/agents/report-templates';
 
 const VIZ_PRIORITY = [
   'competitive-matrix',
@@ -68,10 +69,61 @@ function hasUsefulVisual(output: AgentOutput): boolean {
 
 function pickPrimaryVisual(outputs: AgentOutput[] = []): AgentOutput | null {
   for (const type of VIZ_PRIORITY) {
-    const hit = outputs.find((o) => o.artifactType === type && hasUsefulVisual(o));
+    const hit = outputs.find((o) => {
+      if (o.artifactType !== type || !hasUsefulVisual(o)) return false;
+      // Never promote empty/soft category shells as the "Key visual"
+      if (o.contextOnly && o.artifactType === 'competitive-matrix') {
+        const matrix = (o as AgentOutput & { matrix?: unknown[] }).matrix;
+        if (!Array.isArray(matrix) || matrix.length === 0) return false;
+      }
+      return true;
+    });
     if (hit) return hit;
   }
   return null;
+}
+
+function modeLayout(mode: ProductViewMode) {
+  return {
+    showKeyVisual: mode !== 'executive',
+    /** Business keeps the matrix/scorecard on the short path */
+    keyVisualOnShortPath: mode === 'business',
+    showMindMap: mode === 'analyst' || mode === 'developer',
+    showBusinessCanvas: mode === 'business' || mode === 'analyst' || mode === 'developer',
+    showAnalyst: mode === 'analyst' || mode === 'developer',
+    showSourcesDefault: mode === 'analyst' || mode === 'developer',
+    showDev: mode === 'developer',
+    /** Executive / Business keep deep analysis behind one click */
+    useProgressiveAnalysis: mode === 'executive' || mode === 'business',
+    answerLabel:
+      mode === 'executive' ? 'The bottom line'
+      : mode === 'business' ? 'What this means for the business'
+      : mode === 'analyst' ? 'Decision Answer'
+      : 'Decision Answer',
+    recsLabel:
+      mode === 'executive' ? 'What to do next'
+      : mode === 'business' ? 'Recommended moves'
+      : 'Actionable Recommendations',
+  };
+}
+
+function trustLine(opts: {
+  sourceCount: number;
+  qualityGate?: number;
+  pricingCoverage?: number;
+  qualityAbstain?: boolean;
+}): string {
+  const parts: string[] = [];
+  if (opts.sourceCount > 0) parts.push(`Based on ${opts.sourceCount} source${opts.sourceCount === 1 ? '' : 's'}`);
+  if (opts.qualityAbstain) {
+    parts.push('we found a name match, but we have not fully confirmed it is the exact business or product you meant');
+  } else if (typeof opts.qualityGate === 'number') {
+    parts.push(opts.qualityGate >= 0.7 ? 'evidence looks solid' : 'evidence is mixed, so double-check before acting on it');
+  }
+  if (typeof opts.pricingCoverage === 'number' && opts.pricingCoverage < 0.15) {
+    parts.push('pricing is still unclear');
+  }
+  return parts.join(' · ');
 }
 
 function SectionToggle({
@@ -158,20 +210,37 @@ export function IntelligenceResults({
   neuExtrudedSm,
 }: IntelligenceResultsProps) {
   const [openViz, setOpenViz] = useState(true);
-  const [openMap, setOpenMap] = useState(true);
-  const [openAnalyst, setOpenAnalyst] = useState(true);
-  const [openDevDiagnostics, setOpenDevDiagnostics] = useState(viewMode === 'developer');
+  const [openMap, setOpenMap] = useState(false);
+  const [openAnalyst, setOpenAnalyst] = useState(false);
+  const [openDevDiagnostics, setOpenDevDiagnostics] = useState(false);
   const [openSources, setOpenSources] = useState(false);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+
+  const layout = modeLayout(viewMode);
 
   useEffect(() => {
-    setOpenAnalyst(viewMode === 'analyst' || viewMode === 'developer');
-    setOpenDevDiagnostics(viewMode === 'developer');
-  }, [viewMode]);
+    setOpenAnalyst(layout.showAnalyst);
+    setOpenDevDiagnostics(layout.showDev);
+    setOpenSources(layout.showSourcesDefault);
+    setOpenMap(layout.showMindMap);
+    setOpenViz(true);
+    setShowFullAnalysis(!layout.useProgressiveAnalysis);
+  }, [viewMode, layout.showAnalyst, layout.showDev, layout.showSourcesDefault, layout.showMindMap, layout.useProgressiveAnalysis]);
 
   const outputs = currentResult.orchestratorOutput?.outputs ?? [];
   const mindMapOutput = outputs.find((o) => o.artifactType === 'mind-map') as MindMapOutput | undefined;
   const primaryVisual = useMemo(() => pickPrimaryVisual(outputs), [outputs]);
   const product = currentResult.orchestratorOutput?.product ?? '';
+  const qualityAbstain = Boolean(
+    currentResult.orchestratorOutput?.quality?.shouldAbstainFromStrongClaims,
+  );
+  const pricingAxis = currentResult.orchestratorOutput?.evidenceCoverage?.find((a) => a.id === 'pricing');
+  const trust = trustLine({
+    sourceCount: currentResult.sources?.length ?? 0,
+    qualityGate: currentResult.orchestratorOutput?.quality?.qualityGate,
+    pricingCoverage: pricingAxis?.score,
+    qualityAbstain,
+  });
 
   const latencyLabel = (() => {
     const final = currentResult.orchestratorOutput?.metrics;
@@ -185,12 +254,51 @@ export function IntelligenceResults({
     currentResult.orchestratorOutput?.selectionMeta?.tier === 0 ||
     (outputs.length === 0 && (!currentResult.recommendations || currentResult.recommendations.length === 0));
 
+  const showDeep = showFullAnalysis || !layout.useProgressiveAnalysis;
+  const showKeyVisual = Boolean(
+    primaryVisual && (
+      layout.keyVisualOnShortPath
+      || (showDeep && (layout.showKeyVisual || showFullAnalysis))
+    ),
+  );
+  const showMindMap = Boolean(showDeep && (layout.showMindMap || showFullAnalysis) && mindMapOutput?.branches?.length);
+  const showAnalystBlock = Boolean(showDeep && (layout.showAnalyst || showFullAnalysis) && !isTier0);
+  const showSources = Boolean(showDeep && (currentResult.sources?.length ?? 0) > 0);
+  const showBusinessExtras = Boolean(layout.showBusinessCanvas && !isTier0);
+  const showBusinessDeep = Boolean(showBusinessExtras && showDeep);
+
   if (!currentResult.content) return null;
 
-  const isDevMode = viewMode === 'developer' || openDevDiagnostics;
+  const isDevMode = layout.showDev;
 
   return (
     <div className="flex flex-col gap-5">
+      {currentResult.streamError ? (
+        <div
+          role="alert"
+          className="rounded-xl px-4 py-3 text-sm leading-relaxed"
+          style={{
+            color: 'var(--foreground)',
+            background: 'color-mix(in srgb, var(--destructive, #dc2626) 10%, var(--card))',
+            border: '1px solid color-mix(in srgb, var(--destructive, #dc2626) 35%, transparent)',
+          }}
+        >
+          <p className="font-medium">{currentResult.streamError.userMessage}</p>
+          {isDevMode && currentResult.streamError.detail ? (
+            <p className="ui-mono mt-2 text-[11px] opacity-90 whitespace-pre-wrap">
+              [{currentResult.streamError.code}] {currentResult.streamError.detail}
+              {currentResult.streamError.correlationId
+                ? `\nReference: ${currentResult.streamError.correlationId}`
+                : ''}
+            </p>
+          ) : null}
+          {!isDevMode && currentResult.streamError.correlationId ? (
+            <p className="mt-1.5 text-[11px]" style={{ color: textMuted }}>
+              Reference: {currentResult.streamError.correlationId}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {/* Level 1: Hero Section (Direct Answer) */}
       <section className="results-panel overflow-hidden">
         <div
@@ -199,20 +307,22 @@ export function IntelligenceResults({
         >
           <div className="flex items-center gap-2 min-w-0">
             <Layers size={14} style={{ color: 'var(--accent)' }} />
-            <span className="results-section-title">Decision Answer</span>
-            {product ? (
-              <span
-                className="ui-mono px-2 py-0.5 rounded-full truncate"
-                style={{
-                  fontSize: 11,
-                  color: 'var(--accent)',
-                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
-                }}
-              >
-                {product}
-              </span>
-            ) : null}
+            <span className="results-section-title">{layout.answerLabel}</span>
+            {(() => {
+              const template = selectReportTemplate(currentResult.content || product);
+              return (
+                <span
+                  className="ui-mono px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                  style={{
+                    color: 'var(--accent)',
+                    background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--accent) 28%, transparent)',
+                  }}
+                >
+                  {template.badge}
+                </span>
+              );
+            })()}
             {isDevMode && latencyLabel ? (
               <span className="ui-mono" style={{ color: 'var(--foreground-subtle)', fontSize: 11 }}>
                 {latencyLabel}
@@ -220,8 +330,13 @@ export function IntelligenceResults({
             ) : null}
           </div>
         </div>
-        <div className="p-6 lg:p-8 flex flex-col gap-5">
+        <div className="p-6 lg:p-8 flex flex-col gap-4">
           <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
+          {trust ? (
+            <p className="text-[12px] leading-relaxed" style={{ color: textMuted }}>
+              {trust}
+            </p>
+          ) : null}
           {!isTier0 ? (
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <ExportReportButton
@@ -232,8 +347,10 @@ export function IntelligenceResults({
                 neuExtrudedSm={neuExtrudedSm}
                 variant="primary"
               />
-              <ExecutiveBoardMode message={currentResult} />
-              {onRequestFullSweepCompare ? (
+              {(viewMode === 'executive' || viewMode === 'business') ? (
+                <ExecutiveBoardMode message={currentResult} />
+              ) : null}
+              {onRequestFullSweepCompare && (viewMode === 'analyst' || viewMode === 'developer') ? (
                 <button
                   type="button"
                   disabled={isLoading}
@@ -243,9 +360,6 @@ export function IntelligenceResults({
                   Compare with full sweep
                 </button>
               ) : null}
-              <span className="ui-caption" style={{ color: 'var(--foreground-subtle)' }}>
-                Includes decision, recommendations, visuals, and sources
-              </span>
             </div>
           ) : null}
         </div>
@@ -255,7 +369,7 @@ export function IntelligenceResults({
       {currentResult.recommendations && currentResult.recommendations.length > 0 ? (
         <section className="results-panel p-5 lg:p-6">
           <p className="results-section-title mb-4 flex items-center gap-2">
-            <Rocket size={13} style={{ color: 'var(--accent)' }} /> Actionable Recommendations
+            <Rocket size={13} style={{ color: 'var(--accent)' }} /> {layout.recsLabel}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentResult.recommendations.map((rec: {
@@ -302,6 +416,8 @@ export function IntelligenceResults({
                     border: `1px solid ${borderC || 'var(--border)'}`,
                   }}
                 >
+                  <h4 className="rec-title">{rec.title}</h4>
+                  <p className="rec-body">{rec.rationale}</p>
                   <div className="flex flex-wrap gap-1.5">
                     <span
                       className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase"
@@ -320,13 +436,13 @@ export function IntelligenceResults({
                         ?? ((rec.score ?? 0) >= 80 ? 'high' : (rec.score ?? 0) >= 55 ? 'medium' : 'low')}
                     />
                   </div>
-                  <h4 className="rec-title">{rec.title}</h4>
-                  <p className="rec-body">{rec.rationale}</p>
-                  <EvidenceTrail
-                    evidence={rec.evidence}
-                    sourceUrls={rec.sourceUrls}
-                    sources={currentResult.sources}
-                  />
+                  {(viewMode === 'analyst' || viewMode === 'developer') ? (
+                    <EvidenceTrail
+                      evidence={rec.evidence}
+                      sourceUrls={rec.sourceUrls}
+                      sources={currentResult.sources}
+                    />
+                  ) : null}
                   {currentSessionId && (
                     <div className="flex items-center gap-1.5 mt-1 pt-2">
                       <button
@@ -367,44 +483,21 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {/* Level 3: Primary Visual Artifact & Strategy Mind Map */}
-      {primaryVisual ? (
-        <section className="results-panel p-5 lg:p-6">
-          <SectionToggle
-            title="Key visual"
-            icon={<Layers size={13} />}
-            open={openViz}
-            onToggle={() => setOpenViz((v) => !v)}
-            textMuted={textMuted}
-            accentInk={accentInk}
-          />
-          {openViz && (
-            <div className="mt-4 rounded-2xl p-3 sm:p-4" style={{ background: cardBg2, border: `1px solid ${borderC || 'var(--border)'}` }}>
-              <ArtifactRenderer output={primaryVisual} product={product} />
-            </div>
-          )}
-        </section>
+      {/* Pricing gap callout (Business+) — thin, plain language */}
+      {showBusinessExtras && typeof pricingAxis?.score === 'number' && pricingAxis.score < 0.15 ? (
+        <div
+          className="px-4 py-3 rounded-xl text-[13px] leading-relaxed"
+          style={{
+            background: isDark ? 'rgba(245,158,11,0.1)' : 'rgba(254,243,199,0.7)',
+            border: `1px solid ${isDark ? 'rgba(245,158,11,0.28)' : 'rgba(217,119,6,0.25)'}`,
+            color: textMuted,
+          }}
+        >
+          Pricing wasn’t covered in this pass. Ask a pricing follow-up or enable Pricing in the agent drawer for a fuller cost picture.
+        </div>
       ) : null}
 
-      {mindMapOutput?.branches?.length ? (
-        <section className="results-panel p-5 lg:p-6">
-          <SectionToggle
-            title="Strategy mind map"
-            icon={<GitBranch size={13} />}
-            open={openMap}
-            onToggle={() => setOpenMap((v) => !v)}
-            textMuted={textMuted}
-            accentInk={accentInk}
-          />
-          {openMap && (
-            <div className="mt-4">
-              <ArtifactRenderer output={mindMapOutput} product={product} />
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {/* Level 4: Dig Deeper (Follow-up suggestions) */}
+      {/* Dig deeper — early, so execs act without scrolling the dump */}
       {currentResult.suggestions && currentResult.suggestions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 px-1">
           <span className="results-section-title">Dig deeper</span>
@@ -427,8 +520,113 @@ export function IntelligenceResults({
         </div>
       ) : null}
 
-      {/* Level 5: Verified Sources (Collapsed) */}
-      {currentResult.sources && currentResult.sources.length > 0 ? (
+      {/* Progressive disclosure for Executive / Business */}
+      {layout.useProgressiveAnalysis && !showFullAnalysis && !isTier0 ? (
+        <button
+          type="button"
+          onClick={() => setShowFullAnalysis(true)}
+          className="self-start text-[13px] font-medium px-3 py-2 rounded-lg transition-colors"
+          style={{
+            color: accentInk,
+            background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)',
+          }}
+        >
+          Show full analysis
+        </button>
+      ) : null}
+
+      {layout.useProgressiveAnalysis && showFullAnalysis ? (
+        <button
+          type="button"
+          onClick={() => setShowFullAnalysis(false)}
+          className="self-start text-[12px] px-2 py-1"
+          style={{ color: textSubtle }}
+        >
+          Hide full analysis
+        </button>
+      ) : null}
+
+      {/* Deep layers — gated by mode + progressive toggle */}
+      {showKeyVisual && primaryVisual ? (
+        <section className="results-panel p-5 lg:p-6">
+          <SectionToggle
+            title="Key visual"
+            icon={<Layers size={13} />}
+            open={openViz}
+            onToggle={() => setOpenViz((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openViz && (
+            <div className="mt-4 rounded-2xl p-3 sm:p-4" style={{ background: cardBg2, border: `1px solid ${borderC || 'var(--border)'}`, opacity: primaryVisual.contextOnly || qualityAbstain ? 0.9 : 1 }}>
+              {(primaryVisual.contextOnly || qualityAbstain) ? (
+                <div className="flex flex-col gap-3">
+                  <p className="text-[11px] font-mono uppercase tracking-wider" style={{ color: isDark ? '#FCD34D' : '#92400E' }}>
+                    Early directional view only — this is not yet a confirmed product-vs-product comparison
+                  </p>
+                  <div className="rounded-2xl p-4 sm:p-5" style={{ background: 'var(--surface-raised)', border: `1px solid ${borderC || 'var(--border)'}` }}>
+                    <h4 className="text-sm font-semibold mb-2" style={{ color: textMain }}>
+                      This chart is hidden because it would be misleading right now.
+                    </h4>
+                    <p className="text-[13px] leading-relaxed mb-3" style={{ color: textMuted }}>
+                      We matched the name <strong>{product || 'this entity'}</strong>, but we have not yet confirmed it is the exact company or product you meant.
+                      Until that is confirmed, trend, pricing, and competitor charts can look precise while still pointing at the wrong business.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px]">
+                      <div className="rounded-xl p-3" style={{ background: cardBg }}>
+                        <p className="font-semibold mb-1" style={{ color: textMain }}>What we know</p>
+                        <p style={{ color: textMuted }}>
+                          The system found sources for the name, but the category match is still uncertain.
+                        </p>
+                      </div>
+                      <div className="rounded-xl p-3" style={{ background: cardBg }}>
+                        <p className="font-semibold mb-1" style={{ color: textMain }}>Why this matters</p>
+                        <p style={{ color: textMuted }}>
+                          If the name points to the wrong entity, every comparison card below becomes unreliable.
+                        </p>
+                      </div>
+                      <div className="rounded-xl p-3" style={{ background: cardBg }}>
+                        <p className="font-semibold mb-1" style={{ color: textMain }}>What we need</p>
+                        <p style={{ color: textMuted }}>
+                          Share the official website or exact product name, then rerun the analysis.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ArtifactRenderer output={primaryVisual} product={product} />
+              )}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {showMindMap && mindMapOutput?.branches?.length ? (
+        <section className="results-panel p-5 lg:p-6">
+          <SectionToggle
+            title={mindMapOutput.contextOnly ? 'Identity mind map' : 'Strategy mind map'}
+            icon={<GitBranch size={13} />}
+            open={openMap}
+            onToggle={() => setOpenMap((v) => !v)}
+            textMuted={textMuted}
+            accentInk={accentInk}
+          />
+          {openMap && (
+            <div className="mt-4">
+              {mindMapOutput.contextOnly ? (
+                <p className="text-[11px] font-mono uppercase tracking-wider mb-3" style={{ color: isDark ? '#FCD34D' : '#92400E' }}>
+                  Confirm the exact company or product first. Buyer, pricing, and competitor analysis can be misleading until that is clear.
+                </p>
+              ) : null}
+              <ArtifactRenderer output={mindMapOutput} product={product} />
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {showSources && currentResult.sources && currentResult.sources.length > 0 ? (
         <section className="results-panel p-5">
           <SectionToggle
             title={`Verified sources (${currentResult.sources.length})`}
@@ -457,11 +655,10 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {/* Level 6: Secondary Analyst Accordions */}
-      {!isTier0 ? (
+      {showAnalystBlock ? (
         <section className="results-panel p-5 lg:p-6">
           <SectionToggle
-            title="Analyst details & domain highlights"
+            title="Why the answer looks trustworthy"
             icon={<ShieldCheck size={13} />}
             open={openAnalyst}
             onToggle={() => setOpenAnalyst((v) => !v)}
@@ -488,7 +685,9 @@ export function IntelligenceResults({
                 />
               ) : null}
 
-              <StrategyCanvas message={currentResult} />
+              {(showBusinessDeep || showAnalystBlock) ? (
+                <StrategyCanvas message={currentResult} />
+              ) : null}
 
               {outputs.filter((o) => o.artifactType !== 'mind-map').length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -496,6 +695,7 @@ export function IntelligenceResults({
                     .filter((o) => o.artifactType !== 'mind-map' && o.artifactType !== primaryVisual?.artifactType)
                     .map((o, i) => {
                       const domainMeta = DOMAIN_META[o.domain as Domain];
+                      const contextOnly = Boolean(o.contextOnly || qualityAbstain);
                       return (
                         <div
                           key={`${o.domain}-${i}`}
@@ -504,11 +704,12 @@ export function IntelligenceResults({
                             background: cardBg2,
                             border: `1px solid ${borderC || 'var(--border)'}`,
                             boxShadow: `inset 3px 0 0 0 ${domainMeta?.color ?? accentInk}`,
+                            opacity: contextOnly ? 0.82 : 1,
                           }}
                         >
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-1.5">
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                                 {domainMeta && <span style={{ color: domainMeta.color }}>{domainMeta.icon}</span>}
                                 <span
                                   className="text-[12px] font-mono font-bold uppercase tracking-wide"
@@ -516,6 +717,17 @@ export function IntelligenceResults({
                                 >
                                   {domainMeta?.short ?? o.domain}
                                 </span>
+                                {contextOnly ? (
+                                  <span
+                                    className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
+                                    style={{
+                                      color: isDark ? '#FCD34D' : '#92400E',
+                                      background: isDark ? 'rgba(245,158,11,0.18)' : 'rgba(254,243,199,1)',
+                                    }}
+                                  >
+                                    {o.contextOnlyLabel ?? 'Category context only'}
+                                  </span>
+                                ) : null}
                               </div>
                               <ConfidenceBadge level={o.confidence} />
                             </div>
@@ -563,8 +775,15 @@ export function IntelligenceResults({
         </section>
       ) : null}
 
-      {/* Level 7: Developer Diagnostics (Developer Mode Only) */}
-      {isDevMode ? (
+      {/* Business short path: strategy canvas without full analyst dump */}
+      {showBusinessDeep && !showAnalystBlock ? (
+        <section className="results-panel p-5 lg:p-6">
+          <StrategyCanvas message={currentResult} />
+        </section>
+      ) : null}
+
+      {/* Hide empty Tier-0 diagnostics (0 agents / no mission) — avoids noise after conceptual answers */}
+      {isDevMode && !isTier0 ? (
         <section className="results-panel p-5 lg:p-6 border-dashed border-accent/30">
           <SectionToggle
             title="Developer diagnostics & swarm logs"
