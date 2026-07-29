@@ -117,6 +117,7 @@ Produce JSON:
   "willingnessToPay": "premium" | "mid-market" | "price-sensitive",
   "pricingSignals": string[],
   "recommendation": string,
+  "openQuestions": string[],
   "synthesizedAnswer": string,
   "confidenceScore": number
 }`;
@@ -154,6 +155,7 @@ Produce JSON:
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     competitorPricing: (parsed.competitorPricing ?? []) as PricingTier[],

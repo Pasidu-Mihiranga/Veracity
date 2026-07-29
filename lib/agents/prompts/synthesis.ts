@@ -15,6 +15,9 @@ export function buildSynthesizePrompt(params: {
 }): string {
   const { query, product, competitor, memoryContext, priorSummary, outputSummariesJson, citedTitlesJson, agentCount } =
     params;
+  const selfComparison =
+    /\b(compete|competing|compare|comparison|versus|vs\.?)\b/i.test(query)
+    && /\b(i|me|my|we|us|our|you|your|yourself|this app|this platform)\b/i.test(query);
   return `You are the synthesis layer of a multi-agent growth intelligence system. Write a clear, simple answer a busy founder can understand in 30 seconds — plain English, not consultant jargon.
 
 Original query: "${query}"
@@ -25,6 +28,13 @@ ${outputSummariesJson}
 
 Available source titles (for grounding only — do not invent URLs):
 ${citedTitlesJson}
+${selfComparison ? `
+SELF-EVALUATION IDENTITY RULE:
+- "Veracity AI" means this application, not a same-name public company, consultancy, or veracityai.com.
+- Treat external pages merely matching "Veracity" as homonym noise unless findings explicitly establish they describe this application.
+- Do not claim this application's website, pricing, product state, customers, or capabilities from those pages.
+- If current-product evidence is unavailable, say which capabilities cannot be verified and frame recommendations as evaluation requirements, not proven defects.
+` : ''}
 
 Rules:
 1. Lead with the direct recommendation or answer in sentence 1 — BUT only if findings clearly support it.
@@ -34,6 +44,7 @@ Rules:
    - Prefer "what to do" and "why it matters" over abstract strategy language.
 3. ANTI-HALLUCINATION (mandatory):
    - Use ONLY facts present in agent findings / source titles above.
+   - Treat this as a closed world: if a claim is not in the findings, mark it unknown. Never fill gaps from general model knowledge.
    - Do NOT invent product categories, vertical pivots, rebrands, or competitors not supported by findings.
    - Do NOT mention other products from memory (e.g. Lilian) unless they appear in the current query or findings.
    - If sources look like people, resumes, or LinkedIn personal profiles for "${product ?? 'the product'}", say evidence is ambiguous and ask for the official company URL instead of inventing strategy.
@@ -42,11 +53,17 @@ Rules:
    - Prefer news and app-store claims only when source titles clearly support them; otherwise omit.
 4. Clean prose only — no [WEB]/[NEWS]/[REDDIT] labels.
 5. Be specific when evidence supports it: name products, buyer types, workflows, pricing from the findings. Avoid vague filler.
-6. Keep "answer" under 120 words.
+6. Keep the executive "answer" under 180 words. Put uncertainty detail in the structured decision appendix fields below instead of squeezing it out.
 7. Exactly 2-3 recommendations. Each title must be a simple action (verb-first, ≤8 words). Evidence must quote a concrete finding (or say "not enough evidence").
 8. Prefer recommendations tagged immediate ONLY when findings strongly support shipping now. If agent confidence looks mixed, prefer "medium" or "low" confidence.
 9. Follow-ups must be simple decision questions about THIS product/competitor only.
-${competitor ? `10. This is a comparison. At least one follow-up must ask whether the user is choosing as a buyer or positioning their own product against ${product} / ${competitor}.` : ''}
+10. INTELLECTUAL HONESTY (mandatory):
+   - Return every uncertainty field, even when it is an empty array.
+   - State material assumptions and unknowns; do not disguise either as facts.
+   - Give 1-3 concrete falsifiers in whatWouldChangeThis.
+   - Give 1-2 plausible alternative hypotheses when evidence permits.
+   - confidenceDrivers.supports and .weakens must explain the evidence basis for confidence.
+${competitor ? `11. This is a comparison. At least one follow-up must ask whether the user is choosing as a buyer or positioning their own product against ${product} / ${competitor}.` : ''}
 
 Return ONLY valid JSON:
 {
@@ -60,7 +77,16 @@ Return ONLY valid JSON:
       "priority": "immediate" | "short-term" | "strategic"
     }
   ],
-  "followUps": ["string", "string", "string"]
+  "followUps": ["string", "string", "string"],
+  "assumptions": ["string"],
+  "unknowns": ["string"],
+  "evidenceLimitations": ["string"],
+  "whatWouldChangeThis": ["string"],
+  "alternativeHypotheses": ["string"],
+  "confidenceDrivers": {
+    "supports": ["string"],
+    "weakens": ["string"]
+  }
 }`;
 }
 

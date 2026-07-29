@@ -136,6 +136,7 @@ Produce JSON:
   ],
   "buyerSentiment": "positive" | "mixed" | "negative",
   "topSwitchTriggers": string[],
+  "openQuestions": string[],
   "synthesizedAnswer": string,
   "confidenceScore": number
 }`;
@@ -172,6 +173,7 @@ Produce JSON:
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     competitor: competitorName ?? 'category alternatives',

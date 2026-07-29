@@ -22,8 +22,15 @@ import { planMission } from '@/lib/agents/mission-planner';
 import { shouldRunExecution as planExecution } from '@/lib/agents/execution-planner';
 import { buildMissionSummary } from '@/lib/agents/mission-summary';
 import { getWorkflowExecutor } from '@/lib/agents/workflow';
-import { classifyQuery } from '@/lib/agents/classify';
-import { synthesize } from '@/lib/agents/synthesize';
+import {
+  classifyQuery,
+  isSelfComparisonQuery,
+  isUnclearOrGibberishPrompt,
+} from '@/lib/agents/classify';
+import {
+  sanitizeOutputsForSelfEvaluation,
+  synthesize,
+} from '@/lib/agents/synthesize';
 import { generateMindMap } from '@/lib/agents/mind-map';
 import { generateDirectAnswer } from '@/lib/agents/direct-answer';
 import { EST_COST_PER_MODEL_CALL } from '@/lib/agents/cost-estimates';
@@ -41,6 +48,11 @@ import type {
   ImageAttachment,
 } from './types';
 import { scoreToLevel } from './types';
+import { extractEntitiesFromQuery } from '@/lib/agents/extract-entities';
+import {
+  filterHistoryForQueryScope,
+  gateMemoryContext,
+} from '@/lib/agents/query-scope';
 
 export type { ExecutionTier } from '@/lib/agents/classify';
 export { isUnclearOrGibberishPrompt } from '@/lib/agents/classify';
@@ -93,6 +105,9 @@ export async function orchestrate(
   let modelCallCount = 1;
 
   const { product, competitor, productUrl, competitorUrl, intent, runExecution, tier } = classification;
+  const queryEntities = extractEntitiesFromQuery(query);
+  const scopedHistory = filterHistoryForQueryScope(history, queryEntities, 6);
+  const scopedMemory = gateMemoryContext(query, memoryContext, queryEntities);
   log?.(`Classified product: ${product}${competitor ? ` vs ${competitor}` : ''} — Tier ${tier} (${intent})`);
   if (isPlaceholderProduct(product)) {
     log?.(`Warning: product name looks like a placeholder ("${product}") — search quality may be low.`);
@@ -105,6 +120,8 @@ export async function orchestrate(
     log?.('Tier 0 Direct Answer fast-path — generating instant response…');
     const directAnswer = await generateDirectAnswer(query, history, memoryContext);
     const latencyMs = Date.now() - orchestrationStart;
+    const directConfidence: ConfidenceLevel =
+      isUnclearOrGibberishPrompt(query) ? 'low' : 'medium';
 
     const hasNamedCompare =
       Boolean(product && competitor)
@@ -129,7 +146,16 @@ export async function orchestrate(
       synthesizedAnswer: directAnswer,
       topRecommendations: [],
       suggestedFollowUps,
-      totalConfidence: 'high',
+      totalConfidence: directConfidence,
+      assumptions: [],
+      unknowns: hasNamedCompare ? ['No live evidence was retrieved on the direct-answer path.'] : [],
+      evidenceLimitations: ['Tier 0 responses do not run live research agents.'],
+      whatWouldChangeThis: ['Run a live research sweep for source-grounded verification.'],
+      alternativeHypotheses: [],
+      confidenceDrivers: {
+        supports: ['The response is limited to a direct platform or conceptual answer.'],
+        weakens: ['No live sources or specialist research agents were used.'],
+      },
       generatedAt: new Date().toISOString(),
       selectionMeta: {
         mode: 'adaptive',
@@ -174,18 +200,17 @@ export async function orchestrate(
   }
 
   // Build prior context string for agents
-  const priorContext = history
+  const priorContext = scopedHistory
     .slice(-4)
     .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 400)}`)
     .join('\n');
 
-  const combinedPriorContext = [priorContext, options?.injectedContext]
+  const selfEvaluationContext = isSelfComparisonQuery(query)
+    ? 'Identity constraint: "Veracity AI" means this application. Public pages for same-name companies or veracityai.com are not evidence about this application; mark its unverified capabilities as unknown.'
+    : undefined;
+  const combinedPriorContext = [priorContext, selfEvaluationContext, options?.injectedContext]
     .filter(Boolean)
     .join('\n\n');
-
-  const synthesisMemoryContext = [memoryContext, options?.injectedContext]
-    .filter(Boolean)
-    .join('\n\n') || undefined;
 
   const scratchpad = {
     productFacts: [] as string[],
@@ -202,7 +227,7 @@ export async function orchestrate(
     competitorUrl,
     priorContext: combinedPriorContext || undefined,
     images: images.length > 0 ? images : undefined,
-    memoryContext: memoryContext || undefined,
+    memoryContext: scopedMemory,
     scratchpad,
   };
 
@@ -319,7 +344,7 @@ export async function orchestrate(
 
   // Step 4: Entity-filter sources before synthesis so the model sees less noise
   const filtered = applyEntitySourceFilterToOutputs(outputs, product, competitor);
-  const researchOutputs = filtered.outputs;
+  const researchOutputs = sanitizeOutputsForSelfEvaluation(query, filtered.outputs);
 
   // Early entity-quality peek (sources only) so mind map can prefer identity-first pillars
   const preGateSources = researchOutputs.flatMap((o) => o.sources);
@@ -338,7 +363,16 @@ export async function orchestrate(
   // Step 5: Synthesise + generate mind map in parallel (2 model calls)
   log?.('Reasoning over findings — synthesizing answer and strategic mind map…');
   const [synthesisResult, mindMapResult] = await Promise.all([
-    synthesize(query, researchOutputs, history, images, synthesisMemoryContext, product, competitor),
+    synthesize(
+      query,
+      researchOutputs,
+      scopedHistory,
+      images,
+      scopedMemory,
+      product,
+      competitor,
+      options?.injectedContext,
+    ),
     generateMindMap(query, product, researchOutputs, {
       identityFirst: earlyQuality.shouldAbstainFromStrongClaims,
     }),
@@ -382,8 +416,13 @@ export async function orchestrate(
   }
 
   const answer = guarded.answer;
-  const followUps = guarded.followUps;
-  const totalConfidence = guarded.totalConfidence;
+  const followUps = [
+    ...guarded.followUps,
+    ...scratchpad.openQuestions,
+  ].filter((value, index, all) => value.trim() && all.indexOf(value) === index).slice(0, 5);
+  const totalConfidence = classification.entityResolutionConflict && guarded.totalConfidence === 'high'
+    ? 'medium'
+    : guarded.totalConfidence;
   // Soft-label Stage-1 / sanitize competitive signals / identity-first mind map
   const outputsFinal = applyAbstainToArtifacts(researchOutputs, {
     product,
@@ -436,6 +475,20 @@ export async function orchestrate(
     topRecommendations: recommendations,
     suggestedFollowUps: followUps,
     totalConfidence,
+    assumptions: synthesisResult.assumptions,
+    unknowns: synthesisResult.unknowns,
+    evidenceLimitations: synthesisResult.evidenceLimitations,
+    whatWouldChangeThis: synthesisResult.whatWouldChangeThis,
+    alternativeHypotheses: synthesisResult.alternativeHypotheses,
+    confidenceDrivers: {
+      supports: synthesisResult.confidenceDrivers.supports,
+      weakens: [
+        ...synthesisResult.confidenceDrivers.weakens,
+        ...(classification.entityResolutionConflict
+          ? ['LLM and deterministic entity extraction disagreed; confidence was capped.']
+          : []),
+      ],
+    },
     generatedAt: new Date().toISOString(),
     metrics,
     quality: guarded.quality,

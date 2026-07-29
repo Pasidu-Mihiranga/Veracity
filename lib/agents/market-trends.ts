@@ -188,6 +188,7 @@ Produce a JSON object with this exact shape:
   "categoryOutlook": "accelerating" | "consolidating" | "maturing" | "emerging",
   "keySignals": string[],     // top 3 leading indicators
   "timeHorizon": string,
+  "openQuestions": string[],  // unresolved evidence gaps; empty only if evidence resolves them
   "synthesizedAnswer": string, // 2-3 sentence plain-English summary
   "confidenceScore": number    // 0.0 - 1.0
 }`;
@@ -243,6 +244,7 @@ Produce a JSON object with this exact shape:
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     trends: (parsed.trends ?? []) as TrendDataPoint[],

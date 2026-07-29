@@ -117,6 +117,7 @@ Produce JSON:
   "overallRisk": "high" | "medium" | "low",
   "timeToImpact": string,
   "defensiveActions": string[],
+  "openQuestions": string[],
   "synthesizedAnswer": string,
   "confidenceScore": number
 }`;
@@ -153,6 +154,7 @@ Produce JSON:
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     threats: (parsed.threats ?? []) as AdjacentThreat[],

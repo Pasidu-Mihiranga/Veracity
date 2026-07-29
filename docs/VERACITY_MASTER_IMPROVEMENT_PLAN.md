@@ -6,7 +6,7 @@
 **Primary objective:** Make Veracity produce enterprise-grade research and decision support comparable to the best AI research assistants  
 **Codebase reviewed:** `feature/langgraph-hybrid-architecture` (orchestrator, classify, quality gate, synthesis, memory, sources, watchlists, monitoring, agents, ADRs, phase docs)  
 **Created:** 2026-07-29  
-**Last updated:** 2026-07-29 — added development methodology, dual-dev workflow, phase checklists, manual AI evaluation, issue tracker, regression policy
+**Last updated:** 2026-07-29 — Phase 1 implemented and evaluated; B1/B4 results, issue resolutions, and remaining latency-gate blocker recorded
 
 > **Single source of truth.** Do not create parallel roadmaps. Update this file when new weaknesses, issues, or acceptance criteria are discovered.
 
@@ -200,7 +200,7 @@ Rules:
 | Checkpoint | When | Required |
 |------------|------|----------|
 | IC-0 | Before Phase 1 coding | Agree schema ownership + branch names |
-| IC-1 | End of Phase 1 | Memory/history gating live; B1+B4 baselines recorded |
+| IC-1 | End of Phase 1 | **Engineering complete 2026-07-29:** memory/history gating live; B1+B4 baselines recorded. Final approval waits on full-suite latency gate + second-developer review. |
 | IC-2 | End of Phase 2 | Evidence bind fix live; B3 baseline updated |
 | IC-3 | Mid Phase 3 | Intent/mission interfaces frozen for B templates |
 | IC-4 | End of Phase 4 | Decision frame fields available to board pack |
@@ -269,20 +269,20 @@ Query + history + memoryContext (+ images)
         ▼
 1. classifyQuery
    - heuristic entity extract
-   - gateMemoryContext / filterHistoryForQueryScope  ← classify + Tier 0 only
+   - gateMemoryContext / filterHistoryForQueryScope  ← classify, research, synthesis, Tier 0
    - LLM classify JSON (domains, tier, needsResearch)
    - reconcileResearchTier
         │
         ├─ Tier 0 ──► generateDirectAnswer ──► return
-        │             (no agents, no quality gate,
-        │              totalConfidence hardcoded "high")
+        │             (no agents; confidence capped by grounding,
+        │              limitations + falsifier returned)
         │
         ▼
 2. resolveAgentSet + planExecution
 3. planMission → WorkflowExecutor waves (Current or LangGraph)
-4. Domain agents + scratchpad (productFacts / competitorFacts / openQuestions)
-5. applyEntitySourceFilterToOutputs
-6. synthesize + generateMindMap
+4. Domain agents + scratchpad (productFacts / competitorFacts / openQuestions populated)
+5. applyEntitySourceFilterToOutputs + self-evaluation homonym boundary
+6. synthesize + generateMindMap (assumptions / unknowns / limitations / falsifiers / alternatives / confidence drivers)
 7. filterAndRankSources
 8. applyOutputQualityGate + applyAbstainToArtifacts
 9. bindEvidenceToSources + computeEvidenceCoverage
@@ -539,27 +539,34 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 1 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B1, B4)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
+- [x] Feature implemented
+- [ ] Code reviewed *(self-review complete; second-developer review pending)*
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B1, B4)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
 - [ ] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 1 exit gate
 
-- [ ] Engineering complete
+- [x] Engineering complete
 - [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed (no Fail on entity/memory/hallucination/confidence)
-- [ ] No critical regressions
-- [ ] Documentation updated in this file (log + issues)
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed (no Fail on entity/memory/hallucination/confidence)
+- [x] No critical regressions
+- [x] Documentation updated in this file (log + issues)
 - [ ] Ready for next phase
+
+**Phase 1 gate note (2026-07-29):** Phase-scoped tests, typecheck, and offline
+quality checks are green. The complete Vitest run is blocked only by the
+pre-existing executor-parity synthetic p95 latency gate (37.501ms vs 30ms);
+functional parity passed. Keep merge/next-phase boxes open until that gate is
+green or formally re-baselined and a second developer reviews the shared-file
+changes.
 
 ---
 
@@ -1062,6 +1069,44 @@ Next action:
 
 _(Append runs below this line.)_
 
+### Eval — 2026-07-29 — Phase 1 — Benchmark B1 — Owner A
+
+**Phase:** 1 — Reasoning Foundation
+**Prompt executed:** Exact B1 self-critical comparison prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; adaptive run selected four research agents.
+**Expected output:** Honest capability gaps, explicit assumptions/falsifiers, no same-name entity claims, confidence ≤ medium without strong evidence.
+**Actual output (summary):** Initial run incorrectly took the Tier 0 meta shortcut. After the routing fix, live research exposed same-name `veracityai.com` contamination and a truncated synthesis JSON. Final run identifies this application as `Veracity AI`, removes same-name facts/URLs before synthesis and evidence binding, returns a low-confidence evaluation-requirements answer, explicit assumptions/unknowns/limitations/falsifiers/alternatives, and no homonym URLs.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Partial (requirements disclosed but current-product primary evidence unavailable); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — no Fail on critical items; applicable average > 1.5.
+**Baseline comparison:** Better — Tier 0 overconfidence and same-name contamination removed; uncertainty contract now complete.
+**Issues found:** AIQ-003, AIQ-005, AIQ-013, AIQ-014.
+**Priority:** P0/P1.
+**Root cause:** Routing / Entity / Reasoning / Confidence.
+**Owner:** A.
+**Status:** Verified.
+**Regression:** None in Phase 1 quality checks.
+**Notes:** Empty product-side evidence is disclosed rather than replaced with same-name public-company evidence.
+**Next action:** Phase 2 should improve claim↔URL binding for the remaining market/competitor requirements.
+
+### Eval — 2026-07-29 — Phase 1 — Benchmark B4 — Owner A
+
+**Phase:** 1 — Reasoning Foundation
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt.
+**Environment:** `dev`; memory=`Lilian`, competitor=`Clay`; history also contained Lilian/Clay; live APIs; four research agents completed.
+**Expected output:** No Lilian/Clay bleed; explain non-peer mismatch; abstain from a peer matrix; ask for buyer intent/evidence.
+**Actual output (summary):** Correctly resolved WSO2 and SyscoLabs, stated they are not comparable commercial peers, returned assumptions/unknowns/limitations/two falsifiers/an alternative, and contained zero Lilian/Clay occurrences. Confidence was high because official entity pages supported the business-model distinction.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Partial (official sources present, but evidence binding included noisy secondary URLs — Phase 2 scope); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — memory contamination rate 0%; no Fail on entity/memory/hallucination/confidence.
+**Baseline comparison:** Better — research agents and synthesis now use the same scoped history/memory rules as classification.
+**Issues found:** AIQ-001, AIQ-002, AIQ-004 (existing Phase 2 bind issue observed, not expanded here).
+**Priority:** P0.
+**Root cause:** Memory / Entity / Evidence.
+**Owner:** A.
+**Status:** Phase 1 issues Verified; AIQ-004 remains Phase 2.
+**Regression:** None in contamination behavior.
+**Notes:** B4 live output had 0 failed agents and no Lilian/Clay in the serialized result.
+**Next action:** Preserve this baseline while implementing Phase 2 evidence binding.
+
 <!-- Example starter row — replace when real evals begin
 ### Eval — 2026-07-29 — Phase 0 baseline — Benchmark B4 — Owner A
 Phase: 0 (baseline before Phase 1)
@@ -1088,18 +1133,21 @@ Do **not** create a separate issues markdown file.
 
 | Issue ID | Title | Description | Priority | Phase | Owner | Status | Resolved Version | Notes |
 |----------|-------|-------------|----------|-------|-------|--------|------------------|-------|
-| AIQ-001 | Ungated research memory | Research agents/synthesis receive full memory despite classify-time gating | P0 | 1 | A | Open | | Confirmed in orchestrator |
-| AIQ-002 | Unscoped research history | Agents/synthesis use unscoped recent history | P0 | 1 | A | Open | | Context leakage |
-| AIQ-003 | Tier 0 hardcoded high confidence | Direct answers always `totalConfidence: high` | P0 | 1 | A | Open | | Confidence mismatch |
+| AIQ-001 | Ungated research memory | Research agents/synthesis receive full memory despite classify-time gating | P0 | 1 | A | Verified | dev@2026-07-29 | B4 live: 0 Lilian/Clay bleed |
+| AIQ-002 | Unscoped research history | Agents/synthesis use unscoped recent history | P0 | 1 | A | Verified | dev@2026-07-29 | Same query-scope gate used by classify, research, synthesis |
+| AIQ-003 | Tier 0 hardcoded high confidence | Direct answers always `totalConfidence: high` | P0 | 1 | A | Verified | dev@2026-07-29 | Tier 0 capped at medium/low with limitations + falsifier |
 | AIQ-004 | Evidence bind fallback | Attaches unrelated top URLs when overlap fails | P0 | 2 | A | Open | | Fake trust trails |
-| AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Open | | |
-| AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Open | | Blocks investigation loop |
+| AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Verified | dev@2026-07-29 | Added assumptions, unknowns, limitations, falsifiers, alternatives, confidence drivers |
+| AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Verified | dev@2026-07-29 | Agents emit questions; workflow records/infer them and follow-ups surface them |
 | AIQ-007 | Watchlist title-only materiality | Diff uses recommendation titles, not structured events | P0 | 5 | B | Open | | |
 | AIQ-008 | Steal Strategy ungrounded | No retrieval/citations | P1 | 4 | B | Open | | |
 | AIQ-009 | Weak DD workflow | No acquisition diligence mission | P1 | 3 | B | Open | | |
 | AIQ-010 | Domain padding over-research | normalizeDomains forces ≥3 domains | P2 | 3 | A | Open | | |
-| AIQ-011 | Heuristic entity hard-override | Dual heuristic entities ignore LLM names | P1 | 1 | A | Open | | |
+| AIQ-011 | Heuristic entity hard-override | Dual heuristic entities ignore LLM names | P1 | 1 | A | Verified | dev@2026-07-29 | LLM resolution preferred; disagreement logged and final confidence capped |
 | AIQ-012 | Missing leadership/security watch signals | Continuous intel gaps | P2 | 5 | B | Open | | |
+| AIQ-013 | Self-comparison identity contamination | B1 took Tier 0 path, then treated same-name public companies as this application | P0 | 1 | A | Verified | dev@2026-07-29 | Self-comparison routing + structural fact/source boundary; final B1 had zero homonym URLs |
+| AIQ-014 | Honesty schema truncates synthesis JSON | 768-token cap truncated expanded synthesis contract and forced weak fallback | P1 | 1 | A | Verified | dev@2026-07-29 | Raised cap to 1400; live B1 returned complete JSON |
+| AIQ-015 | Executor parity p95 gate red locally | Synthetic p95 37.501ms exceeds 30ms despite functional parity | P2 | 1 | A | Open | | Blocks full automated-test checkbox; investigate or re-baseline before merge |
 
 _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mark `Verified` and set Resolved Version._
 

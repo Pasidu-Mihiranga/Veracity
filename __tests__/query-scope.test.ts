@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { extractEntitiesFromQuery } from '@/lib/agents/extract-entities';
 import {
+  isMetaOrGreetingWithoutEntities,
+  isSelfComparisonQuery,
+} from '@/lib/agents/classify';
+import {
   entityTokens,
   filterHistoryForQueryScope,
   gateMemoryContext,
@@ -9,6 +13,13 @@ import {
 } from '@/lib/agents/query-scope';
 
 describe('query-scope (universal)', () => {
+  it('does not route external self-comparisons to the Tier 0 meta shortcut', () => {
+    const query =
+      'If I were competing directly with ChatGPT, Claude, Gemini, Perplexity, and Glean Enterprise, what would I need to improve? Be critical of yourself.';
+    expect(isMetaOrGreetingWithoutEntities(query, extractEntitiesFromQuery(query))).toBe(false);
+    expect(isSelfComparisonQuery(query)).toBe(true);
+  });
+
   it('extracts entity tokens for overlap checks', () => {
     expect(entityTokens('SyscoLabs', 'WSO2')).toEqual(expect.arrayContaining(['syscolabs', 'wso2']));
   });

@@ -31,6 +31,8 @@ export interface ClassificationResult {
   tier: import('@/lib/agents/query-scope').ExecutionTier;
   tierReason: string;
   needsResearch?: boolean;
+  /** LLM and deterministic extraction named different entities. */
+  entityResolutionConflict?: boolean;
 }
 
 const VALID_DOMAINS: IntelligenceDomain[] = [
@@ -75,9 +77,18 @@ function normalizeDomains(rawDomains: unknown): IntelligenceDomain[] {
 }
 
 /** Fast path only when no company/product entities appear in the query. */
+export function isSelfComparisonQuery(query: string): boolean {
+  const requestsExternalComparison =
+    /\b(compete|competing|comparison|compare|versus|vs\.?)\b/i.test(query)
+    && /\b(with|against|directly with|to)\b/i.test(query);
+  const selfReference = /\b(i|me|my|we|us|our|you|your|yourself|this app|this platform)\b/i.test(query);
+  return requestsExternalComparison && selfReference;
+}
+
 export function isMetaOrGreetingWithoutEntities(query: string, heuristic: ReturnType<typeof extractEntitiesFromQuery>): boolean {
   if (heuristic.product || heuristic.competitor) return false;
   const qLower = query.trim().toLowerCase();
+  if (isSelfComparisonQuery(query)) return false;
   const isMetaPlatformQuery =
     /\b(your|yourself|this app|this platform|veracity|you use|you work|you provide|your api|api provider|your backend|your model|your engine|your stack|your system|your pricing|your features)\b/i.test(qLower);
   return (
@@ -164,12 +175,26 @@ Field rules:
       temperature: 0.1,
     });
 
-    const product = heuristic.product && heuristic.competitor
-      ? heuristic.product
+    const product = isSelfComparisonQuery(query)
+      ? 'Veracity AI'
       : resolveProductName(parsed.product, heuristic);
-    const competitor = heuristic.product && heuristic.competitor
-      ? heuristic.competitor
-      : resolveCompetitorName(parsed.competitor, heuristic);
+    const competitor = resolveCompetitorName(parsed.competitor, heuristic);
+    const normalizeEntity = (value: string | undefined) =>
+      value?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const entityResolutionConflict = Boolean(
+      (heuristic.product
+        && normalizeEntity(product) !== normalizeEntity(heuristic.product))
+      || (heuristic.competitor
+        && normalizeEntity(competitor) !== normalizeEntity(heuristic.competitor)),
+    );
+    if (entityResolutionConflict) {
+      logger.warn('classify.entity_resolution_conflict', {
+        query,
+        heuristic,
+        llm: { product: parsed.product, competitor: parsed.competitor },
+        resolved: { product, competitor },
+      });
+    }
 
     if (isPlaceholderProduct(product)) {
       logger.warn('classify.placeholder_product', { query, product, heuristic });
@@ -211,8 +236,9 @@ Field rules:
       intent: (parsed.intent as string) || query,
       runExecution: Boolean(parsed.runExecution) || regexExecution,
       tier,
-      tierReason: `Classifier: tier ${tier}, needsResearch=${String(resolvedNeedsResearch)}`,
+      tierReason: `Classifier: tier ${tier}, needsResearch=${String(resolvedNeedsResearch)}${entityResolutionConflict ? '; entity extraction conflict' : ''}`,
       needsResearch: resolvedNeedsResearch,
+      entityResolutionConflict,
     };
   } catch (err) {
     logger.error('classify.failed', {
