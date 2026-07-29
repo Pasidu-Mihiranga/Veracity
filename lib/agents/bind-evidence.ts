@@ -160,3 +160,33 @@ export function bindEvidenceToSources(
     };
   });
 }
+
+/**
+ * Split prose into sentences and deterministically bind each sentence to source URLs.
+ * Used for executive brief / synthesized answer claim binding (AIQ-016).
+ */
+export function bindProseToSources(
+  prose: string,
+  sources: AgentSource[],
+  product: string,
+  competitor?: string,
+  maxUrls = 3,
+  opts?: {
+    productUrl?: string;
+    competitorUrl?: string;
+  },
+): EvidenceClaimBinding[] {
+  if (!prose || typeof prose !== 'string') return [];
+  const entityTerms = buildEntityTerms(product, competitor);
+  const officialDomains = officialDomainsFromUrls(opts?.productUrl, opts?.competitorUrl);
+
+  // Split into rough sentences (simple heuristic)
+  const sentences = prose
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 10);
+
+  return sentences.map((sentence) =>
+    bindClaim(sentence, sources, entityTerms, officialDomains, maxUrls),
+  );
+}

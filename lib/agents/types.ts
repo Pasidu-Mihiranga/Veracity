@@ -443,6 +443,8 @@ export interface BoardPack {
 
 export interface ExecutiveContentContract {
   brief: string;
+  /** Sentence-level claim bindings for the executive brief (AIQ-016). */
+  briefBindings?: EvidenceClaimBinding[];
   rankedRecommendationTitles: string[];
   decisionAppendix: {
     assumptions: string[];

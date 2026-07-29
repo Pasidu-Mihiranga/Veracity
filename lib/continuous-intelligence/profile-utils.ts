@@ -19,12 +19,19 @@ export type CompetitorProfileState = {
   capturedAt: string;
 };
 
+export type VelocityBaseline = {
+  category: 'hiring' | 'sentiment' | string;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  description: string;
+};
+
 export type ProfileSnapshotDiff = {
   changedFields: string[];
   materialEvents: MonitoringSignal[];
   suppressedSignals: MonitoringSignal[];
   material: boolean;
   profileHash: string;
+  velocityBaselines?: VelocityBaseline[];
 };
 
 export type CompetitorProfileSnapshotRow = {
@@ -76,9 +83,36 @@ export function buildCompetitorProfileState(
 export function diffCompetitorProfileOutputs(
   previous: OrchestratorOutput | null | undefined,
   next: OrchestratorOutput,
+  history?: CompetitorProfileSnapshotRow[],
 ): ProfileSnapshotDiff {
   const extracted = extractChangedMonitoringSignals(previous, next);
   const state = buildCompetitorProfileState(next);
+  
+  const velocityBaselines: VelocityBaseline[] = [];
+  if (history && history.length >= 2) {
+    // Simple heuristic: count signal volume per category over time
+    const hiringSignals = history.flatMap((row) => row.profile.categories.hiring ?? []);
+    const sentimentSignals = history.flatMap((row) => row.profile.categories.sentiment ?? []);
+    const currentHiring = state.categories.hiring?.length ?? 0;
+    const currentSentiment = state.categories.sentiment?.length ?? 0;
+    
+    if (hiringSignals.length > 0 || currentHiring > 0) {
+      velocityBaselines.push({
+        category: 'hiring',
+        trend: currentHiring > hiringSignals.length / history.length ? 'increasing' : 'stable',
+        description: `Hiring activity is ${currentHiring > hiringSignals.length / history.length ? 'increasing' : 'stable'} compared to the last ${history.length} periods.`
+      });
+    }
+    
+    if (sentimentSignals.length > 0 || currentSentiment > 0) {
+      velocityBaselines.push({
+        category: 'sentiment',
+        trend: currentSentiment > sentimentSignals.length / history.length ? 'increasing' : 'stable',
+        description: `Sentiment activity is ${currentSentiment > sentimentSignals.length / history.length ? 'increasing' : 'stable'} compared to the last ${history.length} periods.`
+      });
+    }
+  }
+
   return {
     changedFields: [...new Set(extracted.allNew.map((signal) => signal.category))].sort(),
     materialEvents: previous ? extracted.material : [],
@@ -90,5 +124,6 @@ export function diffCompetitorProfileOutputs(
       categories: state.categories,
       sourceUrls: state.sourceUrls,
     }),
+    velocityBaselines: velocityBaselines.length > 0 ? velocityBaselines : undefined,
   };
 }

@@ -15,7 +15,7 @@ import {
   applyOutputQualityGate,
   assessOutputQuality,
 } from '@/lib/agents/output-quality';
-import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
+import { bindEvidenceToSources, bindProseToSources } from '@/lib/agents/bind-evidence';
 import {
   computeEvidenceCoverage,
   describeEvidenceCoverageGaps,
@@ -792,6 +792,7 @@ export async function orchestrate(
         whatWouldChangeThis: synthesisResult.whatWouldChangeThis,
         alternativeHypotheses: synthesisResult.alternativeHypotheses,
         confidenceDrivers,
+        briefBindings: bindProseToSources(answer, allSources, product, competitor, 3, { productUrl, competitorUrl }),
       })
     : undefined;
   const finalFollowUps = [

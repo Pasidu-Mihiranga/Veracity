@@ -3,6 +3,7 @@ import type {
   BoardPack,
   DecisionFrame,
   EvidenceSupportLevel,
+  EvidenceClaimBinding,
   ExecutiveContentContract,
   Recommendation,
   RecommendationPattern,
@@ -263,9 +264,11 @@ export function buildExecutiveContent(input: {
   whatWouldChangeThis: string[];
   alternativeHypotheses: string[];
   confidenceDrivers: { supports: string[]; weakens: string[] };
+  briefBindings?: EvidenceClaimBinding[];
 }): ExecutiveContentContract {
   return {
     brief: input.answer,
+    briefBindings: input.briefBindings,
     rankedRecommendationTitles: input.recommendations.map(
       (recommendation) => `#${recommendation.rank ?? '?'} ${recommendation.title}`,
     ),

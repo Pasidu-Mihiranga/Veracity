@@ -55,7 +55,14 @@ export async function persistContinuousProfileSnapshot(input: ContinuousScope & 
     confidence: input.competitorUrl ? 0.9 : 0.7,
   });
   const profile = buildCompetitorProfileState(input.output);
-  const diff = diffCompetitorProfileOutputs(input.previous, input.output);
+  const history = await query<CompetitorProfileSnapshotRow>(
+    `SELECT * FROM competitor_profile_snapshots
+     WHERE entity_id = $1
+     ORDER BY observed_at DESC
+     LIMIT 12`,
+    [entity.id]
+  );
+  const diff = diffCompetitorProfileOutputs(input.previous, input.output, history.rows);
   const scopeKey = continuousScopeKey(input);
   const sourceSnapshotIds: string[] = [];
   for (const source of uniqueSources(input.output)) {
