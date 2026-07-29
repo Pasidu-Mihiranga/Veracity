@@ -12,8 +12,9 @@ export function buildSynthesizePrompt(params: {
   outputSummariesJson: string;
   citedTitlesJson: string;
   agentCount: number;
+  researchIntent?: import('@/lib/agents/research-intents').ResearchIntentClass;
 }): string {
-  const { query, product, competitor, memoryContext, priorSummary, outputSummariesJson, citedTitlesJson, agentCount } =
+  const { query, product, competitor, memoryContext, priorSummary, outputSummariesJson, citedTitlesJson, agentCount, researchIntent } =
     params;
   const selfComparison =
     /\b(compete|competing|compare|comparison|versus|vs\.?)\b/i.test(query)
@@ -28,6 +29,20 @@ ${outputSummariesJson}
 
 Available source titles (for grounding only — do not invent URLs):
 ${citedTitlesJson}
+Research workflow: ${researchIntent ?? 'market'}
+${researchIntent === 'dd_acquisition' ? `
+ACQUISITION DUE-DILIGENCE CONTRACT:
+- Structure the answer as an initial diligence assessment, never as a generic growth strategy or product pivot.
+- Separate verified target facts from unknowns. Never invent ARR, valuation, margins, retention, customers, funding, or headcount.
+- Recommendations must be diligence actions across identity, business model, financials/news, people, and risk.
+- Follow-ups must be concrete data-room or primary-source probes.
+` : ''}
+${researchIntent === 'compare' ? `
+COMPARISON CONTRACT:
+- Compare every named entity on the same dimensions. Do not use evidence about one entity to fill another entity's cell.
+- Mark a dimension unknown when retrieved evidence does not support a side.
+- Cover positioning, pricing, buyer/switching evidence, market signals, and risk when available.
+` : ''}
 ${selfComparison ? `
 SELF-EVALUATION IDENTITY RULE:
 - "Veracity AI" means this application, not a same-name public company, consultancy, or veracityai.com.

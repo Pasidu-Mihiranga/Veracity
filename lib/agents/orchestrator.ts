@@ -22,6 +22,21 @@ import {
 } from '@/lib/agents/evidence-coverage';
 import { resolveAgentSet } from '@/lib/agents/adaptive-selection';
 import { planMission } from '@/lib/agents/mission-planner';
+import {
+  domainsForMission,
+  MISSION_TEMPLATES,
+} from '@/lib/agents/research-intents';
+import {
+  buildComparisonContract,
+  buildComparisonExecutiveAnswer,
+  buildDiligenceExecutiveAnswer,
+  buildDueDiligencePack,
+  buildInvestigationPlan,
+  collectPriorOpenQuestions,
+  domainsFromInvestigationQuery,
+  planAdaptiveReplan,
+  sanitizeDiligenceRecommendations,
+} from '@/lib/agents/research-workflows';
 import { shouldRunExecution as planExecution } from '@/lib/agents/execution-planner';
 import { buildMissionSummary } from '@/lib/agents/mission-summary';
 import { getWorkflowExecutor } from '@/lib/agents/workflow';
@@ -73,6 +88,29 @@ const ALL_AGENTS: AgentConfig[] = [
   positioningAgent,
   adjacentAgent,
 ];
+
+function mergeDeepenedOutput(
+  existing: AgentOutput,
+  deepened: AgentOutput,
+): AgentOutput {
+  const merged = Object.assign({}, existing, deepened) as AgentOutput;
+  const confidenceScore = Math.max(existing.confidenceScore, deepened.confidenceScore);
+  merged.facts = [...new Set([...existing.facts, ...deepened.facts])].slice(0, 8);
+  merged.interpretation = [...new Set([
+    ...existing.interpretation,
+    ...deepened.interpretation,
+  ])].slice(0, 6);
+  merged.sources = [...new Map(
+    [...existing.sources, ...deepened.sources].map((source) => [source.url, source]),
+  ).values()];
+  merged.openQuestions = [...new Set([
+    ...(existing.openQuestions ?? []),
+    ...(deepened.openQuestions ?? []),
+  ])].slice(0, 6);
+  merged.confidenceScore = confidenceScore;
+  merged.confidence = scoreToLevel(confidenceScore);
+  return merged;
+}
 // mirofishAgent is opt-in and runs separately after the main result is sent
 // (see runMirofishAgent below)
 
@@ -107,10 +145,31 @@ export async function orchestrate(
   const classification = await classifyQuery(query, history, images, memoryContext);
   let modelCallCount = 1;
 
-  const { product, competitor, productUrl, competitorUrl, intent, runExecution, tier } = classification;
+  const {
+    product,
+    competitor,
+    productUrl,
+    competitorUrl,
+    entities,
+    intent,
+    intentClass,
+    runExecution,
+    tier,
+  } = classification;
+  const isInvestigationFollowUp =
+    domainsFromInvestigationQuery(query).length > 0
+    || /\b(continue|follow up|deepen|investigate further|resolve (?:this|these)|next probe)\b/i.test(query);
   const queryEntities = extractEntitiesFromQuery(query);
-  const scopedHistory = filterHistoryForQueryScope(history, queryEntities, 6);
-  const scopedMemory = gateMemoryContext(query, memoryContext, queryEntities);
+  const scopeEntities =
+    isInvestigationFollowUp && !queryEntities.product && product !== 'unknown product'
+      ? { product, competitor }
+      : queryEntities;
+  const scopedHistory = filterHistoryForQueryScope(history, scopeEntities, 6);
+  const scopedMemory = gateMemoryContext(query, memoryContext, scopeEntities);
+  const priorOpenQuestions = collectPriorOpenQuestions(
+    isInvestigationFollowUp ? history.slice(-6) : scopedHistory,
+    6,
+  );
   log?.(`Classified product: ${product}${competitor ? ` vs ${competitor}` : ''} — Tier ${tier} (${intent})`);
   if (isPlaceholderProduct(product)) {
     log?.(`Warning: product name looks like a placeholder ("${product}") — search quality may be low.`);
@@ -150,6 +209,7 @@ export async function orchestrate(
       topRecommendations: [],
       suggestedFollowUps,
       totalConfidence: directConfidence,
+      researchIntent: intentClass,
       assumptions: [],
       unknowns: hasNamedCompare ? ['No live evidence was retrieved on the direct-answer path.'] : [],
       evidenceLimitations: ['Tier 0 responses do not run live research agents.'],
@@ -180,13 +240,22 @@ export async function orchestrate(
     };
   }
 
-  const minAgents = tier === 1 ? 1 : tier === 2 ? 2 : tier === 0 ? 0 : 3;
+  const preserveNarrowMission =
+    intentClass === 'market' && (classification.domains?.length ?? 0) === 1;
+  const minAgents = preserveNarrowMission
+    ? 1
+    : tier === 1 ? 1 : tier === 2 ? 2 : tier === 0 ? 0 : 3;
 
+  const missionDomains = domainsForMission({
+    intent: intentClass,
+    classifiedDomains: (classification.domains ?? []) as IntelligenceDomain[],
+    tier,
+  });
   const resolved = resolveAgentSet({
     uiSelected: options?.selectedAgents?.length
       ? options.selectedAgents
       : ALL_AGENTS.map((a) => a.id),
-    classifierDomains: (classification.domains ?? []) as IntelligenceDomain[],
+    classifierDomains: missionDomains,
     forceFullSweep: forceFull,
     minAgents,
   });
@@ -211,14 +280,22 @@ export async function orchestrate(
   const selfEvaluationContext = isSelfComparisonQuery(query)
     ? 'Identity constraint: "Veracity AI" means this application. Public pages for same-name companies or veracityai.com are not evidence about this application; mark its unverified capabilities as unknown.'
     : undefined;
-  const combinedPriorContext = [priorContext, selfEvaluationContext, options?.injectedContext]
+  const priorInvestigationContext = priorOpenQuestions.length > 0
+    ? `Unresolved questions from the prior investigation:\n${priorOpenQuestions.map((question) => `- ${question}`).join('\n')}`
+    : undefined;
+  const combinedPriorContext = [
+    priorContext,
+    priorInvestigationContext,
+    selfEvaluationContext,
+    options?.injectedContext,
+  ]
     .filter(Boolean)
     .join('\n\n');
 
   const scratchpad = {
     productFacts: [] as string[],
     competitorFacts: [] as string[],
-    openQuestions: [] as string[],
+    openQuestions: [...priorOpenQuestions],
   };
 
   // Keep the user's original wording for search/synthesis (not only the LLM intent rewrite).
@@ -228,6 +305,8 @@ export async function orchestrate(
     competitor,
     productUrl,
     competitorUrl,
+    entities,
+    researchIntent: intentClass,
     priorContext: combinedPriorContext || undefined,
     images: images.length > 0 ? images : undefined,
     memoryContext: scopedMemory,
@@ -237,8 +316,11 @@ export async function orchestrate(
   // Step 2: Select research agents (cost-aware adaptive, or targeted follow-up)
   let researchIds = resolved.researchIds;
   if (options?.followUpMode === 'targeted') {
+    const probeDomains = domainsFromInvestigationQuery(query);
     const classifiedDomains = new Set(classification.domains ?? []);
-    const targeted = researchIds.filter((id) => classifiedDomains.has(id));
+    const targeted = probeDomains.length > 0
+      ? probeDomains
+      : researchIds.filter((id) => classifiedDomains.has(id));
     if (targeted.length > 0) researchIds = targeted;
   }
 
@@ -248,6 +330,7 @@ export async function orchestrate(
     options.selectedAgents.includes('pricing');
   if (
     competitor &&
+    options?.followUpMode !== 'targeted' &&
     uiAllowsPricing &&
     !researchIds.includes('pricing') &&
     !isPlaceholderProduct(competitor)
@@ -256,15 +339,16 @@ export async function orchestrate(
   }
 
   const agentsToRun = ALL_AGENTS.filter((a) => researchIds.includes(a.id as IntelligenceDomain));
-  const missionSteps = planMission([
+  let missionSteps = planMission([
     ...researchIds,
     ...(shouldRunExecution ? (['execution-engine'] as IntelligenceDomain[]) : []),
-  ]);
+  ], intentClass);
   const missionSummary = buildMissionSummary({
     steps: missionSteps,
     product,
     competitor,
     includeExecution: shouldRunExecution,
+    intent: intentClass,
   });
   await options?.onMissionSummary?.(missionSummary);
   log?.(
@@ -308,6 +392,127 @@ export async function orchestrate(
 
   // Each research agent makes ~1 model call
   modelCallCount += agentsToRun.length;
+
+  // Step 3b: Quality-adaptive second pass. Add at most two previously unselected
+  // collectors; otherwise preserve gaps as targeted investigation probes.
+  const adaptiveReplan = planAdaptiveReplan({
+    outputs,
+    selectedDomains: researchIds,
+    availableDomains: ALL_AGENTS.map((agent) => agent.id),
+    openQuestions: scratchpad.openQuestions,
+    intent: intentClass,
+    maxAddedDomains: tier === 1 || options?.followUpMode === 'targeted' ? 0 : 2,
+  });
+  if (adaptiveReplan.triggered) {
+    log?.(`Adaptive quality check: ${adaptiveReplan.reasons[0]}`);
+  }
+  if (adaptiveReplan.addedDomains.length > 0) {
+    log?.(
+      `Evidence is thin — adding targeted collector${adaptiveReplan.addedDomains.length > 1 ? 's' : ''}: ${adaptiveReplan.addedDomains.join(', ')}`,
+    );
+    const addedSteps = planMission(adaptiveReplan.addedDomains, intentClass);
+    const addedAgents = ALL_AGENTS.filter((agent) =>
+      adaptiveReplan.addedDomains.includes(agent.id),
+    );
+    const addedResult = await executor.execute(
+      {
+        steps: addedSteps,
+        agents: addedAgents,
+        context: {
+          ...agentContext,
+          priorContext: [
+            agentContext.priorContext,
+            `Adaptive follow-up reasons:\n${adaptiveReplan.reasons.join('\n')}`,
+          ].filter(Boolean).join('\n\n'),
+        },
+        scratchpad,
+      },
+      {
+        onAgentUpdate: (run) => onAgentUpdate?.(run),
+        onOrchestrationLog: log,
+        shouldCancel: options?.shouldCancel,
+      },
+    );
+    agentRuns.push(...addedResult.agentRuns);
+    outputs.push(...addedResult.outputs);
+    Object.assign(agentLatencies, addedResult.agentLatencies);
+    modelCallCount += addedAgents.length;
+    researchIds = [...new Set([...researchIds, ...adaptiveReplan.addedDomains])];
+    missionSteps = [
+      ...missionSteps,
+      ...addedSteps.filter((step) => !missionSteps.some((existing) => existing.id === step.id)),
+    ].map((step) =>
+      step.agentId === 'execution-engine'
+        ? {
+            ...step,
+            dependsOn: [...new Set([
+              ...step.dependsOn,
+              ...addedSteps.map((added) => added.id),
+            ])],
+          }
+        : step,
+    );
+  }
+  const deepenDomains =
+    tier >= 2 && options?.followUpMode !== 'targeted'
+      ? adaptiveReplan.deepenDomains
+          .filter((domain) => researchIds.includes(domain))
+          .slice(0, 1)
+      : [];
+  adaptiveReplan.executedDeepenDomains = deepenDomains;
+  if (deepenDomains.length > 0) {
+    const domain = deepenDomains[0];
+    log?.(`Deepening ${domain.replace(/-/g, ' ')} against unresolved questions…`);
+    const deepenAgent = ALL_AGENTS.find((agent) => agent.id === domain);
+    if (deepenAgent) {
+      const deepenResult = await executor.execute(
+        {
+          steps: planMission([domain], intentClass),
+          agents: [deepenAgent],
+          context: {
+            ...agentContext,
+            query: [
+              query,
+              'Targeted deepening — resolve these evidence gaps:',
+              ...scratchpad.openQuestions.slice(0, 4).map((question) => `- ${question}`),
+            ].join('\n'),
+            priorContext: [
+              agentContext.priorContext,
+              `Deepening reason:\n${adaptiveReplan.reasons.join('\n')}`,
+            ].filter(Boolean).join('\n\n'),
+          },
+          scratchpad,
+        },
+        {
+          onAgentUpdate: (run) => onAgentUpdate?.(run),
+          onOrchestrationLog: log,
+          shouldCancel: options?.shouldCancel,
+        },
+      );
+      const deepened = deepenResult.outputs[0];
+      if (deepened) {
+        const existingIndex = outputs.findIndex((output) => output.domain === domain);
+        if (existingIndex >= 0) {
+          outputs[existingIndex] = mergeDeepenedOutput(
+            outputs[existingIndex],
+            deepened,
+          );
+        } else {
+          outputs.push(deepened);
+        }
+      }
+      const deepenRun = deepenResult.agentRuns[0];
+      const existingRunIndex = agentRuns.findIndex((run) => run.agentId === domain);
+      if (deepenRun && existingRunIndex >= 0) {
+        agentRuns[existingRunIndex] = deepenRun;
+      } else if (deepenRun) {
+        agentRuns.push(deepenRun);
+      }
+      agentLatencies[domain] =
+        (agentLatencies[domain] ?? 0) + (deepenResult.agentLatencies[domain] ?? 0);
+      modelCallCount += 1;
+    }
+  }
 
   // ── Stage 2: Execution Engine (only if execution intent detected) ──────────
   if (shouldRunExecution) {
@@ -380,6 +585,7 @@ export async function orchestrate(
       product,
       competitor,
       options?.injectedContext,
+      intentClass,
     ),
     generateMindMap(query, product, researchOutputs, {
       identityFirst: earlyQuality.shouldAbstainFromStrongClaims,
@@ -447,7 +653,9 @@ export async function orchestrate(
 
   // Step 7b: Bind recommendation evidence → source URLs (Evidence Trail)
   const recommendations = bindEvidenceToSources(
-    guarded.recommendations,
+    intentClass === 'dd_acquisition'
+      ? sanitizeDiligenceRecommendations(guarded.recommendations)
+      : guarded.recommendations,
     allSources,
     product,
     competitor,
@@ -493,6 +701,43 @@ export async function orchestrate(
       answer = `${answer}\n\n${limitationNarrative}`;
     }
   }
+  const investigationQuestions = [
+    ...scratchpad.openQuestions,
+    ...synthesisResult.unknowns,
+  ].filter((value, index, all) => value.trim() && all.indexOf(value) === index);
+  const investigationPlan = buildInvestigationPlan({
+    intent: intentClass,
+    product,
+    openQuestions: investigationQuestions,
+    coverage: evidenceCoverage,
+    outputs: outputsFinal,
+    replan: adaptiveReplan,
+  });
+  const dueDiligencePack = intentClass === 'dd_acquisition'
+    ? buildDueDiligencePack(product, outputsFinal, investigationQuestions)
+    : undefined;
+  if (dueDiligencePack) {
+    answer = buildDiligenceExecutiveAnswer(dueDiligencePack);
+    if (narratedGaps.length > 0) {
+      answer += `\n\nEvidence gaps: ${narratedGaps.slice(0, 3).join(' ')}`;
+    }
+  }
+  const comparisonContract =
+    intentClass === 'compare'
+    && entities.length >= 2
+    && !isSelfComparisonQuery(query)
+    ? buildComparisonContract(entities, outputsFinal)
+    : undefined;
+  if (comparisonContract) {
+    answer = buildComparisonExecutiveAnswer(comparisonContract);
+    if (narratedGaps.length > 0) {
+      answer += `\n\nEvidence gaps: ${narratedGaps.slice(0, 3).join(' ')}`;
+    }
+  }
+  const finalFollowUps = [
+    ...followUps,
+    ...investigationPlan.targetedFollowUpPlan,
+  ].filter((value, index, all) => value.trim() && all.indexOf(value) === index).slice(0, 5);
 
   // Step 8: Build run metrics
   // Tool call count: each successful agent typically makes 2-4 tool calls.
@@ -521,8 +766,13 @@ export async function orchestrate(
     outputs: outputsFinal,
     synthesizedAnswer: answer,
     topRecommendations: recommendations,
-    suggestedFollowUps: followUps,
+    suggestedFollowUps: finalFollowUps,
     totalConfidence,
+    researchIntent: intentClass,
+    investigationPlan,
+    dueDiligencePack,
+    comparisonContract,
+    adaptiveReplan,
     assumptions: synthesisResult.assumptions,
     unknowns: synthesisResult.unknowns,
     evidenceLimitations: [
@@ -546,18 +796,24 @@ export async function orchestrate(
     quality: guarded.quality,
     evidenceCoverage,
     missionPlan: {
+      intent: intentClass,
+      objective: MISSION_TEMPLATES[intentClass].objective,
+      deliverables: MISSION_TEMPLATES[intentClass].deliverables,
       steps: missionSteps.map((s) => ({
         id: s.id,
         label: s.label,
         agentId: s.agentId,
         dependsOn: s.dependsOn,
         rationale: s.rationale,
+        stage: s.stage,
       })),
     },
     selectionMeta: {
-      mode: resolved.mode,
-      savedVsFull: resolved.savedVsFull,
+      mode: researchIds.length >= 6 ? 'full' : resolved.mode,
+      savedVsFull: Math.max(0, 6 - researchIds.length),
       researchIds: researchIds as string[],
+      tier,
+      tierLabel: `TIER ${tier} · ${MISSION_TEMPLATES[intentClass].label.toUpperCase()}`,
     },
   };
 }

@@ -64,6 +64,73 @@ export type IntelligenceDomain =
   | 'mirofish'
   | 'mirofish-live';
 
+export type ResearchIntentClass =
+  | 'compare'
+  | 'market'
+  | 'dd_acquisition'
+  | 'risk'
+  | 'tech_assessment'
+  | 'executive_strategy'
+  | 'monitoring';
+
+export type InvestigationProbe = {
+  id: string;
+  question: string;
+  domain: IntelligenceDomain;
+  sourceType: string;
+  reason: string;
+  status: 'completed' | 'recommended';
+};
+
+export type InvestigationPlan = {
+  intent: ResearchIntentClass;
+  openQuestions: string[];
+  proposedNextProbes: InvestigationProbe[];
+  targetedFollowUpPlan: string[];
+};
+
+export type DueDiligenceSectionId =
+  | 'identity'
+  | 'business_model'
+  | 'financials_news'
+  | 'people'
+  | 'risk'
+  | 'open_items';
+
+export type DueDiligencePack = {
+  target: string;
+  sections: Array<{
+    id: DueDiligenceSectionId;
+    label: string;
+    status: 'verified' | 'partial' | 'open';
+    findings: string[];
+    evidenceUrls: string[];
+    openItems: string[];
+  }>;
+};
+
+export type ComparisonContract = {
+  entities: string[];
+  dimensions: Array<{
+    id: 'positioning' | 'pricing' | 'buyer_evidence' | 'market' | 'risk';
+    label: string;
+    cells: Array<{
+      entity: string;
+      finding: string;
+      confidence: 'supported' | 'weakly-supported' | 'unsupported';
+      evidenceUrls: string[];
+    }>;
+  }>;
+};
+
+export type AdaptiveReplan = {
+  triggered: boolean;
+  reasons: string[];
+  addedDomains: IntelligenceDomain[];
+  deepenDomains: IntelligenceDomain[];
+  executedDeepenDomains?: IntelligenceDomain[];
+};
+
 // ─── Artifact types (drives which component renders) ─────────────────────────
 export type ArtifactType =
   | 'trend-chart'
@@ -242,6 +309,16 @@ export interface OrchestratorOutput {
   topRecommendations: Recommendation[];
   suggestedFollowUps: string[];
   totalConfidence: ConfidenceLevel;
+  /** Enterprise research workflow selected for this query. */
+  researchIntent?: ResearchIntentClass;
+  /** Explicit investigation loop generated from unresolved evidence gaps. */
+  investigationPlan?: InvestigationPlan;
+  /** Present for acquisition diligence missions. */
+  dueDiligencePack?: DueDiligencePack;
+  /** Present for comparison missions; every entity uses the same dimensions. */
+  comparisonContract?: ComparisonContract;
+  /** Quality-adaptive second-pass decision and collectors. */
+  adaptiveReplan?: AdaptiveReplan;
   /** Explicit reasoning boundaries for decision-grade research runs. */
   assumptions?: string[];
   unknowns?: string[];
@@ -261,7 +338,17 @@ export interface OrchestratorOutput {
   evidenceCoverage?: EvidenceCoverageAxis[];
   /** Mission plan / DAG from Mission Planner */
   missionPlan?: {
-    steps: Array<{ id: string; label: string; agentId: string; dependsOn?: string[]; rationale?: string }>;
+    steps: Array<{
+      id: string;
+      label: string;
+      agentId: string;
+      dependsOn?: string[];
+      rationale?: string;
+      stage?: 'scope' | 'collect' | 'cross-reference' | 'act';
+    }>;
+    intent?: ResearchIntentClass;
+    objective?: string;
+    deliverables?: string[];
   };
   /** Agents planned vs full sweep (adaptive selection) */
   selectionMeta?: {
@@ -358,6 +445,10 @@ export interface ConversationMessage {
   content: string;
   images?: ImageAttachment[];
   agentOutput?: OrchestratorOutput;
+  /** Slim workflow state supplied by the client for cross-turn investigations. */
+  investigationOpenQuestions?: string[];
+  researchProduct?: string;
+  researchCompetitor?: string;
   timestamp: string;
 }
 
@@ -375,6 +466,8 @@ export interface AgentContext {
   competitor?: string;
   productUrl?: string;
   competitorUrl?: string;
+  entities?: string[];
+  researchIntent?: ResearchIntentClass;
   priorContext?: string;    // serialised prior conversation findings
   images?: ImageAttachment[];  // optional visual context from user
   memoryContext?: string;      // persistent user memory across all sessions

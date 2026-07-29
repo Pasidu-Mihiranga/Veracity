@@ -15,6 +15,7 @@ import type {
   ImageAttachment,
   Recommendation,
 } from '@/lib/agents/types';
+import type { ResearchIntentClass } from '@/lib/agents/research-intents';
 
 export interface SynthesisResult {
   answer: string;
@@ -127,6 +128,7 @@ export async function synthesize(
   product?: string,
   competitor?: string,
   injectedContext?: string,
+  researchIntent?: ResearchIntentClass,
 ): Promise<SynthesisResult> {
   const heuristic = extractEntitiesFromQuery(query);
   const scopedMemory = gateMemoryContext(query, memoryContext, heuristic);
@@ -161,6 +163,7 @@ export async function synthesize(
     outputSummariesJson: JSON.stringify(outputSummaries, null, 2),
     citedTitlesJson: JSON.stringify(citedTitles, null, 2),
     agentCount: scopedOutputs.length,
+    researchIntent,
   });
 
   try {

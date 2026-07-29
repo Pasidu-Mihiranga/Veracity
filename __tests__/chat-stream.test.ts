@@ -4,11 +4,33 @@ import {
   applyAgentUpdate,
   applyResultToAssistant,
   isMirofishLiveFailed,
+  historyItemFromMessage,
   parseSseBuffer,
   recommendationsFromOutput,
 } from '@/lib/chat-stream';
 import type { AgentOutput, AgentRun, OrchestratorOutput } from '@/lib/agents/types';
 import type { ChatMessage } from '@/types/chat-ui';
+
+describe('historyItemFromMessage', () => {
+  it('carries only slim investigation state across turns', () => {
+    const item = historyItemFromMessage({
+      role: 'assistant',
+      content: 'Initial findings',
+      orchestratorOutput: {
+        product: 'TargetCo',
+        investigationPlan: {
+          intent: 'dd_acquisition',
+          openQuestions: ['What is audited ARR?'],
+          proposedNextProbes: [],
+          targetedFollowUpPlan: [],
+        },
+      } as unknown as OrchestratorOutput,
+    });
+    expect(item.investigationOpenQuestions).toEqual(['What is audited ARR?']);
+    expect(item.researchProduct).toBe('TargetCo');
+    expect(item).not.toHaveProperty('orchestratorOutput');
+  });
+});
 
 describe('parseSseBuffer', () => {
   it('parses complete SSE data events and keeps the partial tail', () => {

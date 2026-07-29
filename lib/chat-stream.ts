@@ -15,7 +15,7 @@ import type {
 
 export type ChatRequestBody = {
   query: string;
-  history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  history: ChatHistoryItem[];
   images?: ImageAttachment[];
   memoryContext?: string;
   includeMirofish?: boolean;
@@ -26,6 +26,32 @@ export type ChatRequestBody = {
   sessionId?: string;
   conversationId?: string;
 };
+
+export type ChatHistoryItem = {
+  role: 'user' | 'assistant';
+  content: string;
+  /** Slim cross-turn workflow state; avoids resending full orchestrator output. */
+  investigationOpenQuestions?: string[];
+  researchProduct?: string;
+  researchCompetitor?: string;
+};
+
+export function historyItemFromMessage(
+  message: Pick<ChatMessage, 'role' | 'content' | 'orchestratorOutput'>,
+): ChatHistoryItem {
+  const openQuestions = message.orchestratorOutput?.investigationPlan?.openQuestions ?? [];
+  const product = message.orchestratorOutput?.product;
+  const competitor = message.orchestratorOutput?.competitor;
+  return {
+    role: message.role,
+    content: message.content,
+    ...(openQuestions.length > 0
+      ? { investigationOpenQuestions: openQuestions.slice(0, 8) }
+      : {}),
+    ...(product ? { researchProduct: product } : {}),
+    ...(competitor ? { researchCompetitor: competitor } : {}),
+  };
+}
 
 export type StreamChatOptions = {
   signal?: AbortSignal;

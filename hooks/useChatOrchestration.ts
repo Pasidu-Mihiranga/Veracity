@@ -31,6 +31,7 @@ import {
   applyOrchestrationLog,
   applyResultToAssistant,
   isMirofishLiveFailed,
+  historyItemFromMessage,
   mergeAgentOutputIntoFinal,
   recommendationsFromOutput,
   sourcesFromOutput,
@@ -210,7 +211,7 @@ export function useChatOrchestration({
     };
     const history = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      .map(historyItemFromMessage);
 
     setMessages((prev) => [...prev, userMsg]);
     resetDraftInput();
@@ -458,7 +459,7 @@ export function useChatOrchestration({
 
     const history = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      .map(historyItemFromMessage);
     for (const fu of followUps) {
       if (fu.question) history.push({ role: 'user', content: fu.question });
       if (fu.answer && !fu.loading) history.push({ role: 'assistant', content: fu.answer });

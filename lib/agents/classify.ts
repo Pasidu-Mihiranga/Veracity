@@ -12,6 +12,11 @@ import {
   reconcileResearchTier,
 } from '@/lib/agents/query-scope';
 import { logger } from '@/lib/logger';
+import {
+  resolveComparedEntities,
+  resolveResearchIntent,
+  type ResearchIntentClass,
+} from '@/lib/agents/research-intents';
 import type {
   ConversationMessage,
   ImageAttachment,
@@ -25,8 +30,10 @@ export interface ClassificationResult {
   competitor?: string;
   productUrl?: string;
   competitorUrl?: string;
+  entities: string[];
   domains: IntelligenceDomain[];
   intent: string;
+  intentClass: ResearchIntentClass;
   runExecution: boolean;
   tier: import('@/lib/agents/query-scope').ExecutionTier;
   tierReason: string;
@@ -63,17 +70,13 @@ export function isUnclearOrGibberishPrompt(query: string): boolean {
   return false;
 }
 
-function normalizeDomains(rawDomains: unknown): IntelligenceDomain[] {
-  if (!Array.isArray(rawDomains)) {
-    return ['market-trends', 'competitive', 'win-loss'];
-  }
+export function normalizeDomains(rawDomains: unknown): IntelligenceDomain[] {
+  if (!Array.isArray(rawDomains)) return [];
   const filtered = rawDomains
     .filter((domain): domain is IntelligenceDomain =>
       typeof domain === 'string' && VALID_DOMAINS.includes(domain as IntelligenceDomain),
     );
-  if (filtered.length >= 3) return filtered;
-  const merged = [...new Set([...filtered, 'market-trends', 'competitive', 'win-loss'])];
-  return merged.slice(0, 6) as IntelligenceDomain[];
+  return [...new Set(filtered)].slice(0, 6) as IntelligenceDomain[];
 }
 
 /** Fast path only when no company/product entities appear in the query. */
@@ -111,7 +114,9 @@ export async function classifyQuery(
   if (isUnclearOrGibberishPrompt(query)) {
     return {
       product: 'Veracity AI',
+      entities: ['Veracity AI'],
       intent: 'Unclear or typo input',
+      intentClass: 'market',
       domains: [],
       runExecution: false,
       tier: 0,
@@ -123,7 +128,9 @@ export async function classifyQuery(
   if (isMetaOrGreetingWithoutEntities(query, heuristic)) {
     return {
       product: 'Veracity AI',
+      entities: ['Veracity AI'],
       intent: query,
+      intentClass: 'market',
       domains: [],
       runExecution: false,
       tier: 0,
@@ -132,8 +139,19 @@ export async function classifyQuery(
     };
   }
 
-  const scopedMemory = gateMemoryContext(query, memoryContext, heuristic);
-  const scopedHistory = filterHistoryForQueryScope(history, heuristic, 6);
+  const explicitInvestigationFollowUp =
+    /\b(?:run|deepen|investigate)\s+(?:market trends?|competitive|win loss|pricing|positioning|adjacent)\b/i.test(query);
+  const priorWorkflowMessage = explicitInvestigationFollowUp
+    ? [...history].reverse().find((message) => message.researchProduct)
+    : undefined;
+  const effectiveHeuristic = heuristic.product || heuristic.competitor
+    ? heuristic
+    : {
+        product: priorWorkflowMessage?.researchProduct,
+        competitor: priorWorkflowMessage?.researchCompetitor,
+      };
+  const scopedMemory = gateMemoryContext(query, memoryContext, effectiveHeuristic);
+  const scopedHistory = filterHistoryForQueryScope(history, effectiveHeuristic, 6);
   const priorContext = scopedHistory
     .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
     .join('\n');
@@ -147,7 +165,7 @@ ${priorContext || 'None'}
 
 Current query: "${query}"
 ${images.length > 0 ? `\nAttached images: ${images.length}. Metadata only.` : ''}
-${heuristic.product ? `\nHeuristic hint — product: "${heuristic.product}"${heuristic.competitor ? `, competitor: "${heuristic.competitor}"` : ''}. Prefer these when they match the query.` : ''}
+${effectiveHeuristic.product ? `\nHeuristic hint — product: "${effectiveHeuristic.product}"${effectiveHeuristic.competitor ? `, competitor: "${effectiveHeuristic.competitor}"` : ''}. Prefer these when they match the query.` : ''}
 
 Respond with JSON:
 {
@@ -155,8 +173,10 @@ Respond with JSON:
   "competitor": string | null,
   "productUrl": string | null,
   "competitorUrl": string | null,
+  "entities": string[],
   "domains": string[],
   "intent": string,
+  "intentClass": "compare" | "market" | "dd_acquisition" | "risk" | "tech_assessment" | "executive_strategy" | "monitoring",
   "runExecution": boolean,
   "needsResearch": boolean,
   "tier": number
@@ -167,6 +187,7 @@ Field rules:
 - needsResearch: false → answer from general knowledge only (Tier 0). Use for greetings, Veracity meta questions, definitions, and conceptual "what role does X play" questions with no request for live market evidence.
 - tier: 0 direct, 1 single lookup, 2 focused compare, 3 full swarm, 4 execution deliverables, 5 persona simulation. Tier must match needsResearch (if needsResearch is true, tier must be >= 1).
 - domains: only when needsResearch is true; options: market-trends, competitive, win-loss, pricing, positioning, adjacent.
+- intentClass: choose exactly one enterprise workflow. Acquisition or investment diligence must be dd_acquisition; vendor/product comparisons use compare; narrow pricing lookups without a comparison use market.
 - Plain "compare A and B" between products/platforms → needsResearch: true, tier 2, include competitive, win-loss, positioning, pricing when relevant.`;
 
   try {
@@ -177,30 +198,30 @@ Field rules:
 
     const product = isSelfComparisonQuery(query)
       ? 'Veracity AI'
-      : resolveProductName(parsed.product, heuristic);
-    const competitor = resolveCompetitorName(parsed.competitor, heuristic);
+      : resolveProductName(parsed.product, effectiveHeuristic);
+    const competitor = resolveCompetitorName(parsed.competitor, effectiveHeuristic);
     const normalizeEntity = (value: string | undefined) =>
       value?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     const entityResolutionConflict = Boolean(
-      (heuristic.product
-        && normalizeEntity(product) !== normalizeEntity(heuristic.product))
-      || (heuristic.competitor
-        && normalizeEntity(competitor) !== normalizeEntity(heuristic.competitor)),
+      (effectiveHeuristic.product
+        && normalizeEntity(product) !== normalizeEntity(effectiveHeuristic.product))
+      || (effectiveHeuristic.competitor
+        && normalizeEntity(competitor) !== normalizeEntity(effectiveHeuristic.competitor)),
     );
     if (entityResolutionConflict) {
       logger.warn('classify.entity_resolution_conflict', {
         query,
-        heuristic,
+        heuristic: effectiveHeuristic,
         llm: { product: parsed.product, competitor: parsed.competitor },
         resolved: { product, competitor },
       });
     }
 
     if (isPlaceholderProduct(product)) {
-      logger.warn('classify.placeholder_product', { query, product, heuristic });
+      logger.warn('classify.placeholder_product', { query, product, heuristic: effectiveHeuristic });
     }
 
-    const needsResearch = parsed.needsResearch === true
+    let needsResearch = parsed.needsResearch === true
       ? true
       : parsed.needsResearch === false
         ? false
@@ -210,14 +231,19 @@ Field rules:
     if (Number.isNaN(rawTier)) {
       rawTier = regexExecution ? 4 : needsResearch === false ? 0 : 3;
     }
+    const intentClass = resolveResearchIntent(query, parsed.intentClass);
+    if (intentClass === 'dd_acquisition' || intentClass === 'monitoring') {
+      needsResearch = true;
+      rawTier = Math.max(rawTier, 3);
+    }
 
-    const hasExplicitBrandInQuery = Boolean(heuristic.product || heuristic.competitor);
+    const hasExplicitBrandInQuery = Boolean(effectiveHeuristic.product || effectiveHeuristic.competitor);
     if (!hasExplicitBrandInQuery && /\b(your|yourself|this app|this platform|veracity|you use|you work|api provider|your model|your engine|backend|system)\b/i.test(qLower)) {
       rawTier = 0;
     }
 
     const normalizedDomains = normalizeDomains(parsed.domains);
-    const reconciled = reconcileResearchTier(heuristic, {
+    const reconciled = reconcileResearchTier(effectiveHeuristic, {
       tier: rawTier,
       needsResearch,
       domains: normalizedDomains,
@@ -226,14 +252,22 @@ Field rules:
     const tier = reconciled.tier;
     const domains = reconciled.domains;
     const resolvedNeedsResearch = tier === 0 ? false : true;
+    const entities = resolveComparedEntities({
+      query,
+      product,
+      competitor,
+      modelEntities: parsed.entities,
+    });
 
     return {
       product,
       competitor,
       productUrl: (parsed.productUrl as string) || undefined,
       competitorUrl: (parsed.competitorUrl as string) || undefined,
+      entities,
       domains,
       intent: (parsed.intent as string) || query,
+      intentClass,
       runExecution: Boolean(parsed.runExecution) || regexExecution,
       tier,
       tierReason: `Classifier: tier ${tier}, needsResearch=${String(resolvedNeedsResearch)}${entityResolutionConflict ? '; entity extraction conflict' : ''}`,
@@ -244,14 +278,18 @@ Field rules:
     logger.error('classify.failed', {
       query,
       error: err instanceof Error ? err.message : String(err),
-      heuristic,
+      heuristic: effectiveHeuristic,
     });
-    const fallbackTier = regexExecution ? 4 : heuristic.product && heuristic.competitor ? 2 : 3;
+    const fallbackTier = regexExecution ? 4 : effectiveHeuristic.product && effectiveHeuristic.competitor ? 2 : 3;
+    const product = resolveProductName(undefined, effectiveHeuristic, 'unknown product');
+    const competitor = resolveCompetitorName(undefined, effectiveHeuristic);
     return {
-      product: resolveProductName(undefined, heuristic, 'unknown product'),
-      competitor: resolveCompetitorName(undefined, heuristic),
+      product,
+      competitor,
+      entities: resolveComparedEntities({ query, product, competitor }),
       domains: ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'],
       intent: query,
+      intentClass: resolveResearchIntent(query, undefined),
       runExecution: regexExecution,
       tier: fallbackTier as import('@/lib/agents/query-scope').ExecutionTier,
       tierReason: 'Classifier fallback',

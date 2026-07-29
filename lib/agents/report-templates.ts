@@ -12,6 +12,7 @@ export type ReportTemplateId =
   | 'threat'
   | 'campaign'
   | 'persona'
+  | 'due_diligence'
   | 'executive_summary';
 
 export interface ReportTemplateConfig {
@@ -72,6 +73,14 @@ export const REPORT_TEMPLATES: Record<ReportTemplateId, ReportTemplateConfig> = 
     primaryVisuals: ['win-loss-scorecard'],
     recommendedSections: ['ICP Profile', 'Pain Points & Triggers', 'Evaluation Criteria', 'Value Proposition Fit'],
   },
+  due_diligence: {
+    id: 'due_diligence',
+    name: 'Acquisition Due Diligence Pack',
+    badge: 'Diligence Template',
+    description: 'Staged target assessment separating verified findings from data-room open items.',
+    primaryVisuals: ['threat-heatmap', 'competitive-matrix'],
+    recommendedSections: ['Identity', 'Business Model', 'Financials & News', 'People', 'Risk Register', 'Open Items'],
+  },
   executive_summary: {
     id: 'executive_summary',
     name: 'Executive Briefing',
@@ -89,6 +98,9 @@ export function selectReportTemplate(query: string, intentClass?: string): Repor
   const q = (query || '').toLowerCase();
   const intent = (intentClass || '').toLowerCase();
 
+  if (intent.includes('dd_acquisition') || q.includes('due diligence') || q.includes('acquiring')) {
+    return REPORT_TEMPLATES.due_diligence;
+  }
   if (intent.includes('compare') || q.includes('vs') || q.includes('compare') || q.includes('comparison')) {
     return REPORT_TEMPLATES.comparison;
   }

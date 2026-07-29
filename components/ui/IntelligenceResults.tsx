@@ -22,6 +22,7 @@ import { SourceTrustBadge } from '@/components/ui/SourceTrustBadge';
 import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
 import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
+import { ResearchWorkflowPack } from '@/components/ui/ResearchWorkflowPack';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
 import { CompetitiveTimeline } from '@/components/ui/CompetitiveTimeline';
@@ -315,7 +316,10 @@ export function IntelligenceResults({
             <Layers size={14} style={{ color: 'var(--accent)' }} />
             <span className="results-section-title">{layout.answerLabel}</span>
             {(() => {
-              const template = selectReportTemplate(currentResult.content || product);
+              const template = selectReportTemplate(
+                currentResult.content || product,
+                currentResult.orchestratorOutput?.researchIntent,
+              );
               return (
                 <span
                   className="ui-mono px-2 py-0.5 rounded-full text-[11px] font-semibold"
@@ -370,6 +374,8 @@ export function IntelligenceResults({
           ) : null}
         </div>
       </section>
+
+      <ResearchWorkflowPack output={currentResult.orchestratorOutput} />
 
       {/* Level 2: Actionable Recommendations */}
       {currentResult.recommendations && currentResult.recommendations.length > 0 ? (

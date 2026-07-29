@@ -685,27 +685,40 @@ review.
 
 #### Phase 3 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B2, B3)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
+- [x] Feature implemented
+- [ ] Code reviewed *(self-review + automated architecture review complete; second-developer review pending)*
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B2, B3)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 3 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
 - [ ] Ready for next phase
+
+**Phase 3 gate note — 2026-07-29:** Added the seven enterprise intent
+classes, intent-specific mission objectives/deliverables, no-padding narrow
+selection, a bounded adaptive collector/deepening pass, cross-turn
+investigation probes, a six-section acquisition DD pack, and a shared-dimension
+comparison contract. B2 returned staged partial/open diligence findings, eight
+next probes, zero invented numeric financial claims, and no strategy-pivot
+answer. B3 compared only Notion and Confluence across five identical
+dimensions; unsupported cells had zero URLs and recommendation fallback URLs
+were zero. A live targeted follow-up preserved the prior product and open
+questions and dispatched only `win-loss`. Residual P2 customer-evidence scarcity
+remains tracked as AIQ-017. Merge/next-phase approval remains open for
+second-developer review.
 
 ---
 
@@ -1151,6 +1164,44 @@ _(Append runs below this line.)_
 **Notes:** Final B4: confidence high for the supported entity/category distinction; both recommendations were medium because their claims were only weakly supported.
 **Next action:** Keep 404-page rejection in regression tests and deepen missing coverage in Phase 3.
 
+### Eval — 2026-07-29 — Phase 3 — Benchmark B2 — Owner A/B
+
+**Phase:** 3 — Research Workflows
+**Prompt executed:** Exact B2 acquisition-diligence prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; all six research agents selected.
+**Expected output:** A staged DD workflow covering identity, business model, financials/news, people, risk, and open items; no invented financials or generic strategy pivot.
+**Actual output (summary):** Classified `dd_acquisition` and ran the six-stage mission. The final pack contained all six required sections: four partial and two open, with no section falsely marked verified. The executive answer explicitly blocked an acquisition decision, asked the user to confirm the legal target rather than the WSO2 reference product, and prioritized audited financials, retention, leadership, and risk evidence. Eight open questions became eight typed probes. Serialized output contained zero invented numeric ARR/revenue/valuation/margin claims, zero strategy-pivot verbs in the answer, and zero failed agents.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 Pass; 19 N/A; 20 Pass.
+**Acceptance score met?** Yes — staged DD + open items; no fabricated financials; no generic pivot.
+**Baseline comparison:** Better — the prior one-shot strategy response is replaced by an explicit diligence workflow and data-room probes.
+**Issues found:** AIQ-009, AIQ-019, AIQ-021; AIQ-017 remains visible.
+**Priority:** P0/P1 workflow issues fixed; residual customer evidence gap P2.
+**Root cause:** Workflow / History contract / Synthesis safety.
+**Owner:** A/B.
+**Status:** AIQ-009/019/021 Verified; AIQ-017 Open.
+**Regression:** None; the quality suite stayed 24/24.
+**Notes:** A post-review live follow-up carried “What is audited ARR?” across turns, retained `WSO2 API Manager`, and dispatched exactly one `win-loss` agent.
+**Next action:** Expand customer/reference collection without increasing every mission's default cost.
+
+### Eval — 2026-07-29 — Phase 3 — Benchmark B3 — Owner A/B
+
+**Phase:** 3 — Research Workflows
+**Prompt executed:** Exact B3 Notion vs Confluence prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; all six agents available; quality-adaptive replan enabled.
+**Expected output:** Same dimensions for both entities, evidence isolated per cell, honest switching-risk gaps, and no fallback URLs.
+**Actual output (summary):** Classified `compare`, resolved exactly `Notion` and `Confluence` (the category phrase was rejected as a false third entity), and emitted five shared dimensions: positioning, pricing, buyer evidence, market signals, and risk. Six unsupported cells were explicitly “Not established” with zero URLs. The executive answer was rebuilt from the contract, called the comparison partial, and required pricing/customer/migration/risk evidence before a purchase decision. Invalid recommendation fallback URLs were zero; failed agents were zero.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 Pass; 18 Pass; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — two entities, identical dimensions, unsupported cells unbound, and explicit next probes.
+**Baseline comparison:** Better — category-as-entity contamination and unsupported switching-cost prose were structurally removed.
+**Issues found:** AIQ-017, AIQ-020.
+**Priority:** P1 fixed; residual evidence scarcity P2.
+**Root cause:** Comparison contract / Synthesis.
+**Owner:** A/B.
+**Status:** AIQ-020 Verified; AIQ-017 Open.
+**Regression:** None; self-comparison keeps its separate identity-safe path.
+**Notes:** Final answer disclosed incomplete pricing, buyer, market, and risk cells instead of filling them from general knowledge.
+**Next action:** Improve customer-source retrieval and add claim-level source links inside comparison cells.
+
 <!-- Example starter row — replace when real evals begin
 ### Eval — 2026-07-29 — Phase 0 baseline — Benchmark B4 — Owner A
 Phase: 0 (baseline before Phase 1)
@@ -1182,19 +1233,22 @@ Do **not** create a separate issues markdown file.
 | AIQ-003 | Tier 0 hardcoded high confidence | Direct answers always `totalConfidence: high` | P0 | 1 | A | Verified | dev@2026-07-29 | Tier 0 capped at medium/low with limitations + falsifier |
 | AIQ-004 | Evidence bind fallback | Attaches unrelated top URLs when overlap fails | P0 | 2 | A | Verified | dev@2026-07-29 | Empty unsupported trails + `unbound_claims`; B3/B4 invalid fallback URLs = 0 |
 | AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Verified | dev@2026-07-29 | Added assumptions, unknowns, limitations, falsifiers, alternatives, confidence drivers |
-| AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Verified | dev@2026-07-29 | Agents emit questions; workflow records/infer them and follow-ups surface them |
+| AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Verified | dev@2026-07-29 | Agents emit questions; workflow records/infers them, builds probes, and carries them into targeted follow-ups |
 | AIQ-007 | Watchlist title-only materiality | Diff uses recommendation titles, not structured events | P0 | 5 | B | Open | | |
 | AIQ-008 | Steal Strategy ungrounded | No retrieval/citations | P1 | 4 | B | Open | | |
-| AIQ-009 | Weak DD workflow | No acquisition diligence mission | P1 | 3 | B | Open | | |
-| AIQ-010 | Domain padding over-research | normalizeDomains forces ≥3 domains | P2 | 3 | A | Open | | |
+| AIQ-009 | Weak DD workflow | No acquisition diligence mission | P1 | 3 | B | Verified | dev@2026-07-29 | Six-section DD pack + contract-driven executive answer; B2 no invented numeric financials |
+| AIQ-010 | Domain padding over-research | normalizeDomains forces ≥3 domains | P2 | 3 | A | Verified | dev@2026-07-29 | `normalizeDomains` no longer pads; deliberate single-domain market/pricing missions keep one agent |
 | AIQ-011 | Heuristic entity hard-override | Dual heuristic entities ignore LLM names | P1 | 1 | A | Verified | dev@2026-07-29 | LLM resolution preferred; disagreement logged and final confidence capped |
 | AIQ-012 | Missing leadership/security watch signals | Continuous intel gaps | P2 | 5 | B | Open | | |
 | AIQ-013 | Self-comparison identity contamination | B1 took Tier 0 path, then treated same-name public companies as this application | P0 | 1 | A | Verified | dev@2026-07-29 | Self-comparison routing + structural fact/source boundary; final B1 had zero homonym URLs |
 | AIQ-014 | Honesty schema truncates synthesis JSON | 768-token cap truncated expanded synthesis contract and forced weak fallback | P1 | 1 | A | Verified | dev@2026-07-29 | Raised cap to 1400; live B1 returned complete JSON |
 | AIQ-015 | Executor parity p95 gate red locally | Synthetic p95 previously exceeded 30ms despite functional parity | P2 | 1 | A | Verified | dev@2026-07-29 | Full suite rerun passed executor parity; 256 tests passed, 1 skipped |
 | AIQ-016 | Prose lacks sentence-level source bindings | Recommendation evidence is claim-bound, but executive prose still has aggregate rather than sentence-level trails | P2 | 2–4 | A | Open | | Current Phase 2 contract covers recommendation claims; extend traceability without clutter |
-| AIQ-017 | Customer evidence coverage stays empty | B3 and B4 both completed with customers coverage at 0; limitation is disclosed but research does not adaptively deepen | P2 | 3 | B | Open | | Address with quality-adaptive replanning / targeted probes |
+| AIQ-017 | Customer evidence coverage stays empty | Customer evidence can remain sparse after the bounded single-domain deepening pass | P2 | 3 | B | Open | | Adaptive deepening + targeted probes now exist; broaden customer/reference collectors |
 | AIQ-018 | Long 404 page accepted as scraped evidence | A guessed pricing URL returned enough markdown to pass length-only validation and enter a trail | P0 | 2 | A | Verified | dev@2026-07-29 | Reject 404/410/not-found page content; final B4 pricing URL absent |
+| AIQ-019 | Investigation state stripped from chat history | Client sent content-only history, so prior openQuestions and target identity disappeared on follow-up | P0 | 3 | A | Verified | dev@2026-07-29 | Slim history carries product/competitor + open questions; live follow-up retained WSO2 and ran only win-loss |
+| AIQ-020 | Comparison prose outruns cell evidence | Synthesis asserted switching advantages while the comparison contract had no switching evidence | P1 | 3 | B | Verified | dev@2026-07-29 | Executive answer now derives from supported shared-dimension cells and names incomplete dimensions |
+| AIQ-021 | DD recommendation financial fail-open | Prompt-only guard could allow invented financial metrics outside the contract-driven answer | P0 | 3 | A | Verified | dev@2026-07-29 | Deterministic DD recommendation sanitizer strips numeric financial inventions and strategy pivots |
 
 _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mark `Verified` and set Resolved Version._
 
