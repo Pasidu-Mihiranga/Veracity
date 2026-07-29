@@ -1,11 +1,14 @@
 import type { OrchestratorOutput } from '@/lib/agents/types';
 import {
-  categorizeEventText,
   severityFromCategory,
   type EventCategory,
 } from '@/lib/monitoring/severity';
 import { buildAlertDedupeKey } from '@/lib/monitoring/dedupe';
 import { buildClusterKey } from '@/lib/monitoring/cluster-events';
+import {
+  extractChangedMonitoringSignals,
+  type MonitoringSignal,
+} from '@/lib/monitoring/signal-collectors';
 
 export type DiffResult = {
   material: boolean;
@@ -14,6 +17,10 @@ export type DiffResult = {
   category: EventCategory;
   severity: ReturnType<typeof severityFromCategory>;
   changedRecTitles: string[];
+  events: MonitoringSignal[];
+  suppressedSignals: MonitoringSignal[];
+  materialityBasis: 'structured-signals' | 'baseline' | 'none';
+  limitations: string[];
 };
 
 /** Compare two sweep outputs for monitoring deltas. */
@@ -29,30 +36,39 @@ export function diffSweepOutputs(
     .map((r) => r.title)
     .filter((t) => t && !prevTitles.has(t.trim().toLowerCase()));
 
-  const confChanged = Boolean(prev && prev.totalConfidence !== next.totalConfidence);
-  const material = changedRecTitles.length > 0 || confChanged || !prev;
-
-  const seedText = [
-    changedRecTitles[0] ?? next.synthesizedAnswer.slice(0, 160),
-    next.product,
-    next.competitor ?? '',
-  ].join(' ');
-  const category = categorizeEventText(seedText);
-  const severity = severityFromCategory(category);
+  const extracted = extractChangedMonitoringSignals(prev, next);
+  const events = prev ? extracted.material : [];
+  const primary = events[0];
+  const material = events.length > 0;
+  const category = primary?.category ?? 'other';
+  const severity = primary?.severity ?? 'low';
   const competitor = next.competitor ?? 'Competitor';
-  const title = changedRecTitles[0]
-    ? `${competitor}: ${changedRecTitles[0]}`
-    : confChanged
-      ? `${competitor}: confidence ${prev?.totalConfidence} → ${next.totalConfidence}`
-      : `${competitor}: monitoring update`;
+  const title = primary
+    ? `${competitor}: ${primary.title}`
+    : `${competitor}: no material change`;
 
   return {
     material,
     title,
-    summary: next.synthesizedAnswer.slice(0, 280),
+    summary: primary?.summary
+      ?? (!prev
+        ? 'Baseline established; no change alert emitted on the first sweep.'
+        : `${extracted.suppressed.length} non-material or ungrounded signal(s) suppressed.`),
     category,
     severity,
     changedRecTitles,
+    events,
+    suppressedSignals: prev ? extracted.suppressed : extracted.allNew,
+    materialityBasis: primary ? 'structured-signals' : !prev ? 'baseline' : 'none',
+    limitations: [
+      ...(next.evidenceLimitations ?? []),
+      ...extracted.suppressed
+        .filter((signal) => signal.sourceUrls.length === 0)
+        .map((signal) => signal.materialityReason),
+      ...(next.agentRuns ?? [])
+        .filter((run) => run.status === 'failed')
+        .map((run) => `${run.name} failed during this monitoring sweep.`),
+    ].filter((value, index, all) => value && all.indexOf(value) === index).slice(0, 6),
   };
 }
 
@@ -66,14 +82,18 @@ export function buildMonitoringArtifacts(input: {
   watchlistId?: string;
 }) {
   const diff = diffSweepOutputs(input.prev, input.output);
-  const dedupeKey = buildAlertDedupeKey({
-    competitor: input.competitor,
-    product: input.product,
-    title: diff.title,
-  });
-  const clusterKey = buildClusterKey({
-    competitor: input.competitor,
-    category: diff.category,
-  });
-  return { diff, dedupeKey, clusterKey };
+  const artifacts = diff.events.map((event) => ({
+    event,
+    dedupeKey: buildAlertDedupeKey({
+      competitor: input.competitor,
+      product: input.product,
+      title: event.title,
+    }),
+    clusterKey: buildClusterKey({
+      competitor: input.competitor,
+      category: event.category,
+      date: event.eventDate,
+    }),
+  }));
+  return { diff, artifacts };
 }

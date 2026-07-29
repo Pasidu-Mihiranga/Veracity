@@ -196,6 +196,14 @@ CREATE TABLE IF NOT EXISTS watchlists (
   next_sweep_at timestamptz,
   health_status text NOT NULL DEFAULT 'paused'
     CHECK (health_status IN ('healthy', 'degraded', 'stale', 'paused')),
+  cadence text NOT NULL DEFAULT 'weekly'
+    CHECK (cadence IN ('daily', 'twice_weekly', 'weekly', 'monthly')),
+  max_competitors integer NOT NULL DEFAULT 6
+    CHECK (max_competitors BETWEEN 1 AND 12),
+  weekly_alert_budget integer NOT NULL DEFAULT 12
+    CHECK (weekly_alert_budget BETWEEN 1 AND 50),
+  alert_channels text[] NOT NULL DEFAULT ARRAY['in_app']::text[],
+  last_sweep_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -239,15 +247,35 @@ CREATE TABLE IF NOT EXISTS competitive_events (
   title text NOT NULL,
   summary text NOT NULL DEFAULT '',
   category text NOT NULL DEFAULT 'other'
-    CHECK (category IN ('pricing', 'launch', 'feature', 'hiring', 'docs', 'sentiment', 'funding', 'other')),
+    CHECK (category IN (
+      'pricing', 'launch', 'feature', 'hiring', 'leadership', 'security',
+      'docs', 'sentiment', 'funding', 'acquisition', 'news', 'other'
+    )),
   source_urls jsonb NOT NULL DEFAULT '[]',
   job_id uuid,
   confidence text NOT NULL DEFAULT 'medium',
   cluster_key text NOT NULL,
+  severity text NOT NULL DEFAULT 'low'
+    CHECK (severity IN ('high', 'medium', 'low')),
+  materiality_score real NOT NULL DEFAULT 0
+    CHECK (materiality_score BETWEEN 0 AND 1),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS competitive_events_user_comp_idx ON competitive_events(user_id, competitor, event_date DESC);
 CREATE INDEX IF NOT EXISTS competitive_events_cluster_idx ON competitive_events(user_id, cluster_key);
+
+CREATE TABLE IF NOT EXISTS alert_deliveries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  alert_id uuid NOT NULL REFERENCES alert_events(id) ON DELETE CASCADE,
+  channel text NOT NULL CHECK (channel IN ('email', 'slack')),
+  status text NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (alert_id, channel)
+);
+CREATE INDEX IF NOT EXISTS alert_deliveries_user_created_idx
+  ON alert_deliveries(user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS decision_memory (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -254,6 +254,8 @@ describe('Phase 3 structured research packs', () => {
     ).toBe(true);
     expect(buildComparisonExecutiveAnswer(contract)).toMatch(/partial Notion vs Confluence/i);
     expect(buildComparisonExecutiveAnswer(contract)).toMatch(/pricing|buyer evidence/i);
+    expect(buildComparisonExecutiveAnswer(contract)).toMatch(/comparable product peers/i);
+    expect(buildComparisonExecutiveAnswer(contract)).toMatch(/official product URLs.*buyer intent/i);
   });
 });
 

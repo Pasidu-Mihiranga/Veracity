@@ -17,6 +17,15 @@ type Watchlist = {
   last_sweep_at: string | null;
   next_sweep_at: string | null;
   health_status: string;
+  cadence: 'daily' | 'twice_weekly' | 'weekly' | 'monthly';
+  max_competitors: number;
+  weekly_alert_budget: number;
+  alert_channels: string[];
+  last_sweep_summary: {
+    materialEvents?: number;
+    suppressedSignals?: number;
+    limitations?: string[];
+  };
   items: Item[];
 };
 
@@ -39,6 +48,10 @@ export function WatchlistsView() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newCompetitorsText, setNewCompetitorsText] = useState('');
+  const [newCadence, setNewCadence] = useState<Watchlist['cadence']>('weekly');
+  const [newMaxCompetitors, setNewMaxCompetitors] = useState(6);
+  const [newWeeklyAlertBudget, setNewWeeklyAlertBudget] = useState(12);
+  const [newAlertChannels, setNewAlertChannels] = useState<string[]>(['in_app']);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     type: 'watchlist' | 'item';
     id: string;
@@ -97,10 +110,18 @@ export function WatchlistsView() {
           product: newProductName.trim() || undefined,
           competitors: comps.length > 0 ? comps : undefined,
           seedFromMemory: comps.length === 0 && !newProductName.trim(),
+          cadence: newCadence,
+          maxCompetitors: newMaxCompetitors,
+          weeklyAlertBudget: newWeeklyAlertBudget,
+          alertChannels: newAlertChannels,
         }),
       });
       setNewProductName('');
       setNewCompetitorsText('');
+      setNewCadence('weekly');
+      setNewMaxCompetitors(6);
+      setNewWeeklyAlertBudget(12);
+      setNewAlertChannels(['in_app']);
       setShowCreateModal(false);
       await loadData();
     } finally {
@@ -132,6 +153,23 @@ export function WatchlistsView() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ runNow: true }),
+      });
+      await loadData();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateMonitoringConfig = async (
+    id: string,
+    patch: Record<string, unknown>,
+  ) => {
+    setBusy(true);
+    try {
+      await fetch(`/api/watchlists/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
       });
       await loadData();
     } finally {
@@ -177,29 +215,7 @@ export function WatchlistsView() {
 
   const competitorEntries = Object.entries(competitorStatsMap);
 
-  // Fallback demo intelligence signals if no backend alerts exist yet
-  const displayAlerts: AlertEvent[] = alerts.length > 0
-    ? alerts
-    : [
-        {
-          id: 'demo-1',
-          product: lists[0]?.product || 'Market Intelligence',
-          competitor: lists[0]?.items?.[0]?.competitor || 'Cursor AI',
-          title: 'Pricing & Enterprise Tier Shift Detected',
-          summary: 'Adjusted enterprise seat thresholds and introduced usage-capped tier for agent orchestration.',
-          severity: 'high',
-          created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-        },
-        {
-          id: 'demo-2',
-          product: lists[0]?.product || 'Market Intelligence',
-          competitor: lists[0]?.items?.[1]?.competitor || 'Windsurf',
-          title: 'Multi-Agent Workflow Capability Drop',
-          summary: 'Released native background agent execution support with parallel tool execution.',
-          severity: 'medium',
-          created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-        },
-      ];
+  const displayAlerts: AlertEvent[] = alerts;
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
@@ -271,7 +287,7 @@ export function WatchlistsView() {
           </div>
           <div>
             <span className="text-xs text-muted-foreground font-medium block">Sweep Cadence</span>
-            <span className="text-xs font-bold text-foreground">Mondays @ 09:00 UTC</span>
+            <span className="text-xs font-bold text-foreground">Per watchlist · 09:00 UTC</span>
           </div>
         </div>
 
@@ -284,7 +300,7 @@ export function WatchlistsView() {
           </div>
           <div>
             <span className="text-xs text-muted-foreground font-medium block">System Status</span>
-            <span className="text-xs font-bold text-foreground">100% Grounded</span>
+            <span className="text-xs font-bold text-foreground">Source + materiality gated</span>
           </div>
         </div>
       </div>
@@ -370,6 +386,76 @@ export function WatchlistsView() {
                       <span>Next: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</strong></span>
                     </div>
 
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <label className="flex flex-col gap-1 text-muted-foreground">
+                        <span className="font-mono uppercase text-[9px]">Cadence</span>
+                        <select
+                          value={wl.cadence}
+                          disabled={busy}
+                          onChange={(event) => void updateMonitoringConfig(wl.id, { cadence: event.target.value })}
+                          className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground"
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="twice_weekly">Twice weekly</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </label>
+                      <label className="flex flex-col gap-1 text-muted-foreground">
+                        <span className="font-mono uppercase text-[9px]">Competitor cap</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={12}
+                          defaultValue={wl.max_competitors}
+                          disabled={busy}
+                          onBlur={(event) => void updateMonitoringConfig(wl.id, {
+                            maxCompetitors: Number(event.target.value),
+                          })}
+                          className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-muted-foreground">
+                        <span className="font-mono uppercase text-[9px]">Alerts/week</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          defaultValue={wl.weekly_alert_budget}
+                          disabled={busy}
+                          onBlur={(event) => void updateMonitoringConfig(wl.id, {
+                            weeklyAlertBudget: Number(event.target.value),
+                          })}
+                          className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] font-mono uppercase text-muted-foreground">
+                      <span>Channels: in-app</span>
+                      {(['email', 'slack'] as const).map((channel) => (
+                        <label key={channel} className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={wl.alert_channels.includes(channel)}
+                            disabled={busy}
+                            onChange={(event) => {
+                              const channels = event.target.checked
+                                ? [...new Set([...wl.alert_channels, channel])]
+                                : wl.alert_channels.filter((value) => value !== channel);
+                              void updateMonitoringConfig(wl.id, { alertChannels: channels });
+                            }}
+                          />
+                          {channel}
+                        </label>
+                      ))}
+                    </div>
+                    {(wl.last_sweep_summary?.limitations?.length ?? 0) > 0 ? (
+                      <div className="rounded-lg px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 text-xs">
+                        <span className="font-mono uppercase text-[9px] block mb-1">Sweep limitations</span>
+                        {wl.last_sweep_summary.limitations!.slice(0, 2).join(' ')}
+                      </div>
+                    ) : null}
+
                     {/* Competitor Chips List */}
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-bold text-foreground">
@@ -423,7 +509,7 @@ export function WatchlistsView() {
                         />
                         <button
                           type="button"
-                          disabled={busy || !(competitorInput[wl.id] ?? '').trim()}
+                          disabled={busy || !(competitorInput[wl.id] ?? '').trim() || wl.items.length >= wl.max_competitors}
                           onClick={() => void addCompetitor(wl.id)}
                           className="px-3.5 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer shrink-0"
                         >
@@ -567,6 +653,11 @@ export function WatchlistsView() {
               </div>
 
               <div className="flex flex-col gap-3 mt-4">
+                {displayAlerts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    No material, source-grounded changes detected yet.
+                  </p>
+                ) : null}
                 {displayAlerts.map((alert) => (
                   <div
                     key={alert.id}
@@ -628,6 +719,67 @@ export function WatchlistsView() {
                   onChange={(e) => setNewProductName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
                 />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <label className="text-xs text-muted-foreground">
+                  <span className="font-semibold block mb-1.5">Cadence</span>
+                  <select
+                    value={newCadence}
+                    onChange={(event) => setNewCadence(event.target.value as Watchlist['cadence'])}
+                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="twice_weekly">2× weekly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </label>
+                <label className="text-xs text-muted-foreground">
+                  <span className="font-semibold block mb-1.5">Competitor cap</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={newMaxCompetitors}
+                    onChange={(event) => setNewMaxCompetitors(Number(event.target.value))}
+                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground"
+                  />
+                </label>
+                <label className="text-xs text-muted-foreground">
+                  <span className="font-semibold block mb-1.5">Alerts/week</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={newWeeklyAlertBudget}
+                    onChange={(event) => setNewWeeklyAlertBudget(Number(event.target.value))}
+                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground"
+                  />
+                </label>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground block mb-1.5">Alert channels</span>
+                <div className="flex gap-3">
+                  {(['email', 'slack'] as const).map((channel) => (
+                    <label key={channel} className="flex items-center gap-1.5 text-xs font-mono uppercase text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={newAlertChannels.includes(channel)}
+                        onChange={(event) => setNewAlertChannels((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, channel])]
+                            : current.filter((value) => value !== channel),
+                        )}
+                      />
+                      {channel}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  In-app alerts are always retained. Email/Slack send only when server connectors are configured.
+                </p>
               </div>
 
               <div>

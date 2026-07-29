@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
 import { featureFlags } from '@/lib/feature-flags';
+import { getCurrentUser } from '@/lib/auth';
 import { deleteWatchlistItem } from '@/lib/watchlists';
 
 export async function DELETE(
@@ -10,8 +10,7 @@ export async function DELETE(
   if (!featureFlags.watchlists) {
     return NextResponse.json({ error: 'Watchlists disabled' }, { status: 403 });
   }
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   const { itemId } = await ctx.params;
   const ok = await deleteWatchlistItem(itemId, user.id);

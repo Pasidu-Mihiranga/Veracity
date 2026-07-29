@@ -1,6 +1,31 @@
 import { query } from '@/lib/db';
 import type { AlertSeverity } from '@/lib/monitoring/severity';
 
+let monitoringSchemaPromise: Promise<void> | null = null;
+
+export function ensureMonitoringSchema(): Promise<void> {
+  if (!monitoringSchemaPromise) {
+    monitoringSchemaPromise = query(`
+      ALTER TABLE competitive_events ADD COLUMN IF NOT EXISTS severity text NOT NULL DEFAULT 'low';
+      ALTER TABLE competitive_events ADD COLUMN IF NOT EXISTS materiality_score real NOT NULL DEFAULT 0;
+      CREATE TABLE IF NOT EXISTS alert_deliveries (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid NOT NULL,
+        alert_id uuid NOT NULL REFERENCES alert_events(id) ON DELETE CASCADE,
+        channel text NOT NULL CHECK (channel IN ('email', 'slack')),
+        status text NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
+        error text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (alert_id, channel)
+      );
+    `).then(() => undefined).catch((error) => {
+      monitoringSchemaPromise = null;
+      throw error;
+    });
+  }
+  return monitoringSchemaPromise;
+}
+
 export type AlertEventRow = {
   id: string;
   user_id: string;
@@ -17,7 +42,9 @@ export type AlertEventRow = {
   created_at: string;
 };
 
-export async function upsertAlertEvent(input: {
+export type AlertUpsertResult = AlertEventRow & { is_new: boolean };
+
+export type AlertUpsertInput = {
   userId: string;
   watchlistId?: string | null;
   jobId?: string | null;
@@ -28,8 +55,10 @@ export async function upsertAlertEvent(input: {
   severity: AlertSeverity;
   diff?: Record<string, unknown>;
   dedupeKey: string;
-}): Promise<AlertEventRow> {
-  const { rows } = await query<AlertEventRow>(
+};
+
+export async function upsertAlertEvent(input: AlertUpsertInput): Promise<AlertUpsertResult> {
+  const { rows } = await query<AlertUpsertResult>(
     `INSERT INTO alert_events (
        user_id, watchlist_id, job_id, product, competitor,
        title, summary, severity, diff, dedupe_key
@@ -39,7 +68,7 @@ export async function upsertAlertEvent(input: {
        severity = EXCLUDED.severity,
        diff = EXCLUDED.diff,
        job_id = COALESCE(EXCLUDED.job_id, alert_events.job_id)
-     RETURNING *`,
+     RETURNING *, (xmax = 0) AS is_new`,
     [
       input.userId,
       input.watchlistId ?? null,
@@ -54,6 +83,55 @@ export async function upsertAlertEvent(input: {
     ],
   );
   return rows[0];
+}
+
+/**
+ * Atomic alert-budget gate. The advisory transaction lock serializes parallel
+ * competitor jobs for the same watchlist before count + insert.
+ */
+export async function upsertAlertEventWithinBudget(
+  input: AlertUpsertInput,
+  weeklyBudget: number,
+): Promise<AlertUpsertResult | null> {
+  const { rows } = await query<AlertUpsertResult>(
+    `WITH budget_lock AS MATERIALIZED (
+       SELECT pg_advisory_xact_lock(hashtext($1 || ':' || COALESCE($2::text, '')))
+     ),
+     usage AS (
+       SELECT count(*)::int AS used
+       FROM alert_events, budget_lock
+       WHERE user_id = $1::uuid
+         AND ($2::uuid IS NULL OR watchlist_id = $2::uuid)
+         AND created_at >= date_trunc('week', now())
+     )
+     INSERT INTO alert_events (
+       user_id, watchlist_id, job_id, product, competitor,
+       title, summary, severity, diff, dedupe_key
+     )
+     SELECT $1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9::jsonb,$10
+     FROM usage
+     WHERE used < $11
+     ON CONFLICT (user_id, dedupe_key) DO UPDATE SET
+       summary = EXCLUDED.summary,
+       severity = EXCLUDED.severity,
+       diff = EXCLUDED.diff,
+       job_id = COALESCE(EXCLUDED.job_id, alert_events.job_id)
+     RETURNING *, (xmax = 0) AS is_new`,
+    [
+      input.userId,
+      input.watchlistId ?? null,
+      input.jobId ?? null,
+      input.product,
+      input.competitor,
+      input.title,
+      input.summary,
+      input.severity,
+      JSON.stringify(input.diff ?? {}),
+      input.dedupeKey,
+      Math.min(50, Math.max(1, Math.floor(weeklyBudget))),
+    ],
+  );
+  return rows[0] ?? null;
 }
 
 export async function listAlerts(
@@ -111,12 +189,15 @@ export async function insertCompetitiveEvent(input: {
   confidence?: string;
   clusterKey: string;
   eventDate?: string;
+  severity?: AlertSeverity;
+  materialityScore?: number;
 }): Promise<void> {
+  await ensureMonitoringSchema();
   await query(
     `INSERT INTO competitive_events (
        user_id, product, competitor, event_date, title, summary,
-       category, source_urls, job_id, confidence, cluster_key
-     ) VALUES ($1,$2,$3,COALESCE($4::date, CURRENT_DATE),$5,$6,$7,$8::jsonb,$9,$10,$11)`,
+       category, source_urls, job_id, confidence, cluster_key, severity, materiality_score
+     ) VALUES ($1,$2,$3,COALESCE($4::date, CURRENT_DATE),$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13)`,
     [
       input.userId,
       input.product,
@@ -129,6 +210,8 @@ export async function insertCompetitiveEvent(input: {
       input.jobId ?? null,
       input.confidence ?? 'medium',
       input.clusterKey,
+      input.severity ?? 'low',
+      Math.max(0, Math.min(1, input.materialityScore ?? 0)),
     ],
   );
 }
@@ -147,7 +230,10 @@ export async function listCompetitiveEvents(
   cluster_key: string;
   source_urls: unknown;
   confidence: string;
+  severity: AlertSeverity;
+  materiality_score: number;
 }>> {
+  await ensureMonitoringSchema();
   const days = opts.days ?? 90;
   const clauses = [`user_id = $1`, `event_date >= CURRENT_DATE - $2::int`];
   const vals: unknown[] = [userId, days];
@@ -162,7 +248,7 @@ export async function listCompetitiveEvents(
   }
   const { rows } = await query(
     `SELECT id, product, competitor, event_date::text, title, summary, category,
-            cluster_key, source_urls, confidence
+            cluster_key, source_urls, confidence, severity, materiality_score
      FROM competitive_events
      WHERE ${clauses.join(' AND ')}
      ORDER BY event_date DESC, created_at DESC
@@ -180,5 +266,23 @@ export async function listCompetitiveEvents(
     cluster_key: string;
     source_urls: unknown;
     confidence: string;
+    severity: AlertSeverity;
+    materiality_score: number;
   }>;
+}
+
+export async function countWeeklyAlerts(
+  userId: string,
+  watchlistId?: string | null,
+): Promise<number> {
+  await ensureMonitoringSchema();
+  const { rows } = await query<{ count: string }>(
+    `SELECT count(*)::text AS count
+     FROM alert_events
+     WHERE user_id = $1
+       AND ($2::uuid IS NULL OR watchlist_id = $2)
+       AND created_at >= date_trunc('week', now())`,
+    [userId, watchlistId ?? null],
+  );
+  return Number(rows[0]?.count ?? 0);
 }

@@ -2,8 +2,18 @@ import { featureFlags } from '@/lib/feature-flags';
 import type { OrchestratorOutput } from '@/lib/agents/types';
 import { query } from '@/lib/db';
 import { buildMonitoringArtifacts } from '@/lib/monitoring/diff-sweep';
-import { insertCompetitiveEvent, upsertAlertEvent } from '@/lib/alerts';
-import { markWatchlistSweepResult } from '@/lib/watchlists';
+import {
+  countWeeklyAlerts,
+  insertCompetitiveEvent,
+  upsertAlertEventWithinBudget,
+} from '@/lib/alerts';
+import {
+  getWatchlistForUser,
+  markWatchlistSweepResult,
+  updateWatchlist,
+} from '@/lib/watchlists';
+import { applyWeeklyAlertBudget } from '@/lib/monitoring/signal-collectors';
+import { deliverAlertEgress } from '@/lib/monitoring/egress';
 
 export async function processMonitoringJobResult(input: {
   userId: string;
@@ -43,7 +53,7 @@ export async function processMonitoringJobResult(input: {
     prev = null;
   }
 
-  const { diff, dedupeKey, clusterKey } = buildMonitoringArtifacts({
+  const { diff, artifacts } = buildMonitoringArtifacts({
     userId: input.userId,
     product: input.product,
     competitor: input.competitor,
@@ -53,90 +63,152 @@ export async function processMonitoringJobResult(input: {
     watchlistId: input.watchlistId,
   });
 
-  if (!diff.material && prev) return;
-
-  await upsertAlertEvent({
-    userId: input.userId,
-    watchlistId: input.watchlistId,
-    jobId: input.jobId,
-    product: input.product,
-    competitor: input.competitor,
-    title: diff.title,
-    summary: diff.summary,
-    severity: diff.severity,
-    diff: {
-      changedRecTitles: diff.changedRecTitles,
-      category: diff.category,
-    },
-    dedupeKey,
-  });
-
-  if (featureFlags.competitiveTimeline) {
-    await insertCompetitiveEvent({
-      userId: input.userId,
-      product: input.product,
-      competitor: input.competitor,
-      title: diff.title,
-      summary: diff.summary,
-      category: diff.category,
-      sourceUrls: (input.output.outputs ?? [])
-        .flatMap((o) => o.sources ?? [])
-        .map((s) => s.url)
-        .filter(Boolean)
-        .slice(0, 6),
-      jobId: input.jobId,
-      confidence: input.output.totalConfidence,
-      clusterKey,
+  if (input.watchlistId) {
+    await updateWatchlist(input.watchlistId, input.userId, {
+      last_sweep_summary: {
+        materialEvents: diff.events.length,
+        suppressedSignals: diff.suppressedSignals.length,
+        limitations: diff.limitations,
+      },
     });
   }
 
-  if (featureFlags.evidenceGraph) {
-    try {
-      const { resolveKgWorkspace } = await import('@/lib/kg/context');
-      const { ingestCompetitiveSignal, ingestOrchestratorOutput } = await import('@/lib/kg/ingest');
-      const { projectCompetitorProfile } = await import('@/lib/kg/profiles');
-      // Prefer workspace from job if stamped; else resolve personal
-      const { rows } = await query<{ workspace_id: string | null; email: string }>(
-        `SELECT j.workspace_id, u.email
-         FROM research_jobs j
-         JOIN users u ON u.id = j.user_id
-         WHERE j.id = $1
-         LIMIT 1`,
-        [input.jobId],
-      );
-      let workspaceId = rows[0]?.workspace_id ?? null;
-      if (!workspaceId && rows[0]?.email) {
-        workspaceId = (await resolveKgWorkspace(input.userId, rows[0].email)).workspaceId;
-      }
-      if (workspaceId) {
-        const provenance = {
-          createdBy: input.userId,
-          jobId: input.jobId,
-          sourceAgent: 'monitoring',
-        };
-        await ingestCompetitiveSignal({
-          workspaceId,
-          product: input.product,
-          competitor: input.competitor,
-          title: diff.title,
-          summary: diff.summary,
-          category: diff.category,
-          jobId: input.jobId,
-          provenance,
-        });
-        await ingestOrchestratorOutput({
-          workspaceId,
-          output: input.output,
-          product: input.product,
-          competitor: input.competitor,
-          provenance,
-        });
-        if (featureFlags.competitorProfiles) {
-          await projectCompetitorProfile(workspaceId, input.competitor);
-        }
-      }
-    } catch {
-      // never block monitoring on KG failure
+  if (!diff.material || artifacts.length === 0) return;
+
+  const watchlist = input.watchlistId
+    ? await getWatchlistForUser(input.watchlistId, input.userId)
+    : null;
+  const alreadySent = await countWeeklyAlerts(input.userId, input.watchlistId);
+  const budgeted = applyWeeklyAlertBudget(
+    artifacts.map((artifact) => artifact.event),
+    alreadySent,
+    watchlist?.weekly_alert_budget ?? 12,
+  );
+  const deliverIds = new Set(budgeted.deliver.map((event) => event.id));
+  const deliverArtifacts = artifacts.filter((artifact) => deliverIds.has(artifact.event.id));
+  const { rows: users } = await query<{ email: string }>(
+    `SELECT email FROM users WHERE id = $1 LIMIT 1`,
+    [input.userId],
+  );
+  const newlyInsertedEvents: typeof budgeted.deliver = [];
+
+  for (const artifact of deliverArtifacts) {
+    const event = artifact.event;
+    const alert = await upsertAlertEventWithinBudget({
+      userId: input.userId,
+      watchlistId: input.watchlistId,
+      jobId: input.jobId,
+      product: input.product,
+      competitor: input.competitor,
+      title: `${input.competitor}: ${event.title}`,
+      summary: event.summary,
+      severity: event.severity,
+      diff: {
+        category: event.category,
+        sourceUrls: event.sourceUrls,
+        materialityScore: event.materialityScore,
+        materialityReason: event.materialityReason,
+        origin: event.origin,
+        changedRecTitles: diff.changedRecTitles,
+        suppressedSignalCount: diff.suppressedSignals.length,
+        suppressedByBudgetCount: budgeted.suppressedByBudget.length,
+      },
+      dedupeKey: artifact.dedupeKey,
+    }, watchlist?.weekly_alert_budget ?? 12);
+    if (!alert) continue;
+    if (!alert.is_new) continue;
+    newlyInsertedEvents.push(event);
+
+    if (featureFlags.competitiveTimeline) {
+      await insertCompetitiveEvent({
+        userId: input.userId,
+        product: input.product,
+        competitor: input.competitor,
+        title: event.title,
+        summary: event.summary,
+        category: event.category,
+        sourceUrls: event.sourceUrls,
+        jobId: input.jobId,
+        confidence: event.confidence,
+        clusterKey: artifact.clusterKey,
+        eventDate: event.eventDate,
+        severity: event.severity,
+        materialityScore: event.materialityScore,
+      });
     }
+
+    await deliverAlertEgress({
+      userId: input.userId,
+      userEmail: users[0]?.email,
+      alert,
+      channels: watchlist?.alert_channels ?? ['in_app'],
+    }).catch(() => []);
+  }
+
+  await ingestMonitoringSignals({
+    ...input,
+    events: newlyInsertedEvents,
+  });
+}
+
+async function ingestMonitoringSignals(input: {
+  userId: string;
+  jobId: string;
+  product: string;
+  competitor: string;
+  output: OrchestratorOutput;
+  events: Array<{
+    title: string;
+    summary: string;
+    category: string;
+  }>;
+}): Promise<void> {
+  if (!featureFlags.evidenceGraph || input.events.length === 0) return;
+  try {
+    const { resolveKgWorkspace } = await import('@/lib/kg/context');
+    const { ingestCompetitiveSignal, ingestOrchestratorOutput } = await import('@/lib/kg/ingest');
+    const { projectCompetitorProfile } = await import('@/lib/kg/profiles');
+    const { rows } = await query<{ workspace_id: string | null; email: string }>(
+      `SELECT j.workspace_id, u.email
+       FROM research_jobs j
+       JOIN users u ON u.id = j.user_id
+       WHERE j.id = $1
+       LIMIT 1`,
+      [input.jobId],
+    );
+    let workspaceId = rows[0]?.workspace_id ?? null;
+    if (!workspaceId && rows[0]?.email) {
+      workspaceId = (await resolveKgWorkspace(input.userId, rows[0].email)).workspaceId;
+    }
+    if (!workspaceId) return;
+    const provenance = {
+      createdBy: input.userId,
+      jobId: input.jobId,
+      sourceAgent: 'monitoring',
+    };
+    for (const event of input.events) {
+      await ingestCompetitiveSignal({
+        workspaceId,
+        product: input.product,
+        competitor: input.competitor,
+        title: event.title,
+        summary: event.summary,
+        category: event.category,
+        jobId: input.jobId,
+        provenance,
+      });
+    }
+    await ingestOrchestratorOutput({
+      workspaceId,
+      output: input.output,
+      product: input.product,
+      competitor: input.competitor,
+      provenance,
+    });
+    if (featureFlags.competitorProfiles) {
+      await projectCompetitorProfile(workspaceId, input.competitor);
+    }
+  } catch {
+    // Alerts must not fail when optional graph/profile projection fails.
   }
 }

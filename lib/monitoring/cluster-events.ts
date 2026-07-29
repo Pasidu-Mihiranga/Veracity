@@ -26,9 +26,11 @@ export function buildClusterKey(input: {
 }
 
 function categoryFamily(category: string): string {
-  if (category === 'pricing' || category === 'funding') return 'monetization';
+  if (category === 'pricing' || category === 'funding' || category === 'acquisition') return 'monetization';
   if (category === 'launch' || category === 'feature') return 'product';
-  if (category === 'hiring') return 'org';
+  if (category === 'hiring' || category === 'leadership') return 'org';
+  if (category === 'security') return 'risk';
+  if (category === 'news') return 'market';
   if (category === 'docs' || category === 'sentiment') return 'signal';
   return 'other';
 }

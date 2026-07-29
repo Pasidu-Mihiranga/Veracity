@@ -385,12 +385,16 @@ export function buildComparisonContract(
 export function buildComparisonExecutiveAnswer(contract: ComparisonContract): string {
   const entityLabel = contract.entities.join(' vs ');
   const established = contract.dimensions.flatMap((dimension) => {
-    const cells = dimension.cells.filter((cell) => cell.confidence !== 'unsupported');
-    if (cells.length === 0) return [];
+    const cells = dimension.cells;
+    if (
+      cells.length !== contract.entities.length
+      || cells.some((cell) => cell.confidence === 'unsupported')
+    ) return [];
     return [
       `${dimension.label}: ${cells.map((cell) => `${cell.entity} — ${cell.finding}`).join(' ')}`,
     ];
   }).slice(0, 2);
+  const peerRelationshipUnverified = established.length < 2;
   const incomplete = contract.dimensions
     .filter((dimension) =>
       dimension.cells.some((cell) => cell.confidence === 'unsupported'),
@@ -399,13 +403,18 @@ export function buildComparisonExecutiveAnswer(contract: ComparisonContract): st
 
   return [
     `The current evidence supports only a partial ${entityLabel} comparison, not a final purchase decision.`,
+    peerRelationshipUnverified
+      ? `Retrieved evidence does not establish that ${entityLabel} are comparable product peers; do not treat this as a peer matrix.`
+      : `Retrieved evidence supports comparison across ${established.length} shared dimensions.`,
     established.length > 0
       ? established.join(' ')
       : 'No shared comparison dimension has enough evidence yet.',
     incomplete.length > 0
       ? `Evidence remains incomplete for: ${incomplete.join(', ')}.`
       : 'All shared dimensions have at least directional evidence.',
-    'Resolve the unsupported cells with primary pricing, customer, migration, and risk evidence before choosing.',
+    peerRelationshipUnverified
+      ? 'Provide both official product URLs and clarify the buyer intent, use case, and procurement criteria before continuing.'
+      : 'Resolve the unsupported cells with primary pricing, customer, migration, and risk evidence before choosing.',
   ].join(' ');
 }
 
