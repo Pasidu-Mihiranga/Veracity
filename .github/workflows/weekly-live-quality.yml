@@ -1,0 +1,71 @@
+name: Weekly Live Quality
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-live-quality
+  cancel-in-progress: false
+
+jobs:
+  b1-b5:
+    name: B1–B5 live regression gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: veracity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d veracity"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veracity
+      AUTH_SECRET: weekly-quality-only-secret-that-is-at-least-32-characters
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+      LIVE_QUALITY: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Require live-quality credentials
+        run: |
+          test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY is required"; exit 1; }
+          test -n "$SERPAPI_KEY" || { echo "SERPAPI_KEY is required"; exit 1; }
+
+      - name: Create quality database
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
+
+      - name: Offline regression gate
+        run: npm run test:regression
+
+      - name: Live B1–B5 gate
+        run: npx tsx scripts/run-weekly-live-quality.ts
+
+      - name: Upload evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-live-quality-${{ github.run_id }}
+          path: artifacts/evals/
+          if-no-files-found: warn
+          retention-days: 90
+

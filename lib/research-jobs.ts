@@ -99,6 +99,102 @@ export async function claimResearchJob(
   return rows[0] ?? null;
 }
 
+export async function ownsResearchJobExecution(
+  jobId: string,
+  executionId: string,
+): Promise<boolean> {
+  const { rows } = await query<{ owned: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM research_jobs
+       WHERE id = $1 AND execution_id = $2 AND status = 'running'
+     ) AS owned`,
+    [jobId, executionId],
+  );
+  return Boolean(rows[0]?.owned);
+}
+
+export async function completeResearchJobExecution(input: {
+  jobId: string;
+  executionId: string;
+  result: unknown;
+}): Promise<boolean> {
+  const { rows } = await query<{ user_id: string }>(
+    `UPDATE research_jobs
+     SET status = 'completed',
+         result = $1::jsonb,
+         finished_at = now(),
+         updated_at = now()
+     WHERE id = $2 AND execution_id = $3 AND status = 'running'
+     RETURNING user_id`,
+    [JSON.stringify(input.result), input.jobId, input.executionId],
+  );
+  if (!rows[0]) return false;
+  await writeAuditLog({
+    userId: rows[0].user_id,
+    action: 'job_completed',
+    resourceType: 'research_job',
+    resourceId: input.jobId,
+  });
+  return true;
+}
+
+export async function transitionResearchJobRetry(input: {
+  jobId: string;
+  executionId: string;
+  nextExecutionId: string;
+  attempt: number;
+  error: string;
+  metrics: Record<string, unknown>;
+}): Promise<boolean> {
+  const { rowCount } = await query(
+    `UPDATE research_jobs
+     SET execution_id = $1,
+         status = 'retrying',
+         attempt = $2,
+         error = $3,
+         metrics = $4::jsonb,
+         updated_at = now()
+     WHERE id = $5 AND execution_id = $6 AND status = 'running'`,
+    [
+      input.nextExecutionId,
+      input.attempt,
+      input.error,
+      JSON.stringify(input.metrics),
+      input.jobId,
+      input.executionId,
+    ],
+  );
+  return Boolean(rowCount);
+}
+
+export async function failResearchJobExecution(input: {
+  jobId: string;
+  executionId: string;
+  attempt: number;
+  error: string;
+}): Promise<boolean> {
+  const { rows } = await query<{ user_id: string }>(
+    `UPDATE research_jobs
+     SET status = 'failed',
+         attempt = $1,
+         error = $2,
+         finished_at = now(),
+         updated_at = now()
+     WHERE id = $3 AND execution_id = $4 AND status = 'running'
+     RETURNING user_id`,
+    [input.attempt, input.error, input.jobId, input.executionId],
+  );
+  if (!rows[0]) return false;
+  await writeAuditLog({
+    userId: rows[0].user_id,
+    action: 'job_failed',
+    resourceType: 'research_job',
+    resourceId: input.jobId,
+    metadata: { error: input.error, attempt: input.attempt },
+  });
+  return true;
+}
+
 export async function patchResearchJob(
   jobId: string,
   patch: {

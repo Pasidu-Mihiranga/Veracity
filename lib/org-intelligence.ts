@@ -43,6 +43,13 @@ export type OrgIntelligence = {
     }>;
   };
   trends: Array<{ competitor: string; eventCount: number }>;
+  operatingRhythm: {
+    profileSnapshots30d: number;
+    materialProfileDiffs30d: number;
+    latestBoardPackAt: string | null;
+    boardPackStale: boolean;
+    actions: string[];
+  };
 };
 
 export async function getOrgIntelligence(
@@ -148,9 +155,37 @@ export async function getOrgIntelligence(
      LIMIT 8`,
     scope.params,
   );
+  const profileActivity = await query<{
+    snapshots: string;
+    material: string;
+  }>(
+    `SELECT
+       count(*)::text AS snapshots,
+       count(*) FILTER (WHERE material_event_count > 0)::text AS material
+     FROM competitor_profile_snapshots
+     WHERE ${scope.sql}
+       AND observed_at >= now() - interval '30 days'`,
+    scope.params,
+  );
+  const boardPack = await query<{ generated_at: string }>(
+    `SELECT generated_at
+     FROM board_pack_snapshots
+     WHERE ${scope.sql}
+     ORDER BY generated_at DESC
+     LIMIT 1`,
+    scope.params,
+  );
 
   const total = Number(decisionStats.rows[0]?.total ?? 0);
   const accepted = Number(decisionStats.rows[0]?.accepted ?? 0);
+  const latestBoardPackAt = boardPack.rows[0]?.generated_at ?? null;
+  const boardPackStale = !latestBoardPackAt ||
+    Date.now() - Date.parse(latestBoardPackAt) > 7 * 24 * 60 * 60 * 1000;
+  const actions = [
+    ...(wl.stale > 0 ? [`Resume or repair ${wl.stale} stale watchlist(s).`] : []),
+    ...(al.high > 0 ? [`Review ${al.high} unread high-severity alert(s).`] : []),
+    ...(boardPackStale ? ['Refresh the 30-day continuous board pack.'] : []),
+  ];
 
   return {
     workspace: workspaceMeta ?? null,
@@ -171,9 +206,16 @@ export async function getOrgIntelligence(
       competitor: r.competitor,
       eventCount: Number(r.event_count),
     })),
+    operatingRhythm: {
+      profileSnapshots30d: Number(profileActivity.rows[0]?.snapshots ?? 0),
+      materialProfileDiffs30d: Number(profileActivity.rows[0]?.material ?? 0),
+      latestBoardPackAt,
+      boardPackStale,
+      actions,
+    },
   };
 }
 
 export function orgIntelligenceEnabled(): boolean {
-  return featureFlags.orgIntelligence;
+  return featureFlags.orgIntelligence && featureFlags.workspaces;
 }

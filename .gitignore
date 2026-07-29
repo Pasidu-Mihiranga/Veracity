@@ -13,6 +13,7 @@ dist/
 # Build artifacts
 *.tsbuildinfo
 coverage/
+artifacts/evals/
 
 # Environment
 .env*

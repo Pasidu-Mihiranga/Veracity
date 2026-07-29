@@ -14,6 +14,7 @@ import {
 } from '@/lib/watchlists';
 import { applyWeeklyAlertBudget } from '@/lib/monitoring/signal-collectors';
 import { deliverAlertEgress } from '@/lib/monitoring/egress';
+import { persistContinuousProfileSnapshot } from '@/lib/continuous-intelligence/profile-snapshots';
 
 export async function processMonitoringJobResult(input: {
   userId: string;
@@ -21,6 +22,7 @@ export async function processMonitoringJobResult(input: {
   watchlistId?: string;
   product: string;
   competitor: string;
+  competitorUrl?: string;
   output: OrchestratorOutput;
   succeeded: boolean;
 }): Promise<void> {
@@ -62,6 +64,32 @@ export async function processMonitoringJobResult(input: {
     jobId: input.jobId,
     watchlistId: input.watchlistId,
   });
+  let workspaceId: string | null = null;
+  let profileSnapshotId: string | null = null;
+  if (featureFlags.continuousIntelligence) {
+    try {
+      const job = await query<{ workspace_id: string | null }>(
+        `SELECT workspace_id FROM research_jobs WHERE id = $1 LIMIT 1`,
+        [input.jobId],
+      );
+      workspaceId = job.rows[0]?.workspace_id ?? null;
+      const persisted = await persistContinuousProfileSnapshot({
+        userId: input.userId,
+        workspaceId,
+        jobId: input.jobId,
+        product: input.product,
+        competitor: input.competitor,
+        competitorUrl: input.competitorUrl,
+        previous: prev,
+        output: input.output,
+      });
+      profileSnapshotId = persisted.snapshot.id;
+    } catch {
+      diff.limitations.push(
+        'The continuous profile snapshot could not be persisted; alert evidence remains available.',
+      );
+    }
+  }
 
   if (input.watchlistId) {
     await updateWatchlist(input.watchlistId, input.userId, {
@@ -96,6 +124,7 @@ export async function processMonitoringJobResult(input: {
     const event = artifact.event;
     const alert = await upsertAlertEventWithinBudget({
       userId: input.userId,
+      workspaceId,
       watchlistId: input.watchlistId,
       jobId: input.jobId,
       product: input.product,
@@ -109,6 +138,9 @@ export async function processMonitoringJobResult(input: {
         materialityScore: event.materialityScore,
         materialityReason: event.materialityReason,
         origin: event.origin,
+        materialityBasis: diff.materialityBasis,
+        profileChangedFields: diff.profileChangedFields,
+        profileSnapshotId,
         changedRecTitles: diff.changedRecTitles,
         suppressedSignalCount: diff.suppressedSignals.length,
         suppressedByBudgetCount: budgeted.suppressedByBudget.length,
@@ -122,6 +154,7 @@ export async function processMonitoringJobResult(input: {
     if (featureFlags.competitiveTimeline) {
       await insertCompetitiveEvent({
         userId: input.userId,
+        workspaceId,
         product: input.product,
         competitor: input.competitor,
         title: event.title,
@@ -149,6 +182,20 @@ export async function processMonitoringJobResult(input: {
     ...input,
     events: newlyInsertedEvents,
   });
+  if (featureFlags.continuousIntelligence && newlyInsertedEvents.length > 0) {
+    try {
+      const { refreshContinuousBoardPack } = await import(
+        '@/lib/continuous-intelligence/board-refresh'
+      );
+      await refreshContinuousBoardPack({
+        userId: input.userId,
+        workspaceId,
+        refreshReason: 'monitoring-event',
+      });
+    } catch {
+      // Board refresh is recoverable and also runs on the scheduled operating rhythm.
+    }
+  }
 }
 
 async function ingestMonitoringSignals(input: {

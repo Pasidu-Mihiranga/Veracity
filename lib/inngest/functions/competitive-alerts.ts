@@ -16,7 +16,13 @@ type RunRequestedData = {
 };
 
 async function enqueueTargets(
-  targets: Array<{ userId: string; watchlistId: string; product: string; competitor: string }>,
+  targets: Array<{
+    userId: string;
+    watchlistId: string;
+    product: string;
+    competitor: string;
+    competitorUrl?: string | null;
+  }>,
 ) {
   for (const t of targets) {
     const executionId = newExecutionId();
@@ -33,6 +39,7 @@ async function enqueueTargets(
         followUpMode: 'full',
         product: t.product,
         competitor: t.competitor,
+        competitorUrl: t.competitorUrl,
         watchlistId: t.watchlistId,
       },
     });
@@ -50,6 +57,7 @@ async function enqueueTargets(
         watchlistId: t.watchlistId,
         product: t.product,
         competitor: t.competitor,
+        competitorUrl: t.competitorUrl,
         kind: 'monitoring',
       },
     });
@@ -84,6 +92,7 @@ export const competitiveAlertsFn = inngest.createFunction(
           watchlistId: wl.id,
           product: wl.product,
           competitor: i.competitor,
+          competitorUrl: i.competitor_url,
         }));
       }
       return listEnabledMonitoringTargets(24);

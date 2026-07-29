@@ -119,8 +119,8 @@ describe('job claim / retry / cancel state machine', () => {
 });
 
 describe('asyncSweep flag default', () => {
-  it('defaults off for sync SSE rollback', () => {
-    expect(featureFlags.asyncSweep).toBe(false);
+  it('defaults on while transport readiness preserves sync fallback', () => {
+    expect(featureFlags.asyncSweep).toBe(true);
   });
 });
 

@@ -326,6 +326,7 @@ export async function listEnabledMonitoringTargets(limitPerUser = 24): Promise<A
   watchlistId: string;
   product: string;
   competitor: string;
+  competitorUrl: string | null;
 }>> {
   await ensureWatchlistTablesExist();
   const { rows } = await query<{
@@ -333,11 +334,12 @@ export async function listEnabledMonitoringTargets(limitPerUser = 24): Promise<A
     watchlist_id: string;
     product: string;
     competitor: string;
+    competitor_url: string | null;
     item_rank: number;
     jobs_today: number;
   }>(
     `SELECT * FROM (
-       SELECT w.user_id, w.id AS watchlist_id, w.product, wi.competitor,
+       SELECT w.user_id, w.id AS watchlist_id, w.product, wi.competitor, wi.competitor_url,
          ROW_NUMBER() OVER (PARTITION BY w.id ORDER BY wi.created_at ASC) AS item_rank,
          w.max_competitors,
          (
@@ -369,6 +371,7 @@ export async function listEnabledMonitoringTargets(limitPerUser = 24): Promise<A
       watchlistId: r.watchlist_id,
       product: r.product,
       competitor: r.competitor,
+      competitorUrl: r.competitor_url,
     }));
 }
 

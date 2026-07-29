@@ -29,6 +29,7 @@ export function ensureMonitoringSchema(): Promise<void> {
 export type AlertEventRow = {
   id: string;
   user_id: string;
+  workspace_id?: string | null;
   watchlist_id: string | null;
   job_id: string | null;
   product: string;
@@ -46,6 +47,7 @@ export type AlertUpsertResult = AlertEventRow & { is_new: boolean };
 
 export type AlertUpsertInput = {
   userId: string;
+  workspaceId?: string | null;
   watchlistId?: string | null;
   jobId?: string | null;
   product: string;
@@ -60,9 +62,9 @@ export type AlertUpsertInput = {
 export async function upsertAlertEvent(input: AlertUpsertInput): Promise<AlertUpsertResult> {
   const { rows } = await query<AlertUpsertResult>(
     `INSERT INTO alert_events (
-       user_id, watchlist_id, job_id, product, competitor,
+       user_id, workspace_id, watchlist_id, job_id, product, competitor,
        title, summary, severity, diff, dedupe_key
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)
      ON CONFLICT (user_id, dedupe_key) DO UPDATE SET
        summary = EXCLUDED.summary,
        severity = EXCLUDED.severity,
@@ -71,6 +73,7 @@ export async function upsertAlertEvent(input: AlertUpsertInput): Promise<AlertUp
      RETURNING *, (xmax = 0) AS is_new`,
     [
       input.userId,
+      input.workspaceId ?? null,
       input.watchlistId ?? null,
       input.jobId ?? null,
       input.product,
@@ -95,22 +98,22 @@ export async function upsertAlertEventWithinBudget(
 ): Promise<AlertUpsertResult | null> {
   const { rows } = await query<AlertUpsertResult>(
     `WITH budget_lock AS MATERIALIZED (
-       SELECT pg_advisory_xact_lock(hashtext($1 || ':' || COALESCE($2::text, '')))
+       SELECT pg_advisory_xact_lock(hashtext($1 || ':' || COALESCE($3::text, '')))
      ),
      usage AS (
        SELECT count(*)::int AS used
        FROM alert_events, budget_lock
        WHERE user_id = $1::uuid
-         AND ($2::uuid IS NULL OR watchlist_id = $2::uuid)
+         AND ($3::uuid IS NULL OR watchlist_id = $3::uuid)
          AND created_at >= date_trunc('week', now())
      )
      INSERT INTO alert_events (
-       user_id, watchlist_id, job_id, product, competitor,
+       user_id, workspace_id, watchlist_id, job_id, product, competitor,
        title, summary, severity, diff, dedupe_key
      )
-     SELECT $1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8,$9::jsonb,$10
+     SELECT $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8,$9,$10::jsonb,$11
      FROM usage
-     WHERE used < $11
+     WHERE used < $12
      ON CONFLICT (user_id, dedupe_key) DO UPDATE SET
        summary = EXCLUDED.summary,
        severity = EXCLUDED.severity,
@@ -119,6 +122,7 @@ export async function upsertAlertEventWithinBudget(
      RETURNING *, (xmax = 0) AS is_new`,
     [
       input.userId,
+      input.workspaceId ?? null,
       input.watchlistId ?? null,
       input.jobId ?? null,
       input.product,
@@ -179,6 +183,7 @@ export async function markAlertRead(
 
 export async function insertCompetitiveEvent(input: {
   userId: string;
+  workspaceId?: string | null;
   product: string;
   competitor: string;
   title: string;
@@ -195,11 +200,12 @@ export async function insertCompetitiveEvent(input: {
   await ensureMonitoringSchema();
   await query(
     `INSERT INTO competitive_events (
-       user_id, product, competitor, event_date, title, summary,
+       user_id, workspace_id, product, competitor, event_date, title, summary,
        category, source_urls, job_id, confidence, cluster_key, severity, materiality_score
-     ) VALUES ($1,$2,$3,COALESCE($4::date, CURRENT_DATE),$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13)`,
+     ) VALUES ($1,$2,$3,$4,COALESCE($5::date, CURRENT_DATE),$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14)`,
     [
       input.userId,
+      input.workspaceId ?? null,
       input.product,
       input.competitor,
       input.eventDate ?? null,

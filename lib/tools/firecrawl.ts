@@ -4,6 +4,7 @@ import type { ToolResult, ScrapedPage } from './types';
 import { buildToolResult } from './fallback';
 import { assessScrapeQuality } from './scrape-quality';
 import { getPolicyForDomain, computeRetryDelay } from './retry-policy';
+import { detectProviderFailure } from './provider-health';
 
 const BASE_URL = 'https://api.firecrawl.dev/v1';
 
@@ -37,7 +38,15 @@ function selectExtractPrompt(url: string): string {
 /**
  * Call Firecrawl with standard options.
  */
-async function firecrwlFetch(url: string, extractPrompt: string, apiKey: string, isStrict = false): Promise<{ markdown: string; title: string } | null> {
+async function firecrwlFetch(
+  url: string,
+  extractPrompt: string,
+  apiKey: string,
+  isStrict = false,
+): Promise<{
+  page: { markdown: string; title: string } | null;
+  providerError?: string;
+}> {
   try {
     const res = await fetch(`${BASE_URL}/scrape`, {
       method: 'POST',
@@ -53,15 +62,28 @@ async function firecrwlFetch(url: string, extractPrompt: string, apiKey: string,
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) return { page: null, providerError: `HTTP ${res.status}` };
 
     const raw = await res.json() as any;
+    const providerFailure = detectProviderFailure(raw);
+    if (providerFailure.failed) {
+      return {
+        page: null,
+        providerError: providerFailure.message ?? providerFailure.code ?? 'Provider reported failure',
+      };
+    }
     const markdown: string = raw.data?.markdown ?? '';
     const title: string = raw.data?.metadata?.title ?? url;
 
-    return markdown.trim().length > 50 ? { markdown, title } : null;
-  } catch {
-    return null;
+    return {
+      page: markdown.trim().length > 50 ? { markdown, title } : null,
+      ...(!markdown.trim() ? { providerError: 'Provider returned empty content' } : {}),
+    };
+  } catch (error) {
+    return {
+      page: null,
+      providerError: error instanceof Error ? error.message : 'Provider request failed',
+    };
   }
 }
 
@@ -86,13 +108,18 @@ export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> 
 
   // ── Multi-attempt strategy with escalating fallbacks ─────────────────────
   // Attempt 1: Standard Firecrawl
-  let result = await firecrwlFetch(url, extractPrompt, apiKey, false);
+  let providerError: string | undefined;
+  let firecrawlAttempt = await firecrwlFetch(url, extractPrompt, apiKey, false);
+  let result = firecrawlAttempt.page;
+  providerError = firecrawlAttempt.providerError;
   attemptsMade++;
 
   if (!result && policy.useFirecrawlStrict && attemptsMade < policy.maxAttempts) {
     // Attempt 2: Strict Firecrawl (for flaky sites like LinkedIn)
     await delay(computeRetryDelay(policy, attemptsMade));
-    result = await firecrwlFetch(url, extractPrompt, apiKey, true);
+    firecrawlAttempt = await firecrwlFetch(url, extractPrompt, apiKey, true);
+    result = firecrawlAttempt.page;
+    providerError = firecrawlAttempt.providerError ?? providerError;
     attemptsMade++;
   }
 
@@ -144,13 +171,16 @@ export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> 
     confidence = 0.7; // fallback used but content ok
   }
 
-  const result_final = buildToolResult<ScrapedPage>({
+  const result_final: ToolResult<ScrapedPage> = {
+    ...buildToolResult<ScrapedPage>({
     data: page,
     status,
     source: 'Firecrawl',
     sourceUrl: url,
     confidenceOverride: confidence,
-  });
+    }),
+    ...(providerError ? { providerError } : {}),
+  };
 
     await setCache('firecrawl', cacheKey, result_final);
     return result_final;

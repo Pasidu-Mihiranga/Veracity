@@ -205,7 +205,7 @@ Rules:
 | IC-3 | Mid Phase 3 | **Complete 2026-07-29:** intent/mission interfaces frozen; DD and compare workflow packs live. |
 | IC-4 | End of Phase 4 | **Engineering complete 2026-07-29:** ranked decision frame and appendix fields feed board mode, PDF/DOCX exports, event timeline, and decision memory. |
 | IC-5 | End of Phase 5 | **Complete 2026-07-29:** source-grounded structured events feed budgeted alerts, severity/materiality timeline, optional egress, and flagged KG/profile sinks; B5 + B4 green. |
-| IC-6 | End of Phase 6 | Full 5-benchmark suite green vs original baselines |
+| IC-6 | End of Phase 6 | **Complete 2026-07-29:** canonical entities and source/profile snapshots drive monitoring; timeline + decisions refresh board packs; AsyncSweep has transport/ownership/recovery gates; live B1–B5 suite green. |
 
 ### 3.7 Parallel swimlanes (first 6 weeks)
 
@@ -406,7 +406,7 @@ Every failed prompt should be tagged with **one primary** and **optional seconda
 | Company Comparison | **Weak** | Pairwise LLM matrix from snippets; not multi-entity structured compare |
 | Technology Assessment | **Stops early** | Patent/web adjacent searches; thin structured tech diligence |
 | Watchlists | **Enterprise Continuous MVP** | Typed event deltas, configurable cadence/caps/budgets, grounded alerts, timeline, email/Slack connectors |
-| Continuous Intelligence | **MVP / Needs deeper source adapters** | Daily due scheduler, ≤12 competitors/watchlist and 24 jobs/user/day, materiality-gated events; persistent source snapshots/velocity baselines remain Phase 6 |
+| Continuous Intelligence | **Operating MVP** | Canonical registry, durable source/profile snapshots, profile-diff alerts, 30-day timeline/decision board refresh, workspace operating rhythm, and weekly B1–B5 release gate; source-specific velocity baselines remain a deeper-adapter follow-up |
 
 **None are enterprise-complete.**  
 Strongest relative area: **one-shot competitive / market research**.  
@@ -428,23 +428,23 @@ Weakest relative areas: **Acquisition DD, continuous monitoring fidelity, ground
 - Event taxonomy: `pricing`, `launch`, `feature`, `hiring`, `leadership`, `security`, `docs`, `sentiment`, `funding`, `acquisition`, `news`, `other`
 - In-app alerts + optional Resend email / Slack webhook egress + severity/materiality timeline + health/limitation states
 - Decision memory + soft feedback learning preamble
-- Material events feed the evidence graph and competitor profile projection when Phase 7 flags are enabled
+- Monitoring always writes canonical entities plus immutable source/profile snapshots; material profile diffs drive alerts and auto-refresh the 30-day board pack
 
 ### 9.2 What is missing vs Perplexity Enterprise / AlphaSense / CB Insights / Crunchbase / Glean
 
 | Capability | Today | Required for enterprise continuous intel |
 |------------|-------|------------------------------------------|
-| Competitors | Free-text names, ≤12/watchlist; profile sink behind flag | Canonical entities, aliases, relationship graph, larger universes |
-| Funding | Source-grounded fact/recent-move extractor with amount/round materiality | Persistent source snapshots + source-tier policy |
+| Competitors | Canonical workspace/user entities with aliases, official domains, product lines, and immutable profile snapshots; ≤12/watchlist | Relationship graph and larger universes |
+| Funding | Source-grounded extractor with amount/round materiality and persisted source/profile snapshots | Source-tier policy and multi-period velocity |
 | Hiring | Typed hiring signals + directional/quantified threshold | Velocity metrics, role/geo classification |
-| Pricing | Typed tier + grounded fact diffs; changed values/tier actions alert | Persistent official-page snapshots and packaging-field diffs |
+| Pricing | Typed tier + grounded profile diffs, persistent source snapshots, and changed-value alerts | More granular packaging-field adapters |
 | Leadership | First-class appointments/departures category | Exec identity resolution + board/founder adapters |
 | Product launches | Grounded launch/GA event collector | Changelog/RSS/release adapters |
 | Security | First-class breach/CVE/compliance category + severity matrix | Trust-center/CVE adapters and incident lifecycle |
 | Acquisitions | Distinct M&A category with high severity | Entity-resolution and deal-status lifecycle |
 | Customer sentiment | Material shift cues; isolated threads suppressed | Volume/velocity baselines |
 | News | Material legal/regulatory/partnership category | Deduped wire with authority scores |
-| Change detection | Structured event extract → materiality → alert/timeline | Durable source snapshots + multi-period trend baselines |
+| Change detection | Source snapshot → immutable profile diff → materiality → alert/timeline/board refresh | Multi-period trend and velocity baselines |
 | Delivery | In-app + optional Slack/email; delivery audit | Workspace routing/escalation rules |
 | Cadence | Daily / twice-weekly / weekly / monthly | Source-specific adaptive cadence |
 
@@ -893,27 +893,27 @@ second-developer review.
 
 #### Phase 6 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B1–B5)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
-- [ ] Ready for merge
-- [ ] Ready for next phase
+- [x] Feature implemented
+- [x] Code reviewed
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B1–B5)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
+- [x] Ready for merge
+- [x] Ready for next phase
 
 #### Phase 6 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
-- [ ] Ready for next phase / release candidate
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
+- [x] Ready for next phase / release candidate
 
 ---
 
@@ -1300,6 +1300,73 @@ _(Append runs below this line.)_
 **Notes:** `buildComparisonExecutiveAnswer` now counts a dimension as established only when every compared entity has supported evidence; fewer than two shared dimensions triggers peer-abstention language.
 **Next action:** Add entity-type/canonical-profile evidence in Phase 6/7 so valid peer relationships can be positively established rather than inferred from sparse dimensions.
 
+### Eval — 2026-07-29 — Phase 6 — Benchmark B1 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B1 self-critical enterprise research-assistant prompt.
+**Environment:** `dev`; live Gemini + retrieval tools; six-agent full sweep; zero failed research agents.
+**Expected output:** Critical gaps, assumptions, falsifiers, calibrated confidence, and no unsupported high-confidence recommendation.
+**Actual output (summary):** Returned low confidence, two assumptions, three falsifiers, two evidence-gated recommendations, explicit evidence limitations, and no maturity overclaim.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes.
+**Baseline comparison:** Equal or better — honesty and structural decision fields remain green after the monitoring/platform changes.
+**Issues found:** None critical; sparse first-party evidence correctly forced low confidence.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B2 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B2 WSO2-like acquisition diligence prompt.
+**Environment:** `dev`; live APIs; zero failed research agents.
+**Expected output:** DD mission/pack, known-vs-unknown separation, probes, and no invented financials.
+**Actual output (summary):** Classified `dd_acquisition`, produced the diligence pack, three explicit unknowns and eight next probes; stated zero verified/four partial sections and made no precise ARR, revenue, valuation, or EBITDA claim.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes; invented-financial automatic-fail condition was false.
+**Baseline comparison:** Equal — Phase 3/4 DD honesty and investigation structure are preserved.
+**Issues found:** None.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B3 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B3 Notion vs Confluence enterprise comparison prompt.
+**Environment:** `dev`; live APIs; 18 retrieved source records; zero failed research agents.
+**Expected output:** Correct entities, comparison contract, bound URLs, and cautious pricing/switching claims.
+**Actual output (summary):** Included both entities in the structured comparison, preserved retrieved HTTP(S) evidence only, discussed pricing with evidence/unknown caveats, and returned medium confidence.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes; no unbound/fake citation automatic failure.
+**Baseline comparison:** Equal — Phase 2 evidence binding and Phase 3 comparison structure remain green.
+**Issues found:** None.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B4 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt with adversarial Lilian/Clay memory.
+**Environment:** `dev`; live APIs; zero failed research agents.
+**Expected output:** Zero memory contamination, peer mismatch, abstention/caveat, official URLs and buyer-intent request.
+**Actual output (summary):** Contained no Lilian/Clay reference, did not establish WSO2/SyscoLabs as product peers, and requested official product URLs plus buyer intent/use case/procurement criteria.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes; contamination automatic-fail condition was false.
+**Baseline comparison:** Equal — final Phase 5 peer-honesty behavior is preserved.
+**Issues found:** None.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B5 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt/job executed:** Synthetic official pricing baseline (`$20`) → material change (`$25`) plus wording-only documentation change.
+**Environment:** `dev`; local PostgreSQL with `0005_continuous_intelligence.sql`; full process-result integration.
+**Expected output:** Profile-diff pricing alert and timeline event; wording tweak suppressed; source/profile snapshot and board refresh persisted.
+**Actual output (summary):** One `pricing` alert at materiality `0.92`, one timeline event, one immutable competitor profile snapshot, and one timeline/decision board pack; one copy-only signal suppressed. Alert metadata identifies `materialityBasis=profile-diff` and the profile snapshot ID.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 N/A; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 N/A; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes.
+**Baseline comparison:** Better — Phase 5 structured-event diff now has a canonical entity, durable source/profile sink, profile-diff alert provenance, and automatic 30-day board refresh.
+**Issues found:** AIQ-029, AIQ-030, AIQ-032, AIQ-033, AIQ-034, AIQ-035.
+**Priority:** All P1 findings fixed; velocity/source-specific adaptive cadence remains P2.
+**Status:** Verified.
+**Regression:** 305 tests passed with one skipped; Phase 6 focused tests passed 9; DB integration passed; 24/24 output-quality checks passed; typecheck and lint completed with no errors.
+
 ---
 
 ## 15. Master Issue Tracker (Living)
@@ -1345,9 +1412,13 @@ Do **not** create a separate issues markdown file.
 | AIQ-026 | Alert egress re-sends deduped events | Alert upsert conflict still called Slack/email and duplicated timeline/KG writes | P1 | 5 | B | Verified | dev@2026-07-29 | `is_new` gates timeline, egress, and KG; duplicate weekly dedupe rows no longer resend |
 | AIQ-027 | Parallel monitoring jobs exceed weekly budget | Competitor jobs counted alerts independently before insert | P1 | 5 | B | Verified | dev@2026-07-29 | Atomic advisory-lock count+upsert enforces per-watchlist budget across parallel jobs |
 | AIQ-028 | Watchlist empty state displays fabricated signals | UI showed two demo competitor alerts when the alert table was empty | P1 | 5 | B | Verified | dev@2026-07-29 | Fake fallback removed; empty state explicitly says no material grounded changes detected |
-| AIQ-029 | Monitoring lacks durable source snapshots | Event collectors use retrieved agent facts, typed pricing/hiring fields, and source headlines rather than persisted page-field snapshots | P2 | 6 | B | Open | | Phase 6: official pricing/changelog/jobs/trust-center snapshots and source-specific diffs |
-| AIQ-030 | Provider-level scrape failures can look successful | A wrapper may report tool success even when the upstream actor response says quota/subscription failure | P2 | 6 | A/B | Open | | Last-sweep limitations are surfaced when failures reach agent state; normalize provider-level failure contracts next |
+| AIQ-029 | Monitoring lacks durable source snapshots | Event collectors use retrieved agent facts, typed pricing/hiring fields, and source headlines rather than persisted page-field snapshots | P2 | 6 | B | Verified | dev@2026-07-29 | Canonical entity source snapshots persist URL/type/title/content hash/extracted fields; immutable profile snapshots and changed fields now drive alert materiality |
+| AIQ-030 | Provider-level scrape failures can look successful | A wrapper may report tool success even when the upstream actor response says quota/subscription failure | P2 | 6 | A/B | Verified | dev@2026-07-29 | HTTP-200 provider payload failures normalize to `failed`; Firecrawl preserves provider error; latency wrapper logs returned `failed`/`degraded` status instead of success-on-no-throw |
 | AIQ-031 | One-entity evidence presented as shared comparison | Comparison answer treated a supported cell for only one entity as an established shared dimension | P1 | 5 | A | Verified | dev@2026-07-29 | Shared dimensions now require supported cells for every entity; sparse compares request official URLs and buyer intent; B4 final passed |
+| AIQ-032 | Async default can enqueue into no transport | Development mode alone made Inngest appear configured, leaving jobs queued without a worker | P1 | 6 | B | Verified | dev@2026-07-29 | Async defaults on only behind an explicit event-key/signing-key or `INNGEST_DEV=1` readiness gate; otherwise chat uses sync fallback |
+| AIQ-033 | Recovered async job can be overwritten by stale worker | Requeued execution changed the execution ID, but the old worker could still write a terminal result | P1 | 6 | B | Verified | dev@2026-07-29 | Terminal writes require current execution ownership; 15-minute recovery requeues or fails jobs stale for 20 minutes |
+| AIQ-034 | Workspace decisions do not refresh board projection | Decision rows lacked workspace stamping and board packs only refreshed after monitoring events | P1 | 6 | B | Verified | dev@2026-07-29 | New decisions stamp workspace ID and trigger recoverable board refresh; weekly org refresh repairs missed projections |
+| AIQ-035 | Monitoring lacks multi-period velocity baselines | Profile snapshots show current structured changes but do not yet calculate hiring/sentiment/source-specific velocity across multiple periods | P2 | 7 | B | Open | | Add role/geo hiring velocity, sentiment volume baselines, and source-specific adaptive cadence after enough snapshot history accumulates |
 
 _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mark `Verified` and set Resolved Version._
 
@@ -1360,7 +1431,7 @@ _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mar
 | Layer | What | Cadence |
 |-------|------|---------|
 | Offline deterministic | Memory gate, bind fallback absence, abstain flags, entity scope | Every PR (`test:quality` + vitest) |
-| Live prompt suite | 5 master benchmarks + 20–40 extended prompts | Nightly / pre-release |
+| Live prompt suite | B1–B5 automated structural checks + archived JSON report (`weekly-live-quality.yml`) | Weekly + manual pre-release dispatch |
 | Monitoring fixtures | Synthetic HTML/pricing/funding events | PR for monitoring package |
 | LLM-as-judge (optional) | Soft scores for executive clarity / honesty | Weekly, never sole gate |
 

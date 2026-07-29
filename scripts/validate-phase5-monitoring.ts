@@ -55,6 +55,8 @@ async function main() {
         sourceUrls?: string[];
         materialityScore?: number;
         suppressedSignalCount?: number;
+        materialityBasis?: string;
+        profileSnapshotId?: string;
       };
     }>(
       `SELECT severity, diff FROM alert_events WHERE user_id = $1 ORDER BY created_at`,
@@ -70,6 +72,24 @@ async function main() {
        ORDER BY created_at`,
       [userId],
     );
+    const { rows: profiles } = await dbQuery<{
+      material_event_count: number;
+      diff: { changedFields?: string[] };
+    }>(
+      `SELECT material_event_count, diff
+       FROM competitor_profile_snapshots
+       WHERE user_id = $1`,
+      [userId],
+    );
+    const { rows: boardPacks } = await dbQuery<{
+      event_count: number;
+      pack: { source?: string };
+    }>(
+      `SELECT event_count, pack
+       FROM board_pack_snapshots
+       WHERE user_id = $1`,
+      [userId],
+    );
 
     const pricingAlerts = alerts.filter((alert) => alert.diff.category === 'pricing');
     const passed = alerts.length === 1
@@ -77,8 +97,16 @@ async function main() {
       && (pricingAlerts[0].diff.materialityScore ?? 0) >= 0.65
       && (pricingAlerts[0].diff.suppressedSignalCount ?? 0) >= 1
       && pricingAlerts[0].diff.sourceUrls?.includes('https://example.com/pricing') === true
+      && pricingAlerts[0].diff.materialityBasis === 'profile-diff'
+      && Boolean(pricingAlerts[0].diff.profileSnapshotId)
       && timeline.length === 1
-      && timeline[0].category === 'pricing';
+      && timeline[0].category === 'pricing'
+      && profiles.length === 1
+      && profiles[0].material_event_count === 1
+      && profiles[0].diff.changedFields?.includes('pricing') === true
+      && boardPacks.length === 1
+      && boardPacks[0].event_count === 1
+      && boardPacks[0].pack.source === 'continuous-intelligence';
 
     console.log(JSON.stringify({
       benchmark: 'B5',
@@ -88,9 +116,16 @@ async function main() {
       copyOnlySignalsSuppressed: pricingAlerts[0]?.diff.suppressedSignalCount ?? 0,
       timelineEvents: timeline.length,
       materialityScore: timeline[0]?.materiality_score ?? null,
+      profileSnapshots: profiles.length,
+      boardPacks: boardPacks.length,
     }, null, 2));
     if (!passed) process.exitCode = 1;
   } finally {
+    await dbQuery(`DELETE FROM board_pack_snapshots WHERE user_id = $1`, [userId]).catch(() => {});
+    await dbQuery(
+      `DELETE FROM canonical_entities WHERE user_id = $1`,
+      [userId],
+    ).catch(() => {});
     await dbQuery(`DELETE FROM competitive_events WHERE user_id = $1`, [userId]).catch(() => {});
     await dbQuery(`DELETE FROM alert_events WHERE user_id = $1`, [userId]).catch(() => {});
     await dbQuery(

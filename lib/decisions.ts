@@ -11,6 +11,7 @@ export { applyOutcomeConfidence, confidenceFromRecLevel } from '@/lib/decision-p
 export type DecisionRow = {
   id: string;
   user_id: string;
+  workspace_id: string | null;
   session_id: string | null;
   title: string;
   rationale: string;
@@ -27,6 +28,7 @@ export type DecisionRow = {
 
 export async function upsertDecision(input: {
   userId: string;
+  workspaceId?: string | null;
   sessionId?: string | null;
   title: string;
   rationale?: string;
@@ -41,8 +43,9 @@ export async function upsertDecision(input: {
     const { rows: existing } = await query<DecisionRow>(
       `SELECT * FROM decision_memory
        WHERE user_id = $1 AND source_recommendation_key = $2
+         AND ($3::uuid IS NULL OR workspace_id = $3)
        ORDER BY created_at DESC LIMIT 1`,
-      [input.userId, input.sourceRecommendationKey],
+      [input.userId, input.sourceRecommendationKey, input.workspaceId ?? null],
     );
     if (existing[0]) {
       const { rows } = await query<DecisionRow>(
@@ -67,12 +70,13 @@ export async function upsertDecision(input: {
 
   const { rows } = await query<DecisionRow>(
     `INSERT INTO decision_memory (
-       user_id, session_id, title, rationale, decision, reason,
+       user_id, workspace_id, session_id, title, rationale, decision, reason,
        confidence, source_recommendation_key, evidence_urls
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
      RETURNING *`,
     [
       input.userId,
+      input.workspaceId ?? null,
       input.sessionId ?? null,
       input.title,
       input.rationale ?? '',

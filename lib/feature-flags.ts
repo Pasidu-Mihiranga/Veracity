@@ -19,8 +19,8 @@ export const featureFlags = {
   orchestratorView: envFlag('NEXT_PUBLIC_FF_ORCHESTRATOR_VIEW'),
   /** Full-screen Executive Board / Presentation Mode */
   boardMode: envFlag('NEXT_PUBLIC_FF_BOARD_MODE'),
-  /** Phase 4 — async sweep surfaces */
-  asyncSweep: envFlag('NEXT_PUBLIC_FF_ASYNC_SWEEP', false),
+  /** Phase 6 — async by default when an Inngest transport is explicitly configured */
+  asyncSweep: envFlag('NEXT_PUBLIC_FF_ASYNC_SWEEP', true),
   /** Phase 5 — durable audit logs for exports / sweeps */
   auditLogs: envFlag('NEXT_PUBLIC_FF_AUDIT_LOGS', false),
   /** Phase 5 — strategic watchlists UI */
@@ -41,6 +41,8 @@ export const featureFlags = {
   samlSso: envFlag('NEXT_PUBLIC_FF_SAML_SSO', false),
   /** Phase 6 — Organization Intelligence Monitor */
   orgIntelligence: envFlag('NEXT_PUBLIC_FF_ORG_INTELLIGENCE', false),
+  /** Phase 6 — canonical entities, profile snapshots, and timeline board refresh */
+  continuousIntelligence: envFlag('NEXT_PUBLIC_FF_CONTINUOUS_INTELLIGENCE', true),
   /** Phase 7 — Evidence knowledge graph */
   evidenceGraph: envFlag('NEXT_PUBLIC_FF_EVIDENCE_GRAPH', false),
   /** Phase 7 — competitor profiles + timeline */

@@ -6,9 +6,9 @@ import {
 import { buildAlertDedupeKey } from '@/lib/monitoring/dedupe';
 import { buildClusterKey } from '@/lib/monitoring/cluster-events';
 import {
-  extractChangedMonitoringSignals,
   type MonitoringSignal,
 } from '@/lib/monitoring/signal-collectors';
+import { diffCompetitorProfileOutputs } from '@/lib/continuous-intelligence/profile-utils';
 
 export type DiffResult = {
   material: boolean;
@@ -19,7 +19,8 @@ export type DiffResult = {
   changedRecTitles: string[];
   events: MonitoringSignal[];
   suppressedSignals: MonitoringSignal[];
-  materialityBasis: 'structured-signals' | 'baseline' | 'none';
+  materialityBasis: 'profile-diff' | 'baseline' | 'none';
+  profileChangedFields: string[];
   limitations: string[];
 };
 
@@ -36,8 +37,8 @@ export function diffSweepOutputs(
     .map((r) => r.title)
     .filter((t) => t && !prevTitles.has(t.trim().toLowerCase()));
 
-  const extracted = extractChangedMonitoringSignals(prev, next);
-  const events = prev ? extracted.material : [];
+  const profileDiff = diffCompetitorProfileOutputs(prev, next);
+  const events = profileDiff.materialEvents;
   const primary = events[0];
   const material = events.length > 0;
   const category = primary?.category ?? 'other';
@@ -53,16 +54,17 @@ export function diffSweepOutputs(
     summary: primary?.summary
       ?? (!prev
         ? 'Baseline established; no change alert emitted on the first sweep.'
-        : `${extracted.suppressed.length} non-material or ungrounded signal(s) suppressed.`),
+        : `${profileDiff.suppressedSignals.length} non-material or ungrounded signal(s) suppressed.`),
     category,
     severity,
     changedRecTitles,
     events,
-    suppressedSignals: prev ? extracted.suppressed : extracted.allNew,
-    materialityBasis: primary ? 'structured-signals' : !prev ? 'baseline' : 'none',
+    suppressedSignals: profileDiff.suppressedSignals,
+    materialityBasis: primary ? 'profile-diff' : !prev ? 'baseline' : 'none',
+    profileChangedFields: profileDiff.changedFields,
     limitations: [
       ...(next.evidenceLimitations ?? []),
-      ...extracted.suppressed
+      ...profileDiff.suppressedSignals
         .filter((signal) => signal.sourceUrls.length === 0)
         .map((signal) => signal.materialityReason),
       ...(next.agentRuns ?? [])

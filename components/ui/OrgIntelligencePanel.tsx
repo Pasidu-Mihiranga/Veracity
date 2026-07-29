@@ -14,6 +14,7 @@ type Props = {
 export function OrgIntelligencePanel({ open, onClose }: Props) {
   const [data, setData] = useState<OrgIntelligence | null>(null);
   const [error, setError] = useState('');
+  const [refreshingBoard, setRefreshingBoard] = useState(false);
 
   const load = useCallback(async () => {
     if (!featureFlags.orgIntelligence) return;
@@ -27,6 +28,22 @@ export function OrgIntelligencePanel({ open, onClose }: Props) {
     setData(json.intelligence);
     setError('');
   }, []);
+
+  const refreshBoardPack = useCallback(async () => {
+    setRefreshingBoard(true);
+    try {
+      const res = await fetch('/api/board-packs/continuous', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Board pack refresh failed');
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Board pack refresh failed');
+    } finally {
+      setRefreshingBoard(false);
+    }
+  }, [load]);
 
   useEffect(() => {
     if (open) void load();
@@ -65,7 +82,7 @@ export function OrgIntelligencePanel({ open, onClose }: Props) {
 
         {data && (
           <>
-            {featureFlags.competitorProfiles ? (
+            {featureFlags.competitorProfiles || featureFlags.continuousIntelligence ? (
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
                   Competitor profiles
@@ -94,6 +111,41 @@ export function OrgIntelligencePanel({ open, onClose }: Props) {
                     : '—'
                 }
               />
+            </div>
+
+            <div className="veracity-card p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                    Operating rhythm
+                  </div>
+                  <div className="text-xs">
+                    {data.operatingRhythm.profileSnapshots30d} profile snapshots ·{' '}
+                    {data.operatingRhythm.materialProfileDiffs30d} material diffs
+                  </div>
+                  <div className="text-[10px] font-mono text-muted-foreground mt-1">
+                    Board pack:{' '}
+                    {data.operatingRhythm.latestBoardPackAt
+                      ? new Date(data.operatingRhythm.latestBoardPackAt).toLocaleString()
+                      : 'not generated'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refreshBoardPack()}
+                  disabled={refreshingBoard}
+                  className="bg-gradient-signature text-white rounded-xl py-2 px-3 text-xs font-medium disabled:opacity-50"
+                >
+                  {refreshingBoard ? 'Refreshing…' : 'Refresh pack'}
+                </button>
+              </div>
+              {data.operatingRhythm.actions.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {data.operatingRhythm.actions.map((action) => (
+                    <li key={action}>• {action}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="veracity-card p-3">

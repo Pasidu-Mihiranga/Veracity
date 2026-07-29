@@ -1,6 +1,6 @@
 # Benchmark: LangGraphExecutor vs CurrentExecutor
 
-**Date:** 2026-07-27T21:17:30.883Z  
+**Date:** 2026-07-29T13:09:22.339Z  
 **Mode:** Deterministic stub agents (wave-executor parity)  
 **Corpus:** 109 queries (`scripts/benchmarks/queries.json`)  
 **Verdict:** **PASS** (parity + stub latency gates)
@@ -10,16 +10,16 @@
 | Gate | Result | Detail |
 |------|--------|--------|
 | Outcome parity | PASS | 0 mismatches / 97 ran |
-| Stub absolute overhead (p50 ≤20ms, p95 ≤30ms) | PASS | overhead p50 3.992ms, p95 7.255ms (ratios 1.0485 / 1.0876) |
+| Stub absolute overhead (p50 ≤20ms, p95 ≤30ms) | PASS | overhead p50 6.621ms, p95 8.412ms (ratios 1.0805 / 1.1012) |
 | Live accuracy / evidence / cost / latency ≤+5% | **Deferred** | Required before `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` default-on (ADR-0007) |
 
 ## Latency
 
 | Executor | p50 (ms) | p95 (ms) |
 |----------|----------|----------|
-| Current | 82.329 | 82.842 |
-| LangGraph | 86.321 | 90.097 |
-| Absolute overhead | 3.992 | 7.255 |
+| Current | 82.254 | 83.161 |
+| LangGraph | 88.875 | 91.573 |
+| Absolute overhead | 6.621 | 8.412 |
 
 ## Corpus mix
 
@@ -34,15 +34,9 @@
 - Wave executor exercised: **97** cases  
 - Skipped (Tier 0 / empty domains): **12**
 
-## Phase 5 status (2026-07-28)
+## Recommendation
 
-**Decision: do not enable LangGraph by default (ADR-0008).**
-
-- Stub Phase 4: PASS  
-- Live sample (`BENCH_SAMPLE_SIZE=1`): PASS — status parity, crashes=0, latency ratio ≈0.99  
-- Full live ≥100 accuracy/evidence/cost gates: still open  
-
-Production continues on `CurrentExecutor`. Opt-in: `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1` for experiments only.
+Wave-executor parity and stub latency gates **passed**. LangGraph remains **feature-flag OFF** until a live (≥100 query) accuracy/evidence/cost benchmark also passes (ADR-0007 / Phase 5).
 
 ## Artifacts
 

@@ -6,6 +6,8 @@ import {
   setDecisionOutcome,
   type DecisionOutcome,
 } from '@/lib/decisions';
+import { featureFlags } from '@/lib/feature-flags';
+import { requireWorkspaceAccess, resolveTenantFromCookies } from '@/lib/workspace';
 
 export const runtime = 'nodejs';
 
@@ -43,6 +45,14 @@ export async function POST(req: NextRequest) {
       sourceRecommendationKey?: string;
       evidenceUrls?: string[];
     };
+    let workspaceId: string | null = null;
+    if (featureFlags.workspaces) {
+      const tenant = await resolveTenantFromCookies(user.id, user.email ?? '');
+      workspaceId = tenant.workspaceId;
+      if (workspaceId) {
+        await requireWorkspaceAccess(user.id, workspaceId, 'session.write');
+      }
+    }
 
     if (body.id && body.outcome) {
       const allowed: DecisionOutcome[] = [
@@ -63,6 +73,7 @@ export async function POST(req: NextRequest) {
       if (!record) {
         return NextResponse.json({ ok: false, error: 'Decision not found' }, { status: 404 });
       }
+      await refreshBoardPackAfterDecision(user.id, workspaceId);
       return NextResponse.json({ ok: true, decision: record });
     }
 
@@ -72,6 +83,7 @@ export async function POST(req: NextRequest) {
 
     const record = await upsertDecision({
       userId: user.id,
+      workspaceId,
       sessionId: body.sessionId,
       title: body.title,
       rationale: body.rationale,
@@ -81,6 +93,7 @@ export async function POST(req: NextRequest) {
       sourceRecommendationKey: body.sourceRecommendationKey,
       evidenceUrls: body.evidenceUrls,
     });
+    await refreshBoardPackAfterDecision(user.id, workspaceId);
 
     return NextResponse.json({ ok: true, decision: record });
   } catch (err) {
@@ -88,5 +101,24 @@ export async function POST(req: NextRequest) {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
     }, { status: 500 });
+  }
+}
+
+async function refreshBoardPackAfterDecision(
+  userId: string,
+  workspaceId: string | null,
+): Promise<void> {
+  if (!featureFlags.continuousIntelligence) return;
+  try {
+    const { refreshContinuousBoardPack } = await import(
+      '@/lib/continuous-intelligence/board-refresh'
+    );
+    await refreshContinuousBoardPack({
+      userId,
+      workspaceId,
+      refreshReason: 'decision-update',
+    });
+  } catch {
+    // Decision writes remain authoritative; scheduled refresh repairs the projection.
   }
 }

@@ -37,6 +37,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Phase 6 release gate
+        run: npm run test:phase6
+
       # Offline anti-hallucination / abstain scenarios (no live LLM or secrets)
       - name: Output quality gate
         run: npm run test:quality
