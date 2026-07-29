@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import type {
   AgentOutput,
   ConversationMessage,
+  DecisionFrame,
   ImageAttachment,
   Recommendation,
 } from '@/lib/agents/types';
@@ -30,6 +31,7 @@ export interface SynthesisResult {
     supports: string[];
     weakens: string[];
   };
+  decisionFrame?: Partial<DecisionFrame>;
 }
 
 function stringArray(value: unknown): string[] {
@@ -174,7 +176,7 @@ export async function synthesize(
     const raw = await generateHuggingFaceText(prompt + imageNote, {
       // The decision appendix (assumptions, unknowns, falsifiers, alternatives,
       // confidence drivers) needs enough room to finish valid JSON.
-      maxNewTokens: 1400,
+      maxNewTokens: 2200,
       temperature: 0.15,
     });
     const parsed = safeParseJson(raw);
@@ -261,6 +263,10 @@ export async function synthesize(
               ...(selfEvaluation ? ['This application’s current capabilities were not independently verified.'] : []),
             ],
       },
+      decisionFrame:
+        parsed.decisionFrame && typeof parsed.decisionFrame === 'object'
+          ? parsed.decisionFrame as Partial<DecisionFrame>
+          : undefined,
     };
   } catch (err) {
     logger.error('orchestrator.synthesis_failed', {

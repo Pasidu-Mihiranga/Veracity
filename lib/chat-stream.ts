@@ -102,6 +102,17 @@ export function recommendationsFromOutput(out: OrchestratorOutput) {
     sourceUrls: r.sourceUrls ?? [],
     evidenceStatus: r.evidenceStatus,
     evidenceBindings: r.evidenceBindings ?? [],
+    rank: r.rank,
+    impact: r.impact,
+    effort: r.effort,
+    timing: r.timing,
+    ownerSuggestion: r.ownerSuggestion,
+    dependencies: r.dependencies ?? [],
+    riskOfInaction: r.riskOfInaction,
+    falsifier: r.falsifier,
+    decisionScore: r.decisionScore,
+    learningAdjustment: r.learningAdjustment,
+    pattern: r.pattern,
   }));
 }
 

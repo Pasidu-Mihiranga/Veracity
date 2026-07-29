@@ -247,6 +247,32 @@ export function ExecutivePdfDocument({ data }: Props) {
         <Text style={styles.h2}>Executive decision</Text>
         <Text style={styles.body}>{data.summary || 'No summary available for this sweep.'}</Text>
 
+        {data.decisionFrame ? (
+          <>
+            <Text style={styles.h2}>Decision frame</Text>
+            <View style={styles.card} wrap={false}>
+              <Text style={styles.cardMeta}>Situation</Text>
+              <Text style={styles.body}>{data.decisionFrame.situation}</Text>
+            </View>
+            <View style={styles.card} wrap={false}>
+              <Text style={styles.cardMeta}>Recommended decision</Text>
+              <Text style={styles.body}>{data.decisionFrame.recommendation}</Text>
+            </View>
+            <View style={styles.card} wrap={false}>
+              <Text style={styles.cardMeta}>Criteria</Text>
+              {data.decisionFrame.criteria.map((criterion, i) => (
+                <Text key={`${criterion}-${i}`} style={styles.body}>• {criterion}</Text>
+              ))}
+            </View>
+            <View style={styles.card} wrap={false}>
+              <Text style={styles.cardMeta}>What would change this</Text>
+              {data.decisionFrame.falsifiers.map((falsifier, i) => (
+                <Text key={`${falsifier}-${i}`} style={styles.body}>• {falsifier}</Text>
+              ))}
+            </View>
+          </>
+        ) : null}
+
         {(data.evidenceCoverage?.length ?? 0) > 0 && (
           <>
             <Text style={styles.h2}>Evidence coverage</Text>
@@ -280,10 +306,16 @@ export function ExecutivePdfDocument({ data }: Props) {
             {data.recommendations.map((rec, i) => (
               <View key={`${rec.title}-${i}`} style={styles.card} wrap={false}>
                 <Text style={styles.cardMeta}>
-                  {rec.priority} · {rec.confidence}
+                  #{rec.rank ?? i + 1} · {rec.priority} · {rec.confidence}
+                  {rec.impact ? ` · impact ${rec.impact}` : ''}
+                  {rec.effort ? ` · effort ${rec.effort}` : ''}
                 </Text>
                 <Text style={styles.cardTitle}>{rec.title}</Text>
                 <Text style={styles.body}>{rec.rationale}</Text>
+                {rec.timing ? <Text style={styles.body}>Timing: {rec.timing}</Text> : null}
+                {rec.ownerSuggestion ? <Text style={styles.body}>Owner: {rec.ownerSuggestion}</Text> : null}
+                {rec.riskOfInaction ? <Text style={styles.body}>Risk of inaction: {rec.riskOfInaction}</Text> : null}
+                {rec.falsifier ? <Text style={styles.body}>Falsifier: {rec.falsifier}</Text> : null}
                 {(rec.sourceUrls?.length ?? 0) > 0 ? (
                   <View style={{ marginTop: 6 }}>
                     <Text style={styles.cardMeta}>Evidence links</Text>
@@ -363,6 +395,28 @@ export function ExecutivePdfDocument({ data }: Props) {
                 </Text>
                 <Text style={styles.body}>{h.highlight}</Text>
               </View>
+            ))}
+          </>
+        )}
+
+        {(data.boardPack?.timeline.length ?? 0) > 0 && (
+          <>
+            <Text style={styles.h2}>Evidence timeline</Text>
+            {data.boardPack!.timeline.map((item, i) => (
+              <View key={`${item.date}-${i}`} style={styles.card} wrap={false}>
+                <Text style={styles.cardMeta}>{item.date}</Text>
+                <Text style={styles.cardTitle}>{item.label}</Text>
+                <Text style={styles.body}>{item.detail}</Text>
+              </View>
+            ))}
+          </>
+        )}
+
+        {(data.boardPack?.decisionMemory.length ?? 0) > 0 && (
+          <>
+            <Text style={styles.h2}>Decision memory</Text>
+            {data.boardPack!.decisionMemory.map((item, i) => (
+              <Text key={`${item}-${i}`} style={styles.body}>• {item}</Text>
             ))}
           </>
         )}

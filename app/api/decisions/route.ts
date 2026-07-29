@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { upsertDecision, listDecisions } from '@/lib/decisions';
+import {
+  upsertDecision,
+  listDecisions,
+  setDecisionOutcome,
+  type DecisionOutcome,
+} from '@/lib/decisions';
 
 export const runtime = 'nodejs';
 
@@ -26,15 +31,40 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json() as {
+      id?: string;
+      outcome?: DecisionOutcome;
+      note?: string;
       sessionId?: string;
-      title: string;
+      title?: string;
       rationale?: string;
-      decision: string; // 'accepted' | 'rejected' | 'accepted_modified'
+      decision?: string; // 'accepted' | 'rejected' | 'accepted_modified'
       reason?: string;
       confidence?: number;
       sourceRecommendationKey?: string;
       evidenceUrls?: string[];
     };
+
+    if (body.id && body.outcome) {
+      const allowed: DecisionOutcome[] = [
+        'pending',
+        'validated',
+        'invalidated',
+        'adopted_after_reject',
+      ];
+      if (!allowed.includes(body.outcome)) {
+        return NextResponse.json({ ok: false, error: 'Invalid decision outcome' }, { status: 400 });
+      }
+      const record = await setDecisionOutcome({
+        id: body.id,
+        userId: user.id,
+        outcome: body.outcome,
+        note: body.note,
+      });
+      if (!record) {
+        return NextResponse.json({ ok: false, error: 'Decision not found' }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true, decision: record });
+    }
 
     if (!body.title?.trim() || !body.decision?.trim()) {
       return NextResponse.json({ ok: false, error: 'Missing title or decision action' }, { status: 400 });

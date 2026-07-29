@@ -80,7 +80,12 @@ Rules:
    - Give 1-3 concrete falsifiers in whatWouldChangeThis.
    - Give 1-2 plausible alternative hypotheses when evidence permits.
    - confidenceDrivers.supports and .weakens must explain the evidence basis for confidence.
-${competitor ? `11. This is a comparison. At least one follow-up must ask whether the user is choosing as a buyer or positioning their own product against ${product} / ${competitor}.` : ''}
+11. ENTERPRISE DECISION SUPPORT (mandatory):
+   - Every recommendation must return impact, effort, timing, ownerSuggestion, dependencies, riskOfInaction, and one falsifier.
+   - Owner suggestions are roles, never invented people.
+   - Return the decision frame: situation → options → criteria → recommendation → risks → falsifiers.
+   - Options must be real choices supported by findings, including defer/verify when evidence is insufficient.
+${competitor ? `12. This is a comparison. At least one follow-up must ask whether the user is choosing as a buyer or positioning their own product against ${product} / ${competitor}.` : ''}
 
 Return ONLY valid JSON:
 {
@@ -91,9 +96,30 @@ Return ONLY valid JSON:
       "rationale": "string",
       "evidence": ["string"],
       "confidence": "high" | "medium" | "low",
-      "priority": "immediate" | "short-term" | "strategic"
+      "priority": "immediate" | "short-term" | "strategic",
+      "impact": "high" | "medium" | "low",
+      "effort": "high" | "medium" | "low",
+      "timing": "string",
+      "ownerSuggestion": "role(s), not a person",
+      "dependencies": ["string"],
+      "riskOfInaction": "string",
+      "falsifier": "string"
     }
   ],
+  "decisionFrame": {
+    "situation": "string",
+    "options": [
+      {
+        "label": "string",
+        "tradeoff": "string",
+        "evidenceStatus": "supported" | "weakly-supported" | "unsupported"
+      }
+    ],
+    "criteria": ["string"],
+    "recommendation": "string",
+    "risks": ["string"],
+    "falsifiers": ["string"]
+  },
   "followUps": ["string", "string", "string"],
   "assumptions": ["string"],
   "unknowns": ["string"],

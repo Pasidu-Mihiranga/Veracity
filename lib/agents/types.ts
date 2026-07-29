@@ -319,6 +319,12 @@ export interface OrchestratorOutput {
   comparisonContract?: ComparisonContract;
   /** Quality-adaptive second-pass decision and collectors. */
   adaptiveReplan?: AdaptiveReplan;
+  /** Structured situation-to-decision contract for Tier >= 2 runs. */
+  decisionFrame?: DecisionFrame;
+  /** Board-ready sections derived from this run and prior decision context. */
+  boardPack?: BoardPack;
+  /** Mode-aware executive brief and decision appendix. */
+  executiveContent?: ExecutiveContentContract;
   /** Explicit reasoning boundaries for decision-grade research runs. */
   assumptions?: string[];
   unknowns?: string[];
@@ -372,6 +378,83 @@ export interface Recommendation {
   evidenceStatus?: EvidenceSupportLevel;
   /** Claim-level evidence trail; unsupported claims intentionally have no URLs. */
   evidenceBindings?: EvidenceClaimBinding[];
+  /** Deterministic decision ranking (1 = highest priority). */
+  rank?: number;
+  impact?: 'high' | 'medium' | 'low';
+  effort?: 'high' | 'medium' | 'low';
+  timing?: string;
+  ownerSuggestion?: string;
+  dependencies?: string[];
+  riskOfInaction?: string;
+  falsifier?: string;
+  /** Transparent 0-100 score used to rank this recommendation. */
+  decisionScore?: number;
+  /** Structural feedback-learning adjustment applied to the score. */
+  learningAdjustment?: {
+    delta: number;
+    reason: string;
+  };
+  /** Stable coarse pattern used for cross-session accept/reject learning. */
+  pattern?: RecommendationPattern;
+}
+
+export type RecommendationPattern =
+  | 'pricing'
+  | 'product'
+  | 'positioning'
+  | 'customer'
+  | 'market'
+  | 'risk'
+  | 'research'
+  | 'execution'
+  | 'general';
+
+export interface DecisionFrame {
+  situation: string;
+  options: Array<{
+    label: string;
+    tradeoff: string;
+    evidenceStatus: EvidenceSupportLevel;
+  }>;
+  criteria: string[];
+  recommendation: string;
+  risks: string[];
+  falsifiers: string[];
+}
+
+export interface BoardPack {
+  title: string;
+  executiveBrief: string;
+  decision: DecisionFrame;
+  sections: Array<{
+    id: 'situation' | 'options' | 'criteria' | 'recommendation' | 'risks' | 'falsifiers' | 'evidence';
+    title: string;
+    bullets: string[];
+  }>;
+  timeline: Array<{
+    date: string;
+    label: string;
+    detail: string;
+    sourceUrl?: string;
+  }>;
+  decisionMemory: string[];
+  generatedAt: string;
+}
+
+export interface ExecutiveContentContract {
+  brief: string;
+  rankedRecommendationTitles: string[];
+  decisionAppendix: {
+    assumptions: string[];
+    unknowns: string[];
+    evidenceLimitations: string[];
+    whatWouldChangeThis: string[];
+    alternativeHypotheses: string[];
+    confidenceDrivers: {
+      supports: string[];
+      weakens: string[];
+    };
+  };
 }
 
 export type EvidenceSupportLevel = 'supported' | 'weakly-supported' | 'unsupported';

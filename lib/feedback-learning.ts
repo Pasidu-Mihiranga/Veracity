@@ -6,6 +6,34 @@ import { formatDecisionsForMemory, listDecisions } from '@/lib/decisions';
 export async function buildLearningContext(userId: string): Promise<string> {
   const parts: string[] = [];
 
+  if (featureFlags.boardMode) {
+    try {
+      const { listCompetitiveEvents } = await import('@/lib/alerts');
+      const events = await listCompetitiveEvents(userId, { days: 90 });
+      const lines = events.slice(0, 12).map((event) => {
+        const sourceUrls = Array.isArray(event.source_urls)
+          ? event.source_urls.filter((value): value is string => typeof value === 'string')
+          : [];
+        const safe = (value: string) => value.replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
+        return [
+          '- EVENT',
+          safe(event.event_date),
+          safe(event.product),
+          safe(event.competitor),
+          safe(event.category),
+          safe(event.title),
+          safe(event.summary),
+          sourceUrls[0] ?? '',
+        ].join('|');
+      });
+      if (lines.length > 0) {
+        parts.push(`Competitive event timeline:\n${lines.join('\n')}`);
+      }
+    } catch {
+      // Timeline table is optional during local/dev setup.
+    }
+  }
+
   if (featureFlags.decisionMemory) {
     try {
       const decisions = await listDecisions(userId, 8);

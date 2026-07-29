@@ -9,6 +9,7 @@ import type {
   EvidenceClaimBinding,
   EvidenceSupportLevel,
   MindMapOutput,
+  Recommendation,
 } from '@/lib/agents/types';
 import type { ChatMessage, ProductViewMode } from '@/types/chat-ui';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
@@ -23,6 +24,7 @@ import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
 import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
 import { ResearchWorkflowPack } from '@/components/ui/ResearchWorkflowPack';
+import { DecisionSupportPack } from '@/components/ui/DecisionSupportPack';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
 import { CompetitiveTimeline } from '@/components/ui/CompetitiveTimeline';
@@ -376,6 +378,10 @@ export function IntelligenceResults({
       </section>
 
       <ResearchWorkflowPack output={currentResult.orchestratorOutput} />
+      <DecisionSupportPack
+        output={currentResult.orchestratorOutput}
+        viewMode={viewMode}
+      />
 
       {/* Level 2: Actionable Recommendations */}
       {currentResult.recommendations && currentResult.recommendations.length > 0 ? (
@@ -384,9 +390,10 @@ export function IntelligenceResults({
             <Rocket size={13} style={{ color: 'var(--accent)' }} /> {layout.recsLabel}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {currentResult.recommendations.map((rec: {
-              title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[]; sourceUrls?: string[];
-              evidenceStatus?: EvidenceSupportLevel; evidenceBindings?: EvidenceClaimBinding[];
+            {currentResult.recommendations.map((rec: Partial<Recommendation> & {
+              score?: number;
+              evidenceStatus?: EvidenceSupportLevel;
+              evidenceBindings?: EvidenceClaimBinding[];
             }, i: number) => {
               const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
               const current = ratedRecs[rk];
@@ -429,7 +436,12 @@ export function IntelligenceResults({
                     border: `1px solid ${borderC || 'var(--border)'}`,
                   }}
                 >
-                  <h4 className="rec-title">{rec.title}</h4>
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 text-[10px] font-mono font-semibold text-accent border border-accent/20 bg-accent/5 rounded px-1.5 py-0.5">
+                      #{rec.rank ?? i + 1}
+                    </span>
+                    <h4 className="rec-title">{rec.title}</h4>
+                  </div>
                   <p className="rec-body">{rec.rationale}</p>
                   <div className="flex flex-wrap gap-1.5">
                     <span
@@ -458,6 +470,30 @@ export function IntelligenceResults({
                       }`}>
                         {rec.evidenceStatus.replace('-', ' ')}
                       </span>
+                    ) : null}
+                    {rec.impact ? (
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-border bg-muted text-muted-foreground">
+                        Impact {rec.impact}
+                      </span>
+                    ) : null}
+                    {rec.effort ? (
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-border bg-muted text-muted-foreground">
+                        Effort {rec.effort}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 text-[11px] text-muted-foreground">
+                    {rec.timing ? <p><span className="font-mono uppercase">Timing:</span> {rec.timing}</p> : null}
+                    {rec.ownerSuggestion ? <p><span className="font-mono uppercase">Owner:</span> {rec.ownerSuggestion}</p> : null}
+                    {rec.riskOfInaction ? <p><span className="font-mono uppercase">Risk of inaction:</span> {rec.riskOfInaction}</p> : null}
+                    {rec.falsifier ? <p><span className="font-mono uppercase">Falsifier:</span> {rec.falsifier}</p> : null}
+                    {(rec.dependencies?.length ?? 0) > 0 ? (
+                      <p><span className="font-mono uppercase">Depends on:</span> {rec.dependencies!.join(' · ')}</p>
+                    ) : null}
+                    {isDevMode && rec.learningAdjustment?.delta ? (
+                      <p className={rec.learningAdjustment.delta > 0 ? 'text-emerald-600' : 'text-amber-700'}>
+                        <span className="font-mono uppercase">Learning:</span> {rec.learningAdjustment.delta > 0 ? '+' : ''}{rec.learningAdjustment.delta} · {rec.learningAdjustment.reason}
+                      </p>
                     ) : null}
                   </div>
                   {(viewMode === 'analyst' || viewMode === 'developer') ? (

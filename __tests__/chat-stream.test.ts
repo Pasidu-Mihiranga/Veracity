@@ -111,7 +111,17 @@ describe('message reducers', () => {
     const out = {
       synthesizedAnswer: 'hello',
       outputs: [],
-      topRecommendations: [{ title: 'A', rationale: 'r', confidence: 'high', evidence: [], priority: 1 }],
+      topRecommendations: [{
+        title: 'A',
+        rationale: 'r',
+        confidence: 'high',
+        evidence: [],
+        priority: 'immediate',
+        rank: 1,
+        impact: 'high',
+        effort: 'low',
+        falsifier: 'A primary test fails.',
+      }],
       suggestedFollowUps: ['next'],
     } as unknown as OrchestratorOutput;
 
@@ -119,6 +129,8 @@ describe('message reducers', () => {
     expect(next.content).toBe('hello');
     expect(next.agentRuns?.some(r => r.agentId === 'mirofish' && r.status === 'running')).toBe(true);
     expect(recommendationsFromOutput(out)?.[0].score).toBe(90);
+    expect(recommendationsFromOutput(out)?.[0].rank).toBe(1);
+    expect(recommendationsFromOutput(out)?.[0].falsifier).toBe('A primary test fails.');
   });
 });
 

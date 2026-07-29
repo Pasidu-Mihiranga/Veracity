@@ -37,6 +37,12 @@ import {
   planAdaptiveReplan,
   sanitizeDiligenceRecommendations,
 } from '@/lib/agents/research-workflows';
+import {
+  buildBoardPack,
+  buildDecisionFrame,
+  buildExecutiveContent,
+  rankRecommendations,
+} from '@/lib/agents/decision-support';
 import { shouldRunExecution as planExecution } from '@/lib/agents/execution-planner';
 import { buildMissionSummary } from '@/lib/agents/mission-summary';
 import { getWorkflowExecutor } from '@/lib/agents/workflow';
@@ -652,7 +658,7 @@ export async function orchestrate(
   });
 
   // Step 7b: Bind recommendation evidence → source URLs (Evidence Trail)
-  const recommendations = bindEvidenceToSources(
+  const boundRecommendations = bindEvidenceToSources(
     intentClass === 'dd_acquisition'
       ? sanitizeDiligenceRecommendations(guarded.recommendations)
       : guarded.recommendations,
@@ -662,10 +668,10 @@ export async function orchestrate(
     3,
     { productUrl, competitorUrl },
   );
-  const unsupportedRecommendations = recommendations.filter(
+  const unsupportedRecommendations = boundRecommendations.filter(
     (recommendation) => recommendation.evidenceStatus === 'unsupported',
   );
-  const unsupportedClaimCount = recommendations.reduce(
+  const unsupportedClaimCount = boundRecommendations.reduce(
     (count, recommendation) =>
       count + (recommendation.evidenceBindings ?? [])
         .filter((binding) => binding.support === 'unsupported').length,
@@ -675,8 +681,8 @@ export async function orchestrate(
     if (!guarded.quality.flags.includes('unbound_claims')) {
       guarded.quality.flags.push('unbound_claims');
     }
-    totalConfidence = recommendations.length > 0
-      && unsupportedRecommendations.length === recommendations.length
+    totalConfidence = boundRecommendations.length > 0
+      && unsupportedRecommendations.length === boundRecommendations.length
       ? 'low'
       : totalConfidence === 'high' ? 'medium' : totalConfidence;
   }
@@ -734,6 +740,60 @@ export async function orchestrate(
       answer += `\n\nEvidence gaps: ${narratedGaps.slice(0, 3).join(' ')}`;
     }
   }
+  const recommendations = rankRecommendations({
+    recommendations: boundRecommendations,
+    learningContext: memoryContext,
+    fallbackFalsifiers: synthesisResult.whatWouldChangeThis,
+  });
+  const combinedEvidenceLimitations = [
+    ...synthesisResult.evidenceLimitations,
+    ...bindingGaps,
+    ...coverageGaps,
+  ].filter((value, index, all) => all.indexOf(value) === index);
+  const confidenceDrivers = {
+    supports: synthesisResult.confidenceDrivers.supports,
+    weakens: [
+      ...synthesisResult.confidenceDrivers.weakens,
+      ...(classification.entityResolutionConflict
+        ? ['LLM and deterministic entity extraction disagreed; confidence was capped.']
+        : []),
+    ],
+  };
+  const decisionFrame = tier >= 2
+    ? buildDecisionFrame({
+        answer,
+        recommendations,
+        unknowns: synthesisResult.unknowns,
+        evidenceLimitations: combinedEvidenceLimitations,
+        falsifiers: synthesisResult.whatWouldChangeThis,
+        parsed: synthesisResult.decisionFrame,
+      })
+    : undefined;
+  const generatedAt = new Date().toISOString();
+  const boardPack = decisionFrame
+    ? buildBoardPack({
+        product,
+        competitor,
+        answer,
+        decisionFrame,
+        recommendations,
+        outputs: outputsFinal,
+        learningContext: memoryContext,
+        generatedAt,
+      })
+    : undefined;
+  const executiveContent = decisionFrame
+    ? buildExecutiveContent({
+        answer,
+        recommendations,
+        assumptions: synthesisResult.assumptions,
+        unknowns: synthesisResult.unknowns,
+        evidenceLimitations: combinedEvidenceLimitations,
+        whatWouldChangeThis: synthesisResult.whatWouldChangeThis,
+        alternativeHypotheses: synthesisResult.alternativeHypotheses,
+        confidenceDrivers,
+      })
+    : undefined;
   const finalFollowUps = [
     ...followUps,
     ...investigationPlan.targetedFollowUpPlan,
@@ -773,25 +833,16 @@ export async function orchestrate(
     dueDiligencePack,
     comparisonContract,
     adaptiveReplan,
+    decisionFrame,
+    boardPack,
+    executiveContent,
     assumptions: synthesisResult.assumptions,
     unknowns: synthesisResult.unknowns,
-    evidenceLimitations: [
-      ...synthesisResult.evidenceLimitations,
-      ...bindingGaps,
-      ...coverageGaps,
-    ].filter((value, index, all) => all.indexOf(value) === index),
+    evidenceLimitations: combinedEvidenceLimitations,
     whatWouldChangeThis: synthesisResult.whatWouldChangeThis,
     alternativeHypotheses: synthesisResult.alternativeHypotheses,
-    confidenceDrivers: {
-      supports: synthesisResult.confidenceDrivers.supports,
-      weakens: [
-        ...synthesisResult.confidenceDrivers.weakens,
-        ...(classification.entityResolutionConflict
-          ? ['LLM and deterministic entity extraction disagreed; confidence was capped.']
-          : []),
-      ],
-    },
-    generatedAt: new Date().toISOString(),
+    confidenceDrivers,
+    generatedAt,
     metrics,
     quality: guarded.quality,
     evidenceCoverage,

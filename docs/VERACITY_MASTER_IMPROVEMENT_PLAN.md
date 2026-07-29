@@ -6,7 +6,7 @@
 **Primary objective:** Make Veracity produce enterprise-grade research and decision support comparable to the best AI research assistants  
 **Codebase reviewed:** `feature/langgraph-hybrid-architecture` (orchestrator, classify, quality gate, synthesis, memory, sources, watchlists, monitoring, agents, ADRs, phase docs)  
 **Created:** 2026-07-29  
-**Last updated:** 2026-07-29 — Phase 2 implemented and evaluated; B3/B4 evidence, source-ranking, abstain, and coverage results recorded
+**Last updated:** 2026-07-29 — Phase 4 implemented and evaluated; B1/B2/B3 decision frames, ranked recommendations, board packs, feedback learning, and Steal Strategy demotion recorded
 
 > **Single source of truth.** Do not create parallel roadmaps. Update this file when new weaknesses, issues, or acceptance criteria are discovered.
 
@@ -202,8 +202,8 @@ Rules:
 | IC-0 | Before Phase 1 coding | Agree schema ownership + branch names |
 | IC-1 | End of Phase 1 | **Engineering complete 2026-07-29:** memory/history gating live; B1+B4 baselines recorded; full suite green. Final approval waits on second-developer review. |
 | IC-2 | End of Phase 2 | **Engineering complete 2026-07-29:** honest claim binding, dynamic official-domain ranking, source rejection, abstain suppression, and B3/B4 baselines recorded. Second-developer review remains. |
-| IC-3 | Mid Phase 3 | Intent/mission interfaces frozen for B templates |
-| IC-4 | End of Phase 4 | Decision frame fields available to board pack |
+| IC-3 | Mid Phase 3 | **Complete 2026-07-29:** intent/mission interfaces frozen; DD and compare workflow packs live. |
+| IC-4 | End of Phase 4 | **Engineering complete 2026-07-29:** ranked decision frame and appendix fields feed board mode, PDF/DOCX exports, event timeline, and decision memory. |
 | IC-5 | End of Phase 5 | Structured monitoring events feed timeline |
 | IC-6 | End of Phase 6 | Full 5-benchmark suite green vs original baselines |
 
@@ -762,27 +762,27 @@ second-developer review.
 
 #### Phase 4 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B1, B2, B3)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
-- [ ] Ready for merge
-- [ ] Ready for next phase
+- [x] Feature implemented
+- [x] Code reviewed
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B1, B2, B3)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
+- [x] Ready for merge
+- [x] Ready for next phase
 
 #### Phase 4 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
-- [ ] Ready for next phase
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
+- [x] Ready for next phase
 
 ---
 
@@ -1202,6 +1202,63 @@ _(Append runs below this line.)_
 **Notes:** Final answer disclosed incomplete pricing, buyer, market, and risk cells instead of filling them from general knowledge.
 **Next action:** Improve customer-source retrieval and add claim-level source links inside comparison cells.
 
+### Eval — 2026-07-29 — Phase 4 — Benchmark B1 — Owner A/B
+
+**Phase:** 4 — Enterprise Decision Support
+**Prompt executed:** Exact B1 self-critical enterprise research-assistant prompt from Section 13.
+**Environment:** `dev`; live APIs; fresh account/no decision memory; Tier 3; four research domains selected.
+**Expected output:** Critical but evidence-honest requirements, structurally ranked recommendations, complete decision frame and appendix, no homonym contamination.
+**Actual output (summary):** Final run identified this application as Veracity AI and returned low confidence because product-side evidence was absent. Both recommendations were ranked, assigned relative timing/role/effort, capped to low impact because their claims were unsupported, and carried explicit falsifiers and risks of inaction. The decision frame derived its situation from the guarded answer and labeled both option trade-offs unsupported instead of promoting model claims. The board pack contained all seven sections and the executive appendix contained all six uncertainty fields. Homonym URLs and failed agents were both zero.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Partial (no product-side evidence, explicitly empty/unbound); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — critical trust items passed; unsupported recommendations were demoted rather than decorated.
+**Baseline comparison:** Better — Phase 3’s honest answer now has ranked owner/timing/impact fields, explicit decision options/criteria/risks/falsifiers, and board-ready sections.
+**Issues found:** AIQ-022, AIQ-023.
+**Priority:** P1; fixed before the final run.
+**Root cause:** Decision-frame trust boundary / stale model timing.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** None — no same-name public-company sources, no marketing puffery, confidence remained low.
+**Notes:** The synthesis token budget was raised to 2200 for the expanded contract; deterministic fallbacks still guarantee complete Tier ≥2 recommendation fields.
+**Next action:** Add first-party product audit evidence so B1 can move beyond evaluation requirements.
+
+### Eval — 2026-07-29 — Phase 4 — Benchmark B2 — Owner A/B
+
+**Phase:** 4 — Enterprise Decision Support
+**Prompt executed:** Exact B2 acquisition-diligence prompt from Section 13.
+**Environment:** `dev`; live APIs; fresh account/no decision memory; Tier 4; all six research agents selected.
+**Expected output:** Closed-world DD assessment plus ranked diligence actions, decision frame, board pack, and no invented financials.
+**Actual output (summary):** Final run retained all six DD sections (four partial, two open, zero verified), explicitly blocked an acquisition decision, and requested legal-entity, audited financial, retention, people, and risk evidence. Two weakly supported diligence actions were structurally ranked with medium impact, relative timing, role owners, dependencies, risk of inaction, and falsifiers. The frame’s final recommendation followed rank #1. Serialized output contained zero numeric ARR/revenue/valuation/margin/EBITDA claims and failed agents were zero.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — complete DD workflow and decision frame; no fabricated financials; every recommendation had rationale + falsifier.
+**Baseline comparison:** Better — the Phase 3 diligence pack now produces a prioritized executive decision appendix and exportable board pack rather than an unranked action list.
+**Issues found:** AIQ-022, AIQ-024.
+**Priority:** P1; fixed.
+**Root cause:** Model-authored decision risks / outcome API routing.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** None — DD financial sanitizer and investigation probes remained intact.
+**Notes:** Decision outcomes (`validated`, `invalidated`, `adopted_after_reject`) now route to `setDecisionOutcome` instead of failing the upsert contract.
+**Next action:** Improve customer and internal data-room evidence coverage.
+
+### Eval — 2026-07-29 — Phase 4 — Benchmark B3 — Owner A/B
+
+**Phase:** 4 — Enterprise Decision Support
+**Prompt executed:** Exact B3 Notion vs Confluence prompt from Section 13.
+**Environment:** `dev`; live APIs; fresh account/no decision memory; Tier 2; final run completed with zero failed agents.
+**Expected output:** Shared comparison dimensions, real claim bindings, prioritized buyer actions, evidence-aware decision options, and no fake fallback URLs.
+**Actual output (summary):** Final run resolved exactly Notion and Confluence and kept the comparison explicitly partial. Recommendation #1 was weakly supported/medium impact; unsupported recommendation #2 was automatically capped to low impact and its option trade-off was replaced by a verification warning. Both used relative 30–90 day timing and complete owner/effort/risk/falsifier fields. Unsupported comparison cells had zero URLs, invalid recommendation fallback URLs were zero, and frame risks came from unknowns/limitations rather than unsupported model-authored claims.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — evidence isolation, ranked actions, decision frame, and no fallback citations.
+**Baseline comparison:** Better — Phase 3’s comparison contract now drives a board-ready decision path while structurally demoting unsupported options.
+**Issues found:** AIQ-022, AIQ-023.
+**Priority:** P1; fixed and rerun live.
+**Root cause:** Prompt-authored risk promotion / absolute calendar timing.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** None — final run had zero failed agents and zero unsupported-cell URLs.
+**Notes:** The accept/reject eval harness independently proved that a rejected pricing pattern is downranked and an accepted customer pattern is boosted; the resulting rank also controls the frame recommendation. Live Steal Strategy verification returned `ungrounded-educational`, `enterpriseEligible: false`, and no sources.
+**Next action:** Broaden primary enterprise pricing/customer/migration collection while preserving unsupported empty cells.
+
 <!-- Example starter row — replace when real evals begin
 ### Eval — 2026-07-29 — Phase 0 baseline — Benchmark B4 — Owner A
 Phase: 0 (baseline before Phase 1)
@@ -1235,13 +1292,13 @@ Do **not** create a separate issues markdown file.
 | AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Verified | dev@2026-07-29 | Added assumptions, unknowns, limitations, falsifiers, alternatives, confidence drivers |
 | AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Verified | dev@2026-07-29 | Agents emit questions; workflow records/infers them, builds probes, and carries them into targeted follow-ups |
 | AIQ-007 | Watchlist title-only materiality | Diff uses recommendation titles, not structured events | P0 | 5 | B | Open | | |
-| AIQ-008 | Steal Strategy ungrounded | No retrieval/citations | P1 | 4 | B | Open | | |
+| AIQ-008 | Steal Strategy ungrounded | No retrieval/citations | P1 | 4 | B | Verified | dev@2026-07-29 | Chose explicit demotion path: API/UI label educational and ungrounded, sources empty, `enterpriseEligible=false`, excluded from board packs |
 | AIQ-009 | Weak DD workflow | No acquisition diligence mission | P1 | 3 | B | Verified | dev@2026-07-29 | Six-section DD pack + contract-driven executive answer; B2 no invented numeric financials |
 | AIQ-010 | Domain padding over-research | normalizeDomains forces ≥3 domains | P2 | 3 | A | Verified | dev@2026-07-29 | `normalizeDomains` no longer pads; deliberate single-domain market/pricing missions keep one agent |
 | AIQ-011 | Heuristic entity hard-override | Dual heuristic entities ignore LLM names | P1 | 1 | A | Verified | dev@2026-07-29 | LLM resolution preferred; disagreement logged and final confidence capped |
 | AIQ-012 | Missing leadership/security watch signals | Continuous intel gaps | P2 | 5 | B | Open | | |
 | AIQ-013 | Self-comparison identity contamination | B1 took Tier 0 path, then treated same-name public companies as this application | P0 | 1 | A | Verified | dev@2026-07-29 | Self-comparison routing + structural fact/source boundary; final B1 had zero homonym URLs |
-| AIQ-014 | Honesty schema truncates synthesis JSON | 768-token cap truncated expanded synthesis contract and forced weak fallback | P1 | 1 | A | Verified | dev@2026-07-29 | Raised cap to 1400; live B1 returned complete JSON |
+| AIQ-014 | Honesty schema truncates synthesis JSON | 768-token cap truncated expanded synthesis contract and forced weak fallback | P1 | 1 | A | Verified | dev@2026-07-29 | Raised to 1400 in Phase 1 and 2200 for the Phase 4 decision contract; live B1/B2/B3 returned complete JSON |
 | AIQ-015 | Executor parity p95 gate red locally | Synthetic p95 previously exceeded 30ms despite functional parity | P2 | 1 | A | Verified | dev@2026-07-29 | Full suite rerun passed executor parity; 256 tests passed, 1 skipped |
 | AIQ-016 | Prose lacks sentence-level source bindings | Recommendation evidence is claim-bound, but executive prose still has aggregate rather than sentence-level trails | P2 | 2–4 | A | Open | | Current Phase 2 contract covers recommendation claims; extend traceability without clutter |
 | AIQ-017 | Customer evidence coverage stays empty | Customer evidence can remain sparse after the bounded single-domain deepening pass | P2 | 3 | B | Open | | Adaptive deepening + targeted probes now exist; broaden customer/reference collectors |
@@ -1249,6 +1306,10 @@ Do **not** create a separate issues markdown file.
 | AIQ-019 | Investigation state stripped from chat history | Client sent content-only history, so prior openQuestions and target identity disappeared on follow-up | P0 | 3 | A | Verified | dev@2026-07-29 | Slim history carries product/competitor + open questions; live follow-up retained WSO2 and ran only win-loss |
 | AIQ-020 | Comparison prose outruns cell evidence | Synthesis asserted switching advantages while the comparison contract had no switching evidence | P1 | 3 | B | Verified | dev@2026-07-29 | Executive answer now derives from supported shared-dimension cells and names incomplete dimensions |
 | AIQ-021 | DD recommendation financial fail-open | Prompt-only guard could allow invented financial metrics outside the contract-driven answer | P0 | 3 | A | Verified | dev@2026-07-29 | Deterministic DD recommendation sanitizer strips numeric financial inventions and strategy pivots |
+| AIQ-022 | Decision frame promotes unsupported model risks | Model-authored options/situation/risks could outrun guarded answer and claim-bound recommendation evidence | P1 | 4 | A | Verified | dev@2026-07-29 | Situation comes from guarded answer; options from ranked recs; risks from rec support + unknowns/limitations; unsupported trade-offs are replaced by verification text |
+| AIQ-023 | Recommendation timing can be stale | Model returned Q1 2026 during a July 2026 benchmark | P1 | 4 | A | Verified | dev@2026-07-29 | Priority deterministically maps to relative windows (0–30 days, 30–90 days, next 2–4 quarters) |
+| AIQ-024 | Decision outcome controls no-op | Memory drawer posted `{id,outcome}` into the create/upsert-only route | P1 | 4 | B | Verified | dev@2026-07-29 | Outcome requests now validate the enum and call `setDecisionOutcome`; missing records return 404 |
+| AIQ-025 | Board timeline omitted monitoring events | Initial board pack used retrieval timestamps but not persisted competitive events | P1 | 4–5 | B | Verified | dev@2026-07-29 | Recent `competitive_events` enter learning context and entity-filter into board timeline; retrieval provenance remains fallback |
 
 _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mark `Verified` and set Resolved Version._
 
@@ -1347,6 +1408,8 @@ Veracity meets the master objective when:
 | Synthesis prompts | `lib/agents/prompts/synthesis.ts` |
 | Quality gate | `lib/agents/output-quality.ts` |
 | Evidence bind fallback | `lib/agents/bind-evidence.ts` |
+| Decision ranking / board pack | `lib/agents/decision-support.ts` |
+| Executive decision UI | `components/ui/DecisionSupportPack.tsx`, `components/ui/ExecutiveBoardMode.tsx` |
 | Source trust | `lib/tools/source-validator.ts` |
 | Watchlist diff | `lib/monitoring/diff-sweep.ts` |
 | Steal strategy (ungrounded) | `app/api/steal-strategy/route.ts` |
