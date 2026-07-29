@@ -55,6 +55,8 @@ Rules:
 5. Be specific when evidence supports it: name products, buyer types, workflows, pricing from the findings. Avoid vague filler.
 6. Keep the executive "answer" under 180 words. Put uncertainty detail in the structured decision appendix fields below instead of squeezing it out.
 7. Exactly 2-3 recommendations. Each title must be a simple action (verb-first, ≤8 words). Evidence must quote a concrete finding (or say "not enough evidence").
+   - Every evidence item must be a claim that can be matched to a retrieved source title/fact above.
+   - Never use a generic market belief as evidence. If no retrieved source supports it, write "not enough evidence" and use low confidence.
 8. Prefer recommendations tagged immediate ONLY when findings strongly support shipping now. If agent confidence looks mixed, prefer "medium" or "low" confidence.
 9. Follow-ups must be simple decision questions about THIS product/competitor only.
 10. INTELLECTUAL HONESTY (mandatory):

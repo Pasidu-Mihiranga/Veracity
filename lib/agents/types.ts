@@ -46,6 +46,8 @@ export interface AgentOutput {
   contextOnly?: boolean;
   /** Short UI badge, e.g. "Category context only" */
   contextOnlyLabel?: string;
+  /** True when charts/matrices must not be used as decision-grade evidence. */
+  decisionUseSuppressed?: boolean;
   /** Evidence gaps or unresolved questions discovered by this agent. */
   openQuestions?: string[];
 }
@@ -279,6 +281,20 @@ export interface Recommendation {
   priority: 'immediate' | 'short-term' | 'strategic';
   /** URLs bound to evidence claims (Evidence Trail) */
   sourceUrls?: string[];
+  /** Aggregate support across evidence claims. */
+  evidenceStatus?: EvidenceSupportLevel;
+  /** Claim-level evidence trail; unsupported claims intentionally have no URLs. */
+  evidenceBindings?: EvidenceClaimBinding[];
+}
+
+export type EvidenceSupportLevel = 'supported' | 'weakly-supported' | 'unsupported';
+
+export interface EvidenceClaimBinding {
+  claim: string;
+  support: EvidenceSupportLevel;
+  sourceUrls: string[];
+  /** Best deterministic lexical/entity overlap score, 0–1. */
+  matchScore: number;
 }
 
 export interface FeedbackAppliedCounts {

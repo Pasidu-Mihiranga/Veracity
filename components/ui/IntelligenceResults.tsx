@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp, Terminal, ShieldCheck,
 } from 'lucide-react';
-import type { AgentOutput, MindMapOutput } from '@/lib/agents/types';
+import type {
+  AgentOutput,
+  EvidenceClaimBinding,
+  EvidenceSupportLevel,
+  MindMapOutput,
+} from '@/lib/agents/types';
 import type { ChatMessage, ProductViewMode } from '@/types/chat-ui';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
 import { ResultsInsightCharts } from '@/components/artifacts/ResultsInsightCharts';
@@ -71,6 +76,7 @@ function pickPrimaryVisual(outputs: AgentOutput[] = []): AgentOutput | null {
   for (const type of VIZ_PRIORITY) {
     const hit = outputs.find((o) => {
       if (o.artifactType !== type || !hasUsefulVisual(o)) return false;
+      if (o.decisionUseSuppressed) return false;
       // Never promote empty/soft category shells as the "Key visual"
       if (o.contextOnly && o.artifactType === 'competitive-matrix') {
         const matrix = (o as AgentOutput & { matrix?: unknown[] }).matrix;
@@ -374,6 +380,7 @@ export function IntelligenceResults({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentResult.recommendations.map((rec: {
               title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[]; sourceUrls?: string[];
+              evidenceStatus?: EvidenceSupportLevel; evidenceBindings?: EvidenceClaimBinding[];
             }, i: number) => {
               const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
               const current = ratedRecs[rk];
@@ -435,12 +442,24 @@ export function IntelligenceResults({
                       level={(rec.confidence as 'high' | 'medium' | 'low' | undefined)
                         ?? ((rec.score ?? 0) >= 80 ? 'high' : (rec.score ?? 0) >= 55 ? 'medium' : 'low')}
                     />
+                    {rec.evidenceStatus ? (
+                      <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${
+                        rec.evidenceStatus === 'supported'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : rec.evidenceStatus === 'weakly-supported'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-red-50 text-red-600 border-red-200'
+                      }`}>
+                        {rec.evidenceStatus.replace('-', ' ')}
+                      </span>
+                    ) : null}
                   </div>
                   {(viewMode === 'analyst' || viewMode === 'developer') ? (
                     <EvidenceTrail
                       evidence={rec.evidence}
                       sourceUrls={rec.sourceUrls}
                       sources={currentResult.sources}
+                      evidenceBindings={rec.evidenceBindings}
                     />
                   ) : null}
                   {currentSessionId && (

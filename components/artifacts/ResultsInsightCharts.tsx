@@ -70,7 +70,10 @@ export function ResultsInsightCharts({ message, outputs }: Props) {
     ];
   }, [isDark]);
 
-  const competitive = outputs.find((o): o is CompetitiveOutput => o.artifactType === 'competitive-matrix');
+  const competitive = outputs.find(
+    (o): o is CompetitiveOutput =>
+      o.artifactType === 'competitive-matrix' && !o.decisionUseSuppressed,
+  );
 
   const gapPie = useMemo(() => {
     const matrix = competitive?.matrix ?? [];

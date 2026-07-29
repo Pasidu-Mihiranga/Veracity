@@ -5,6 +5,7 @@ import type {
   ConfidenceLevel,
   MindMapNode,
   MindMapOutput,
+  MarketTrendsOutput,
   OutputQualityReport,
   Recommendation,
 } from '@/lib/agents/types';
@@ -12,6 +13,8 @@ import { scoreToLevel } from '@/lib/agents/types';
 import {
   buildEntityTerms,
   filterSourcesByEntityRelevance,
+  isPersonOrSchoolBioSource,
+  officialDomainsFromUrls,
   sourceMatchesEntities,
 } from '@/lib/tools/source-relevance';
 
@@ -217,6 +220,7 @@ function softenCompetitiveOutput(
       ...output,
       contextOnly: true,
       contextOnlyLabel: CONTEXT_ONLY_LABEL,
+      decisionUseSuppressed: true,
       confidence: 'low',
       confidenceScore: Math.min(output.confidenceScore, 0.42),
       matrix: [],
@@ -235,19 +239,14 @@ function softenCompetitiveOutput(
     };
   }
 
-  const matrix = (output.matrix ?? []).map((row) => ({
-    ...row,
-    yourProduct: 'none' as const,
-    gapDirection: 'parity' as const,
-  }));
-
   return {
     ...output,
     contextOnly: true,
     contextOnlyLabel: CONTEXT_ONLY_LABEL,
+    decisionUseSuppressed: true,
     confidence: 'low',
     confidenceScore: Math.min(output.confidenceScore, 0.42),
-    matrix,
+    matrix: [],
     competitorSummary:
       `${CONTEXT_ONLY_LABEL}: "${product}" is not confirmed as a software product in this category. ` +
       `Treat competitor columns as category reference only — not a product-vs-peer scorecard.`,
@@ -274,6 +273,7 @@ function softLabelStage1(
       ...output,
       contextOnly: true,
       contextOnlyLabel: CONTEXT_ONLY_LABEL,
+      decisionUseSuppressed: true,
       confidence: 'low',
       confidenceScore: Math.min(output.confidenceScore, 0.42),
       facts: [
@@ -289,6 +289,7 @@ function softLabelStage1(
     ...output,
     contextOnly: true,
     contextOnlyLabel: CONTEXT_ONLY_LABEL,
+    decisionUseSuppressed: true,
     confidence: 'low',
     confidenceScore: Math.min(output.confidenceScore, 0.42),
     interpretation: (output.interpretation ?? []).map((t, i) =>
@@ -326,6 +327,20 @@ export function applyAbstainToArtifacts(
         opts.competitor,
         { categoryMismatch },
       );
+    }
+    if (output.artifactType === 'trend-chart') {
+      const trend = output as MarketTrendsOutput;
+      const softened = softLabelStage1(trend, {
+        categoryMismatch,
+        product: opts.product,
+      });
+      return {
+        ...trend,
+        ...softened,
+        decisionUseSuppressed: true,
+        trends: [],
+        keySignals: [],
+      };
     }
     if (STAGE1_DOMAINS.has(output.domain)) {
       return softLabelStage1(output, {
@@ -427,15 +442,21 @@ export function looksLikeEntityCategoryMismatch(text: string): boolean {
 export function assessOutputQuality(input: {
   product: string;
   competitor?: string;
+  productUrl?: string;
+  competitorUrl?: string;
   sources: AgentSource[];
   answer: string;
   recommendations: Recommendation[];
   agentConfidenceAvg: number;
 }): OutputQualityReport {
   const terms = buildEntityTerms(input.product, input.competitor);
-  const relevance = filterSourcesByEntityRelevance(input.sources, terms);
+  const officialDomains = officialDomainsFromUrls(input.productUrl, input.competitorUrl);
+  const relevance = filterSourcesByEntityRelevance(input.sources, terms, {
+    officialDomains,
+    rejectPersonBios: true,
+  });
   const matchedSourceCount = input.sources.filter((s) =>
-    sourceMatchesEntities(s, terms),
+    !isPersonOrSchoolBioSource(s) && sourceMatchesEntities(s, terms, officialDomains),
   ).length;
 
   const flags: string[] = [];
@@ -530,6 +551,8 @@ export function assessOutputQuality(input: {
 export function applyOutputQualityGate(input: {
   product: string;
   competitor?: string;
+  productUrl?: string;
+  competitorUrl?: string;
   sources: AgentSource[];
   answer: string;
   recommendations: Recommendation[];
@@ -645,23 +668,26 @@ export function applyEntitySourceFilterToOutputs(
   outputs: AgentOutput[],
   product: string,
   competitor?: string,
+  opts?: {
+    productUrl?: string;
+    competitorUrl?: string;
+  },
 ): { outputs: AgentOutput[]; aggregateMatchRatio: number } {
   const terms = buildEntityTerms(product, competitor);
+  const officialDomains = officialDomainsFromUrls(opts?.productUrl, opts?.competitorUrl);
   let matched = 0;
   let total = 0;
 
   const next = outputs.map((output) => {
     total += output.sources.length;
-    const { kept, matchRatio } = filterSourcesByEntityRelevance(output.sources, terms);
+    const { kept, matchRatio } = filterSourcesByEntityRelevance(output.sources, terms, {
+      officialDomains,
+      rejectPersonBios: true,
+    });
     matched += Math.round(matchRatio * output.sources.length);
-    // Prefer entity-matched list when we have any matches
-    const sources =
-      matchRatio > 0 && kept.length > 0 && kept.length < output.sources.length
-        ? kept
-        : matchRatio === 0
-          ? output.sources // keep for audit; quality gate will abstain
-          : kept;
-    return { ...output, sources };
+    // Synthesis receives only credible entity matches. Empty is honest and
+    // forces the quality gate to abstain instead of reasoning over name noise.
+    return { ...output, sources: kept };
   });
 
   return {

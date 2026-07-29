@@ -22,7 +22,16 @@ export function isUsableScrapePage(
   const v = result.value;
   if (v.source === SKIPPED_INFERRED_URL) return false;
   const md = v.data.markdown?.trim().length ?? 0;
-  return !!v.data.url && md > 40;
+  const pageText = [
+    v.data.title,
+    v.data.excerpt,
+    v.data.markdown?.slice(0, 1200),
+  ].filter(Boolean).join(' ');
+  const isErrorPage =
+    /\b(?:404|410)\b|page (?:was )?not found|doesn['’]?t exist|could not be found|the page you (?:requested|are looking for)/i.test(
+      pageText,
+    );
+  return !!v.data.url && md > 40 && !isErrorPage;
 }
 
 /** Classifier / fallback strings that must never become guessed .com URLs. */

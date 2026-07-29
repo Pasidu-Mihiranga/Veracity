@@ -6,7 +6,7 @@
 **Primary objective:** Make Veracity produce enterprise-grade research and decision support comparable to the best AI research assistants  
 **Codebase reviewed:** `feature/langgraph-hybrid-architecture` (orchestrator, classify, quality gate, synthesis, memory, sources, watchlists, monitoring, agents, ADRs, phase docs)  
 **Created:** 2026-07-29  
-**Last updated:** 2026-07-29 — Phase 1 implemented and evaluated; B1/B4 results, issue resolutions, and remaining latency-gate blocker recorded
+**Last updated:** 2026-07-29 — Phase 2 implemented and evaluated; B3/B4 evidence, source-ranking, abstain, and coverage results recorded
 
 > **Single source of truth.** Do not create parallel roadmaps. Update this file when new weaknesses, issues, or acceptance criteria are discovered.
 
@@ -200,8 +200,8 @@ Rules:
 | Checkpoint | When | Required |
 |------------|------|----------|
 | IC-0 | Before Phase 1 coding | Agree schema ownership + branch names |
-| IC-1 | End of Phase 1 | **Engineering complete 2026-07-29:** memory/history gating live; B1+B4 baselines recorded. Final approval waits on full-suite latency gate + second-developer review. |
-| IC-2 | End of Phase 2 | Evidence bind fix live; B3 baseline updated |
+| IC-1 | End of Phase 1 | **Engineering complete 2026-07-29:** memory/history gating live; B1+B4 baselines recorded; full suite green. Final approval waits on second-developer review. |
+| IC-2 | End of Phase 2 | **Engineering complete 2026-07-29:** honest claim binding, dynamic official-domain ranking, source rejection, abstain suppression, and B3/B4 baselines recorded. Second-developer review remains. |
 | IC-3 | Mid Phase 3 | Intent/mission interfaces frozen for B templates |
 | IC-4 | End of Phase 4 | Decision frame fields available to board pack |
 | IC-5 | End of Phase 5 | Structured monitoring events feed timeline |
@@ -547,26 +547,24 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 - [x] Output evaluated (universal checklist)
 - [x] Weaknesses documented (Issue Tracker)
 - [x] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
+- [x] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 1 exit gate
 
 - [x] Engineering complete
-- [ ] Automated tests pass
+- [x] Automated tests pass
 - [x] Benchmark prompts executed
 - [x] AI quality checklist passed (no Fail on entity/memory/hallucination/confidence)
 - [x] No critical regressions
 - [x] Documentation updated in this file (log + issues)
 - [ ] Ready for next phase
 
-**Phase 1 gate note (2026-07-29):** Phase-scoped tests, typecheck, and offline
-quality checks are green. The complete Vitest run is blocked only by the
-pre-existing executor-parity synthetic p95 latency gate (37.501ms vs 30ms);
-functional parity passed. Keep merge/next-phase boxes open until that gate is
-green or formally re-baselined and a second developer reviews the shared-file
-changes.
+**Phase 1 gate note (updated 2026-07-29):** The complete Vitest run is now
+green (256 passed, 1 skipped), including executor-parity latency. Keep
+merge/next-phase boxes open only until a second developer reviews the
+shared-file changes.
 
 ---
 
@@ -613,27 +611,35 @@ changes.
 
 #### Phase 2 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B3, B4)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
+- [x] Feature implemented
+- [ ] Code reviewed *(self-review complete; second-developer review pending)*
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B3, B4)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 2 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
 - [ ] Ready for next phase
+
+**Phase 2 gate note (2026-07-29):** Full Vitest (256 passed, 1 skipped),
+typecheck, lint, and 24/24 offline quality checks are green. Live B3/B4 had
+zero fallback URLs, zero failed agents, and B4 had zero memory bleed. B3
+correctly exposed one unsupported claim with an empty trail and low
+recommendation confidence. B4 rejected the non-peer comparison and omitted a
+404 pricing page. Merge/next-phase approval remains open for second-developer
+review.
 
 ---
 
@@ -1107,6 +1113,44 @@ _(Append runs below this line.)_
 **Notes:** B4 live output had 0 failed agents and no Lilian/Clay in the serialized result.
 **Next action:** Preserve this baseline while implementing Phase 2 evidence binding.
 
+### Eval — 2026-07-29 — Phase 2 — Benchmark B3 — Owner A
+
+**Phase:** 2 — Evidence Intelligence
+**Prompt executed:** Exact B3 Notion vs Confluence prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; all six research agents selected.
+**Expected output:** Correct entities, primary pricing evidence where available, claim-bound recommendations, and no fallback URLs.
+**Actual output (summary):** Correctly resolved Notion and Confluence. Recommendation evidence now carries per-claim `supported` / `weakly-supported` / `unsupported` state and bound URLs. One Hacker News metric claim had no matching retrieved URL, so its trail remained empty, the recommendation dropped to low confidence, `unbound_claims` was emitted, and the answer disclosed the gap. Official Notion/Atlassian pages were ranked ahead of community noise. Customers coverage was 0 and was narrated.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass (unsupported claim intentionally empty); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — zero unbound fallback URLs; critical evidence/entity/confidence items passed.
+**Baseline comparison:** Better — fake top-URL fallback removed and claim support is visible in API/UI.
+**Issues found:** AIQ-004, AIQ-016, AIQ-017.
+**Priority:** P0 resolved; remaining items P2.
+**Root cause:** Evidence / Workflow.
+**Owner:** A (binding), B (future research deepening).
+**Status:** AIQ-004 Verified; AIQ-016/017 Open.
+**Regression:** None; 0 failed agents.
+**Notes:** Final live run returned one honest empty claim trail and no invalid fallback URLs.
+**Next action:** Preserve empty unsupported trails; add broader prose-level traceability and quality-adaptive customer research later.
+
+### Eval — 2026-07-29 — Phase 2 — Benchmark B4 — Owner A
+
+**Phase:** 2 — Evidence Intelligence
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt from Section 13.
+**Environment:** `dev`; memory/history seeded with Lilian/Clay; live APIs; all six research agents selected.
+**Expected output:** No memory bleed, non-peer distinction, no decision-grade peer matrix, and no fake or dead evidence links.
+**Actual output (summary):** Clearly stated WSO2 and SyscoLabs are not comparable vendors. Serialized output contained no Lilian/Clay, no fallback URLs, and no failed agents. Recommendation claims bound only at weak support and were confidence-capped to medium. A discovered long-form 404 pricing scrape was rejected after validation was strengthened; final output contained no SyscoLabs pricing URL and explicitly reported customers/pricing coverage at 0.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Partial (buyer-intent clarification remained a follow-up, not the lead answer); 20 Pass.
+**Acceptance score met?** Yes — contamination 0%, fake/dead bound links 0, no decision-grade peer chart.
+**Baseline comparison:** Better — noisy fallback URLs and the 404 pricing trail were removed while category integrity stayed intact.
+**Issues found:** AIQ-018; AIQ-017.
+**Priority:** P0 fixed; P2 workflow gap remains.
+**Root cause:** Evidence / Source validation / Workflow.
+**Owner:** A.
+**Status:** AIQ-018 Verified.
+**Regression:** None.
+**Notes:** Final B4: confidence high for the supported entity/category distinction; both recommendations were medium because their claims were only weakly supported.
+**Next action:** Keep 404-page rejection in regression tests and deepen missing coverage in Phase 3.
+
 <!-- Example starter row — replace when real evals begin
 ### Eval — 2026-07-29 — Phase 0 baseline — Benchmark B4 — Owner A
 Phase: 0 (baseline before Phase 1)
@@ -1136,7 +1180,7 @@ Do **not** create a separate issues markdown file.
 | AIQ-001 | Ungated research memory | Research agents/synthesis receive full memory despite classify-time gating | P0 | 1 | A | Verified | dev@2026-07-29 | B4 live: 0 Lilian/Clay bleed |
 | AIQ-002 | Unscoped research history | Agents/synthesis use unscoped recent history | P0 | 1 | A | Verified | dev@2026-07-29 | Same query-scope gate used by classify, research, synthesis |
 | AIQ-003 | Tier 0 hardcoded high confidence | Direct answers always `totalConfidence: high` | P0 | 1 | A | Verified | dev@2026-07-29 | Tier 0 capped at medium/low with limitations + falsifier |
-| AIQ-004 | Evidence bind fallback | Attaches unrelated top URLs when overlap fails | P0 | 2 | A | Open | | Fake trust trails |
+| AIQ-004 | Evidence bind fallback | Attaches unrelated top URLs when overlap fails | P0 | 2 | A | Verified | dev@2026-07-29 | Empty unsupported trails + `unbound_claims`; B3/B4 invalid fallback URLs = 0 |
 | AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Verified | dev@2026-07-29 | Added assumptions, unknowns, limitations, falsifiers, alternatives, confidence drivers |
 | AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Verified | dev@2026-07-29 | Agents emit questions; workflow records/infer them and follow-ups surface them |
 | AIQ-007 | Watchlist title-only materiality | Diff uses recommendation titles, not structured events | P0 | 5 | B | Open | | |
@@ -1147,7 +1191,10 @@ Do **not** create a separate issues markdown file.
 | AIQ-012 | Missing leadership/security watch signals | Continuous intel gaps | P2 | 5 | B | Open | | |
 | AIQ-013 | Self-comparison identity contamination | B1 took Tier 0 path, then treated same-name public companies as this application | P0 | 1 | A | Verified | dev@2026-07-29 | Self-comparison routing + structural fact/source boundary; final B1 had zero homonym URLs |
 | AIQ-014 | Honesty schema truncates synthesis JSON | 768-token cap truncated expanded synthesis contract and forced weak fallback | P1 | 1 | A | Verified | dev@2026-07-29 | Raised cap to 1400; live B1 returned complete JSON |
-| AIQ-015 | Executor parity p95 gate red locally | Synthetic p95 37.501ms exceeds 30ms despite functional parity | P2 | 1 | A | Open | | Blocks full automated-test checkbox; investigate or re-baseline before merge |
+| AIQ-015 | Executor parity p95 gate red locally | Synthetic p95 previously exceeded 30ms despite functional parity | P2 | 1 | A | Verified | dev@2026-07-29 | Full suite rerun passed executor parity; 256 tests passed, 1 skipped |
+| AIQ-016 | Prose lacks sentence-level source bindings | Recommendation evidence is claim-bound, but executive prose still has aggregate rather than sentence-level trails | P2 | 2–4 | A | Open | | Current Phase 2 contract covers recommendation claims; extend traceability without clutter |
+| AIQ-017 | Customer evidence coverage stays empty | B3 and B4 both completed with customers coverage at 0; limitation is disclosed but research does not adaptively deepen | P2 | 3 | B | Open | | Address with quality-adaptive replanning / targeted probes |
+| AIQ-018 | Long 404 page accepted as scraped evidence | A guessed pricing URL returned enough markdown to pass length-only validation and enter a trail | P0 | 2 | A | Verified | dev@2026-07-29 | Reject 404/410/not-found page content; final B4 pricing URL absent |
 
 _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mark `Verified` and set Resolved Version._
 

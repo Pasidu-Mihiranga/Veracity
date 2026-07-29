@@ -74,6 +74,8 @@ export function recommendationsFromOutput(out: OrchestratorOutput) {
     evidence: r.evidence,
     priority: r.priority,
     sourceUrls: r.sourceUrls ?? [],
+    evidenceStatus: r.evidenceStatus,
+    evidenceBindings: r.evidenceBindings ?? [],
   }));
 }
 

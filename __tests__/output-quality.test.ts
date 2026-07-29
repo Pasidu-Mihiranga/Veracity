@@ -339,13 +339,15 @@ describe('applyAbstainToArtifacts', () => {
     const trends = outputs[0];
     expect(trends.contextOnly).toBe(true);
     expect(trends.contextOnlyLabel).toMatch(/category context/i);
+    expect(trends.decisionUseSuppressed).toBe(true);
     expect(trends.confidence).toBe('low');
     expect(trends.interpretation[0]).toMatch(/^Category context only:/);
+    expect((trends as { trends?: unknown[] }).trends).toEqual([]);
 
     const competitive = outputs[1] as CompetitiveOutput;
     expect(competitive.contextOnly).toBe(true);
-    expect(competitive.matrix[0].yourProduct).toBe('none');
-    expect(competitive.matrix[0].gapDirection).toBe('parity');
+    expect(competitive.decisionUseSuppressed).toBe(true);
+    expect(competitive.matrix).toEqual([]);
     expect(competitive.hiringSignals[0]).toMatch(/category signal/i);
     expect(competitive.hiringSignals[0]).not.toMatch(/\bLilian\b/i);
     expect(competitive.recentMoves[0]).not.toMatch(/\bLilian\b/i);

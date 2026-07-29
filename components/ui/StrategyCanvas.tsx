@@ -23,7 +23,8 @@ export function StrategyCanvas({ message }: Props) {
   if (!out) return null;
 
   const competitive = out.outputs?.find(
-    (o): o is CompetitiveOutput => o.artifactType === 'competitive-matrix',
+    (o): o is CompetitiveOutput =>
+      o.artifactType === 'competitive-matrix' && !o.decisionUseSuppressed,
   );
   const coverage = new Map((out.evidenceCoverage ?? []).map((a) => [a.id, a]));
   const topRecs = (message.recommendations ?? out.topRecommendations ?? []).slice(0, 3);

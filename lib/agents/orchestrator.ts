@@ -16,7 +16,10 @@ import {
   assessOutputQuality,
 } from '@/lib/agents/output-quality';
 import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
-import { computeEvidenceCoverage } from '@/lib/agents/evidence-coverage';
+import {
+  computeEvidenceCoverage,
+  describeEvidenceCoverageGaps,
+} from '@/lib/agents/evidence-coverage';
 import { resolveAgentSet } from '@/lib/agents/adaptive-selection';
 import { planMission } from '@/lib/agents/mission-planner';
 import { shouldRunExecution as planExecution } from '@/lib/agents/execution-planner';
@@ -343,7 +346,10 @@ export async function orchestrate(
   }
 
   // Step 4: Entity-filter sources before synthesis so the model sees less noise
-  const filtered = applyEntitySourceFilterToOutputs(outputs, product, competitor);
+  const filtered = applyEntitySourceFilterToOutputs(outputs, product, competitor, {
+    productUrl,
+    competitorUrl,
+  });
   const researchOutputs = sanitizeOutputsForSelfEvaluation(query, filtered.outputs);
 
   // Early entity-quality peek (sources only) so mind map can prefer identity-first pillars
@@ -354,6 +360,8 @@ export async function orchestrate(
   const earlyQuality = assessOutputQuality({
     product,
     competitor,
+    productUrl,
+    competitorUrl,
     sources: preGateSources,
     answer: '',
     recommendations: [],
@@ -375,6 +383,8 @@ export async function orchestrate(
     ),
     generateMindMap(query, product, researchOutputs, {
       identityFirst: earlyQuality.shouldAbstainFromStrongClaims,
+      productUrl,
+      competitorUrl,
     }),
   ]);
   modelCallCount += 2; // synthesis + mind map
@@ -386,7 +396,10 @@ export async function orchestrate(
 
   // Step 6: URL hygiene + entity relevance ranking
   for (const output of researchOutputs) {
-    output.sources = filterAndRankSources(output.sources, 8);
+    output.sources = filterAndRankSources(output.sources, 8, {
+      productUrl,
+      competitorUrl,
+    });
   }
 
   // Step 7: Post-synthesis quality gate (anti-hallucination / abstain)
@@ -397,6 +410,8 @@ export async function orchestrate(
   const guarded = applyOutputQualityGate({
     product,
     competitor,
+    productUrl,
+    competitorUrl,
     sources: allSources,
     answer: synthesisResult.answer,
     recommendations: synthesisResult.recommendations,
@@ -415,12 +430,12 @@ export async function orchestrate(
     log?.('Evidence quality check flagged thin or ambiguous grounding — softening claims and Stage-1 cards…');
   }
 
-  const answer = guarded.answer;
+  let answer = guarded.answer;
   const followUps = [
     ...guarded.followUps,
     ...scratchpad.openQuestions,
   ].filter((value, index, all) => value.trim() && all.indexOf(value) === index).slice(0, 5);
-  const totalConfidence = classification.entityResolutionConflict && guarded.totalConfidence === 'high'
+  let totalConfidence = classification.entityResolutionConflict && guarded.totalConfidence === 'high'
     ? 'medium'
     : guarded.totalConfidence;
   // Soft-label Stage-1 / sanitize competitive signals / identity-first mind map
@@ -436,7 +451,32 @@ export async function orchestrate(
     allSources,
     product,
     competitor,
+    3,
+    { productUrl, competitorUrl },
   );
+  const unsupportedRecommendations = recommendations.filter(
+    (recommendation) => recommendation.evidenceStatus === 'unsupported',
+  );
+  const unsupportedClaimCount = recommendations.reduce(
+    (count, recommendation) =>
+      count + (recommendation.evidenceBindings ?? [])
+        .filter((binding) => binding.support === 'unsupported').length,
+    0,
+  );
+  if (unsupportedClaimCount > 0) {
+    if (!guarded.quality.flags.includes('unbound_claims')) {
+      guarded.quality.flags.push('unbound_claims');
+    }
+    totalConfidence = recommendations.length > 0
+      && unsupportedRecommendations.length === recommendations.length
+      ? 'low'
+      : totalConfidence === 'high' ? 'medium' : totalConfidence;
+  }
+  const bindingGaps = unsupportedClaimCount > 0
+    ? [
+        `${unsupportedClaimCount} evidence claim${unsupportedClaimCount === 1 ? ' has' : 's have'} no bound source URL.`,
+      ]
+    : [];
 
   // Step 7c: Evidence Coverage Radar scores
   const evidenceCoverage = computeEvidenceCoverage(
@@ -445,6 +485,14 @@ export async function orchestrate(
     product,
     competitor,
   );
+  const coverageGaps = describeEvidenceCoverageGaps(evidenceCoverage);
+  const narratedGaps = [...bindingGaps, ...coverageGaps];
+  if (narratedGaps.length > 0) {
+    const limitationNarrative = `Evidence gaps: ${narratedGaps.slice(0, 3).join(' ')}`;
+    if (!answer.includes('Evidence gaps:')) {
+      answer = `${answer}\n\n${limitationNarrative}`;
+    }
+  }
 
   // Step 8: Build run metrics
   // Tool call count: each successful agent typically makes 2-4 tool calls.
@@ -477,7 +525,11 @@ export async function orchestrate(
     totalConfidence,
     assumptions: synthesisResult.assumptions,
     unknowns: synthesisResult.unknowns,
-    evidenceLimitations: synthesisResult.evidenceLimitations,
+    evidenceLimitations: [
+      ...synthesisResult.evidenceLimitations,
+      ...bindingGaps,
+      ...coverageGaps,
+    ].filter((value, index, all) => all.indexOf(value) === index),
     whatWouldChangeThis: synthesisResult.whatWouldChangeThis,
     alternativeHypotheses: synthesisResult.alternativeHypotheses,
     confidenceDrivers: {

@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { bindEvidenceToSources } from '@/lib/agents/bind-evidence';
-import { computeEvidenceCoverage } from '@/lib/agents/evidence-coverage';
-import { assessOutputQuality } from '@/lib/agents/output-quality';
-import { getSourceTrustTier } from '@/lib/tools/source-validator';
+import {
+  computeEvidenceCoverage,
+  describeEvidenceCoverageGaps,
+} from '@/lib/agents/evidence-coverage';
+import {
+  applyEntitySourceFilterToOutputs,
+  assessOutputQuality,
+} from '@/lib/agents/output-quality';
+import {
+  filterAndRankSources,
+  getSourceTrustTier,
+} from '@/lib/tools/source-validator';
 import type { AgentOutput, AgentRun, AgentSource, Recommendation } from '@/lib/agents/types';
+import { isUsableScrapePage } from '@/lib/agents/entity-url';
+import type { ScrapedPage, ToolResult } from '@/lib/tools/types';
 
 const src = (title: string, url: string): AgentSource => ({
   title,
@@ -31,6 +42,59 @@ describe('bindEvidenceToSources', () => {
     const bound = bindEvidenceToSources(recs, sources, 'Lilian', 'Clay');
     expect(bound[0].sourceUrls?.length).toBeGreaterThan(0);
     expect(bound[0].sourceUrls?.[0]).toContain('clay.com');
+    expect(bound[0].evidenceStatus).toBe('supported');
+    expect(bound[0].evidenceBindings?.[0]?.support).toBe('supported');
+  });
+
+  it('leaves unsupported claims unbound instead of attaching fallback URLs', () => {
+    const sources = [
+      src('Unrelated CSS library', 'https://news.ycombinator.com/item?id=1'),
+      src('Generic startup article', 'https://example.com/startups'),
+    ];
+    const recs: Recommendation[] = [{
+      title: 'Raise enterprise prices',
+      rationale: 'Pricing power is strong.',
+      evidence: ['Buyers accept a 40% annual price increase'],
+      confidence: 'high',
+      priority: 'immediate',
+    }];
+    const [bound] = bindEvidenceToSources(recs, sources, 'Lilian', 'Clay');
+    expect(bound.sourceUrls).toEqual([]);
+    expect(bound.evidenceStatus).toBe('unsupported');
+    expect(bound.evidenceBindings?.[0]).toMatchObject({
+      support: 'unsupported',
+      sourceUrls: [],
+    });
+    expect(bound.confidence).toBe('low');
+    expect(bound.priority).toBe('short-term');
+  });
+
+  it('allows only weak entity support from an explicitly known official domain', () => {
+    const recs: Recommendation[] = [{
+      title: 'Evaluate Acme',
+      rationale: 'Acme may fit.',
+      evidence: [
+        'Acme sells enterprise workflow software',
+        'Hacker News engagement shows high interest in Acme',
+      ],
+      confidence: 'high',
+      priority: 'immediate',
+    }];
+    const [bound] = bindEvidenceToSources(
+      recs,
+      [src('Acme homepage', 'https://acme.example')],
+      'Acme',
+      undefined,
+      3,
+      { productUrl: 'https://acme.example' },
+    );
+    expect(bound.evidenceStatus).toBe('weakly-supported');
+    expect(bound.sourceUrls).toEqual(['https://acme.example']);
+    expect(bound.confidence).toBe('medium');
+    expect(bound.evidenceBindings?.[1]).toMatchObject({
+      support: 'unsupported',
+      sourceUrls: [],
+    });
   });
 });
 
@@ -80,6 +144,12 @@ describe('computeEvidenceCoverage', () => {
     expect(coverage.find((c) => c.id === 'market')!.score).toBeGreaterThan(0);
     expect(coverage.find((c) => c.id === 'competition')!.score).toBe(0);
     expect(coverage.find((c) => c.id === 'pricing')!.sourceCount).toBe(2);
+    expect(describeEvidenceCoverageGaps(coverage)).toEqual(
+      expect.arrayContaining([
+        'Competition evidence is missing (0 sources).',
+        'Customers evidence is missing (0 sources).',
+      ]),
+    );
   });
 });
 
@@ -93,6 +163,63 @@ describe('getSourceTrustTier', () => {
         productDomains: ['lilian.ai'],
       }),
     ).toBe('T2');
+  });
+
+  it('ranks known official domains above trusted and community noise', () => {
+    const ranked = filterAndRankSources(
+      [
+        src('Reddit discussion about Acme', 'https://reddit.com/r/saas/comments/1'),
+        src('Acme official documentation', 'https://docs.acme.example/security'),
+        src('Acme funding story', 'https://techcrunch.com/acme'),
+      ],
+      10,
+      { productUrl: 'https://acme.example' },
+    );
+    expect(ranked[0].url).toContain('acme.example');
+  });
+});
+
+describe('entity source filtering', () => {
+  it('rejects personal profiles and keeps a known official domain', () => {
+    const output: AgentOutput = {
+      agentId: 'competitive',
+      domain: 'competitive',
+      confidence: 'medium',
+      confidenceScore: 0.6,
+      facts: [],
+      interpretation: [],
+      sources: [
+        src('Acme founder MBA profile', 'https://linkedin.com/in/acme-founder'),
+        src('Developer documentation', 'https://docs.acme.example/product'),
+      ],
+      generatedAt: new Date().toISOString(),
+      artifactType: 'competitive-matrix',
+    };
+    const filtered = applyEntitySourceFilterToOutputs([output], 'Acme', undefined, {
+      productUrl: 'https://acme.example',
+    });
+    expect(filtered.outputs[0].sources.map((source) => source.url)).toEqual([
+      'https://docs.acme.example/product',
+    ]);
+  });
+});
+
+describe('scraped source validation', () => {
+  it('rejects long 404 pages instead of citing guessed pricing URLs', () => {
+    const page: ToolResult<ScrapedPage> = {
+      data: {
+        url: 'https://acme.example/pricing',
+        title: 'Page not found',
+        markdown: '# 404\nThe page you are looking for could not be found. Return to our homepage.',
+        excerpt: '404 — page not found',
+      },
+      source: 'firecrawl',
+      timestamp: new Date().toISOString(),
+      confidence: 0.8,
+      cached: false,
+      status: 'ok',
+    };
+    expect(isUsableScrapePage({ status: 'fulfilled', value: page })).toBe(false);
   });
 });
 

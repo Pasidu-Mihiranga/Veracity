@@ -53,7 +53,9 @@ export function ExecutiveBoardMode({ message }: Props) {
 
   const slide = SLIDES[index];
   const out = message.orchestratorOutput;
-  const competitive = out?.outputs?.find((o) => o.artifactType === 'competitive-matrix') as
+  const competitive = out?.outputs?.find(
+    (o) => o.artifactType === 'competitive-matrix' && !o.decisionUseSuppressed,
+  ) as
     | { matrix?: Array<{ feature: string; yourProduct: string; competitor: string; gapDirection: string }>; competitor?: string }
     | undefined;
 
@@ -149,9 +151,23 @@ export function ExecutiveBoardMode({ message }: Props) {
                   rationale?: string;
                   priority?: string;
                   sourceUrls?: string[];
+                  evidenceStatus?: 'supported' | 'weakly-supported' | 'unsupported';
                 }, i: number) => (
                   <div key={i} className="veracity-card p-5 flex flex-col gap-2">
-                    <span className="text-[10px] font-mono uppercase text-accent">{rec.priority}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono uppercase text-accent">{rec.priority}</span>
+                      {rec.evidenceStatus ? (
+                        <span className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${
+                          rec.evidenceStatus === 'supported'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            : rec.evidenceStatus === 'weakly-supported'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                          {rec.evidenceStatus.replace('-', ' ')}
+                        </span>
+                      ) : null}
+                    </div>
                     <h3 className="text-xl font-medium text-foreground">{rec.title}</h3>
                     <p className="text-muted-foreground">{rec.rationale}</p>
                     {(rec.sourceUrls?.length ?? 0) > 0 ? (

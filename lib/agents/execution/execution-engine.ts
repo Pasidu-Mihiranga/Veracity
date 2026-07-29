@@ -71,7 +71,10 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     ...(contentResult.status === 'fulfilled' ? contentResult.value.sources : []),
     ...(variantResult.status === 'fulfilled' ? variantResult.value.sources : []),
     ...(outreachResult ? outreachResult.sources : []),
-  ], 12);
+  ], 12, {
+    productUrl: ctx.productUrl,
+    competitorUrl: ctx.competitorUrl,
+  });
 
   // ── Merge facts + interpretation ──────────────────────────────────────────
   const allFacts = dedupeStrings([

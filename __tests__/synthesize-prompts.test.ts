@@ -107,6 +107,8 @@ describe('prompt assets', () => {
     expect(p).toContain('"alternativeHypotheses"');
     expect(p).toContain('"confidenceDrivers"');
     expect(p).not.toMatch(/under 120 words/i);
+    expect(p).toMatch(/matched to a retrieved source title\/fact/i);
+    expect(p).toMatch(/not enough evidence/i);
   });
 
   it('adds buyer-vs-builder follow-up rule for compares', () => {

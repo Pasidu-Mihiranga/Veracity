@@ -13,7 +13,11 @@ export async function generateMindMap(
   query: string,
   product: string,
   outputs: AgentOutput[],
-  opts?: { identityFirst?: boolean },
+  opts?: {
+    identityFirst?: boolean;
+    productUrl?: string;
+    competitorUrl?: string;
+  },
 ): Promise<MindMapOutput | null> {
   if (outputs.length === 0) return null;
 
@@ -63,6 +67,10 @@ export async function generateMindMap(
       sources: filterAndRankSources(
         outputs.flatMap((o) => o.sources),
         10,
+        {
+          productUrl: opts?.productUrl,
+          competitorUrl: opts?.competitorUrl,
+        },
       ),
       generatedAt: new Date().toISOString(),
       artifactType: 'mind-map',
