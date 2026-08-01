@@ -16,6 +16,7 @@ export const runtime = 'nodejs';
 const sessionPostSchema = z.object({
   title: z.string().optional(),
   folderName: z.string().nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
 });
 
 export async function GET() {
@@ -31,7 +32,7 @@ export async function GET() {
   await query(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;`).catch(() => null);
 
   const { rows } = await query(
-    `SELECT id, title, folder_name, created_at, updated_at
+    `SELECT id, title, folder_name, project_id, created_at, updated_at
      FROM chat_sessions
      WHERE ${scope.sql}
      ORDER BY updated_at DESC
@@ -64,24 +65,33 @@ export async function POST(req: NextRequest) {
   const body = parsed.data;
   const title = String(body.title ?? 'New Query');
   const folderName = body.folderName ? String(body.folderName).trim() : null;
+  const projectId = body.projectId ?? null;
+
+  if (projectId) {
+    const ownedProject = await query(
+      `SELECT id FROM market_projects WHERE id = $1 AND user_id = $2 LIMIT 1`,
+      [projectId, user.id],
+    );
+    if (!ownedProject.rows[0]) return apiError('Market project not found', 404, 'PROJECT_NOT_FOUND');
+  }
 
   await query(`ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;`).catch(() => null);
 
   if (featureFlags.workspaces && tenant.workspaceId) {
     const { rows } = await query(
-      `INSERT INTO chat_sessions (user_id, workspace_id, title, folder_name, updated_at)
-       VALUES ($1, $2, $3, $4, now())
-       RETURNING id, title, folder_name, created_at, updated_at`,
-      [user.id, tenant.workspaceId, title, folderName],
+      `INSERT INTO chat_sessions (user_id, workspace_id, title, folder_name, project_id, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       RETURNING id, title, folder_name, project_id, created_at, updated_at`,
+      [user.id, tenant.workspaceId, title, folderName, projectId],
     );
     return apiSuccess({ session: rows[0] }, 201);
   }
 
   const { rows } = await query(
-    `INSERT INTO chat_sessions (user_id, title, folder_name, updated_at)
-     VALUES ($1, $2, $3, now())
-     RETURNING id, title, folder_name, created_at, updated_at`,
-    [user.id, title, folderName],
+    `INSERT INTO chat_sessions (user_id, title, folder_name, project_id, updated_at)
+     VALUES ($1, $2, $3, $4, now())
+     RETURNING id, title, folder_name, project_id, created_at, updated_at`,
+    [user.id, title, folderName, projectId],
   );
   return apiSuccess({ session: rows[0] }, 201);
 }

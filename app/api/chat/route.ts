@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { isResearchTurnMode, RESEARCH_TURN_MODE_COPY, type ResearchTurnMode } from '@/lib/research-turn-mode';
 import { orchestrate, runMirofishAgent, runMirofishLiveAgent } from '../../../lib/agents/orchestrator';
 import { createClient } from '@/lib/supabase-server';
 import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
@@ -132,6 +133,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
     forceFullSweep?: boolean;
     sessionId?: string;
     conversationId?: string;
+    turnMode?: ResearchTurnMode;
   };
 
   try {
@@ -142,7 +144,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
 
   const {
     query, history = [], images = [], memoryContext, includeMirofish = false, includeMirofishLive = false,
-    followUpMode = 'full', selectedAgents = [], forceFullSweep = false, sessionId, conversationId,
+    followUpMode = 'full', selectedAgents = [], forceFullSweep = false, sessionId, conversationId, turnMode,
   } = body;
 
   if (!query?.trim()) {
@@ -156,7 +158,8 @@ async function handleChatPost(req: NextRequest, userId: string) {
   } catch {
     learningContext = '';
   }
-  const mergedMemoryContext = [memoryContext, learningContext].filter(Boolean).join('\n\n') || undefined;
+  const modeInstruction = isResearchTurnMode(turnMode) ? RESEARCH_TURN_MODE_COPY[turnMode].instruction : '';
+  const mergedMemoryContext = [modeInstruction, memoryContext, learningContext].filter(Boolean).join('\n\n') || undefined;
 
   const requestCtx = getRequestContext();
   logger.info('chat.started', {
@@ -165,6 +168,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
     includeMirofish,
     includeMirofishLive,
     followUpMode,
+    turnMode: isResearchTurnMode(turnMode) ? turnMode : undefined,
     sessionId,
     conversationId,
     asyncSweep: isAsyncSweepEnabled(),
@@ -188,6 +192,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
           forceFullSweep,
           includeMirofish,
           includeMirofishLive,
+          turnMode: isResearchTurnMode(turnMode) ? turnMode : undefined,
         },
       });
       await inngest.send({
@@ -206,6 +211,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
           forceFullSweep,
           includeMirofish,
           includeMirofishLive,
+          turnMode: isResearchTurnMode(turnMode) ? turnMode : undefined,
         },
       });
       return new Response(
