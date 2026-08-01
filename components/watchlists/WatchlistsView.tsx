@@ -37,6 +37,10 @@ type AlertEvent = {
   summary: string;
   severity: 'high' | 'medium' | 'low';
   created_at: string;
+  diff?: {
+    category?: string;
+    [key: string]: unknown;
+  };
 };
 
 export function WatchlistsView() {
@@ -58,6 +62,12 @@ export function WatchlistsView() {
     itemId?: string;
     title: string;
   } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const loadData = useCallback(async () => {
     if (!featureFlags.watchlists) return;
@@ -123,6 +133,7 @@ export function WatchlistsView() {
       setNewWeeklyAlertBudget(12);
       setNewAlertChannels(['in_app']);
       setShowCreateModal(false);
+      showToast('Watchlist created successfully!');
       await loadData();
     } finally {
       setBusy(false);
@@ -140,6 +151,7 @@ export function WatchlistsView() {
         body: JSON.stringify({ competitor: text }),
       });
       setCompetitorInput((prev) => ({ ...prev, [watchlistId]: '' }));
+      showToast(`Added ${text} to watchlist`);
       await loadData();
     } finally {
       setBusy(false);
@@ -154,6 +166,7 @@ export function WatchlistsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ runNow: true }),
       });
+      showToast('Multi-agent sweep queued! Background research started.', 'info');
       await loadData();
     } finally {
       setBusy(false);
@@ -171,6 +184,7 @@ export function WatchlistsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       });
+      showToast('Watchlist configuration updated');
       await loadData();
     } finally {
       setBusy(false);
@@ -183,10 +197,12 @@ export function WatchlistsView() {
     try {
       if (deleteConfirm.type === 'watchlist') {
         await fetch(`/api/watchlists/${deleteConfirm.id}`, { method: 'DELETE' });
+        showToast('Watchlist deleted');
       } else if (deleteConfirm.itemId) {
         await fetch(`/api/watchlists/${deleteConfirm.id}/items/${deleteConfirm.itemId}`, {
           method: 'DELETE',
         });
+        showToast('Competitor removed');
       }
       await loadData();
     } finally {
@@ -214,11 +230,64 @@ export function WatchlistsView() {
   });
 
   const competitorEntries = Object.entries(competitorStatsMap);
-
   const displayAlerts: AlertEvent[] = alerts;
+
+  // Dynamic calculation of Delta Category Shifts from actual alerts
+  const totalAlertsCount = alerts.length;
+  let pricingCount = 0;
+  let featureCount = 0;
+  let positioningCount = 0;
+
+  alerts.forEach((a) => {
+    const cat = String(a.diff?.category ?? '').toLowerCase();
+    const titleLower = a.title.toLowerCase();
+    if (cat.includes('price') || cat.includes('pricing') || titleLower.includes('price') || titleLower.includes('pricing')) {
+      pricingCount++;
+    } else if (cat.includes('feature') || cat.includes('launch') || cat.includes('docs') || titleLower.includes('feature') || titleLower.includes('launch')) {
+      featureCount++;
+    } else {
+      positioningCount++;
+    }
+  });
+
+  const pricingPct = totalAlertsCount > 0 ? Math.round((pricingCount / totalAlertsCount) * 100) : 0;
+  const featurePct = totalAlertsCount > 0 ? Math.round((featureCount / totalAlertsCount) * 100) : 0;
+  const positioningPct = totalAlertsCount > 0 ? Math.round((positioningCount / totalAlertsCount) * 100) : 0;
+
+  const totalMaxCapacity = lists.reduce((acc, wl) => acc + (wl.max_competitors || 6), 0);
+  const targetCapacityPct = totalMaxCapacity > 0 ? Math.min(100, Math.round((totalTrackedCompetitors / totalMaxCapacity) * 100)) : 0;
+
+  const uniqueCadences = Array.from(new Set(lists.map((w) => w.cadence)));
+  const cadenceDisplay = lists.length === 0
+    ? 'Not configured'
+    : `${uniqueCadences.map((c) => c.replace('_', ' ')).join(', ')} · 09:00 UTC`;
+
+  const healthyCount = lists.filter((w) => w.health_status === 'healthy').length;
+  const systemStatusDisplay = lists.length === 0
+    ? 'Ready · Source Gated'
+    : `${healthyCount}/${lists.length} Healthy · Source Gated`;
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div
+          className={`p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between shadow-md transition-all animate-fadeIn ${
+            toast.type === 'info'
+              ? 'bg-accent/15 border border-accent/40 text-accent'
+              : 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} />
+            <span>{toast.message}</span>
+          </div>
+          <button type="button" onClick={() => setToast(null)} className="opacity-60 hover:opacity-100 text-xs">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header Executive Card - Standardized Across Top Tabs */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
@@ -287,7 +356,7 @@ export function WatchlistsView() {
           </div>
           <div>
             <span className="text-xs text-muted-foreground font-medium block">Sweep Cadence</span>
-            <span className="text-xs font-bold text-foreground">Per watchlist · 09:00 UTC</span>
+            <span className="text-xs font-bold text-foreground capitalize">{cadenceDisplay}</span>
           </div>
         </div>
 
@@ -300,7 +369,7 @@ export function WatchlistsView() {
           </div>
           <div>
             <span className="text-xs text-muted-foreground font-medium block">System Status</span>
-            <span className="text-xs font-bold text-foreground">Source + materiality gated</span>
+            <span className="text-xs font-bold text-foreground">{systemStatusDisplay}</span>
           </div>
         </div>
       </div>
@@ -431,7 +500,7 @@ export function WatchlistsView() {
                       </label>
                     </div>
                     <div className="flex items-center gap-3 text-[10px] font-mono uppercase text-muted-foreground">
-                      <span>Channels: in-app</span>
+                      <span>Channels: {wl.alert_channels.map((c) => c.replace('_', '-')).join(', ')}</span>
                       {(['email', 'slack'] as const).map((channel) => (
                         <label key={channel} className="flex items-center gap-1">
                           <input
@@ -564,7 +633,7 @@ export function WatchlistsView() {
                     />
                     <path
                       className="text-accent"
-                      strokeDasharray="75, 100"
+                      strokeDasharray={`${targetCapacityPct}, 100`}
                       strokeWidth="3.8"
                       strokeLinecap="round"
                       stroke="currentColor"
@@ -606,30 +675,30 @@ export function WatchlistsView() {
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="text-muted-foreground">Pricing Adjustments</span>
-                    <span className="font-mono font-bold text-foreground">45%</span>
+                    <span className="font-mono font-bold text-foreground">{pricingPct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-accent rounded-full" style={{ width: '45%' }} />
+                    <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${pricingPct}%` }} />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="text-muted-foreground">Feature Drops</span>
-                    <span className="font-mono font-bold text-foreground">35%</span>
+                    <span className="font-mono font-bold text-foreground">{featurePct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-accent/80 rounded-full" style={{ width: '35%' }} />
+                    <div className="h-full bg-accent/80 rounded-full transition-all duration-500" style={{ width: `${featurePct}%` }} />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="text-muted-foreground">GTM Positioning</span>
-                    <span className="font-mono font-bold text-foreground">20%</span>
+                    <span className="font-mono font-bold text-foreground">{positioningPct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-accent/60 rounded-full" style={{ width: '20%' }} />
+                    <div className="h-full bg-accent/60 rounded-full transition-all duration-500" style={{ width: `${positioningPct}%` }} />
                   </div>
                 </div>
               </div>

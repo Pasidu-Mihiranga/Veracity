@@ -241,29 +241,31 @@ export default function VeracityDashboard() {
     <div className={isDark ? 'dark' : 'light'} style={{ display: 'contents' }}>
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground font-sans">
 
-      <SessionSidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
-        onNewQuery={handleNewQuery}
-        selectedFolder={selectedFolder}
-        onSelectFolder={setSelectedFolder}
-        sessions={sessions}
-        loadingSessions={loadingSessions}
-        currentSessionId={currentSessionId}
-        onLoadSession={(id) => { void loadSession(id); }}
-        onDeleteSession={(id) => deleteSession(id)}
-        selectedAgents={selectedAgents}
-        onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
-        forceFullSweep={forceFullSweep}
-        onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
-        getRunForDomain={getRunFor}
-        sidebarBg={sidebarBg}
-        cardBg2={cardBg2}
-        neuExtrudedSm={neuExtrudedSm}
-        textMain={textMain}
-        textMuted={textMuted}
-        textSubtle={textSubtle}
-      />
+      {topTab === 'intelligence' && (
+        <SessionSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
+          onNewQuery={handleNewQuery}
+          selectedFolder={selectedFolder}
+          onSelectFolder={setSelectedFolder}
+          sessions={sessions}
+          loadingSessions={loadingSessions}
+          currentSessionId={currentSessionId}
+          onLoadSession={(id) => { void loadSession(id); }}
+          onDeleteSession={(id) => deleteSession(id)}
+          selectedAgents={selectedAgents}
+          onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+          forceFullSweep={forceFullSweep}
+          onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
+          getRunForDomain={getRunFor}
+          sidebarBg={sidebarBg}
+          cardBg2={cardBg2}
+          neuExtrudedSm={neuExtrudedSm}
+          textMain={textMain}
+          textMuted={textMuted}
+          textSubtle={textSubtle}
+        />
+      )}
 
       {/* ═══════════════════════════════════ MAIN ══ */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">

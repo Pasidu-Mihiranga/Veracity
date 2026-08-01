@@ -8,6 +8,7 @@ export function ensureMonitoringSchema(): Promise<void> {
     monitoringSchemaPromise = query(`
       ALTER TABLE competitive_events ADD COLUMN IF NOT EXISTS severity text NOT NULL DEFAULT 'low';
       ALTER TABLE competitive_events ADD COLUMN IF NOT EXISTS materiality_score real NOT NULL DEFAULT 0;
+      ALTER TABLE alert_events ADD COLUMN IF NOT EXISTS dedupe_key text NOT NULL DEFAULT gen_random_uuid()::text;
       CREATE TABLE IF NOT EXISTS alert_deliveries (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id uuid NOT NULL,

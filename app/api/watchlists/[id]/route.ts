@@ -8,7 +8,7 @@ import {
   listWatchlistItems,
   updateWatchlist,
 } from '@/lib/watchlists';
-import { inngest } from '@/lib/inngest/client';
+import { inngest, inngestConfigured } from '@/lib/inngest/client';
 import type { WatchlistCadence } from '@/lib/monitoring/health';
 
 export async function GET(
@@ -101,10 +101,14 @@ export async function PATCH(
   });
 
   if (body.runNow && featureFlags.alerts) {
-    await inngest.send({
-      name: 'monitoring/run.requested',
-      data: { userId: user.id, watchlistId: id },
-    });
+    if (inngestConfigured()) {
+      await inngest.send({
+        name: 'monitoring/run.requested',
+        data: { userId: user.id, watchlistId: id },
+      }).catch((err) => {
+        console.warn('[Watchlists API] Inngest send skipped/failed:', err);
+      });
+    }
   }
 
   const items = await listWatchlistItems(id);
