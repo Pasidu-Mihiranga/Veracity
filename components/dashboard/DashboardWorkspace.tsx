@@ -11,6 +11,10 @@ import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
 import { AppErrorBoundary } from '@/components/ui/AppErrorBoundary';
 
 import { IntelligenceResults } from '@/components/ui/IntelligenceResults';
+import { ConversationTimeline } from '@/components/ui/ConversationTimeline';
+import type { MarketProject } from '@/lib/projects';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
+import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
 
 const ApiUsagePanel = dynamic(() => import('@/components/ApiUsagePanel').then((m) => m.ApiUsagePanel), {
   loading: () => <PanelSkeleton label="Loading usage" height={280} />,
@@ -65,6 +69,7 @@ type Props = {
   onMainScroll: () => void;
   currentResult?: ChatMessage;
   currentSessionId: string | null;
+  selectedProject?: MarketProject | null;
   messages: ChatMessage[];
   followUps: FollowUp[];
   followUpEndRef: React.RefObject<HTMLDivElement | null>;
@@ -102,6 +107,8 @@ type Props = {
   onClearCompare?: () => void;
   viewMode?: import('@/types/chat-ui').ProductViewMode;
   onViewModeChange?: (mode: import('@/types/chat-ui').ProductViewMode) => void;
+  turnMode?: ResearchTurnMode;
+  onTurnModeChange?: (mode: ResearchTurnMode) => void;
   onResetHeader?: () => void;
   chrome: {
     cardBg: string;
@@ -125,6 +132,7 @@ export function DashboardWorkspace({
   onMainScroll,
   currentResult,
   currentSessionId,
+  selectedProject,
   messages,
   followUps,
   followUpEndRef,
@@ -162,6 +170,8 @@ export function DashboardWorkspace({
   onClearCompare,
   viewMode,
   onViewModeChange,
+  turnMode,
+  onTurnModeChange,
   onResetHeader,
   chrome,
 }: Props) {
@@ -174,7 +184,7 @@ export function DashboardWorkspace({
     if (mainScrollRef.current) {
       mainScrollRef.current.scrollTop = 0;
     }
-  }, [currentSessionId, topTab]);
+  }, [currentSessionId, mainScrollRef, topTab]);
 
   return (
     <>
@@ -205,6 +215,34 @@ export function DashboardWorkspace({
           {topTab === 'profile' && <ProfileSettingsView userEmail={userEmail ?? null} userMemory={userMemory} />}
           {topTab === 'intelligence' && (
             <>
+              {selectedProject && (
+                <div className="veracity-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="ui-section-label text-accent">Active market project</p>
+                    <p className="mt-1 truncate text-sm font-semibold text-foreground">{selectedProject.name} · {selectedProject.product}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {selectedProject.competitors.length ? `${selectedProject.competitors.length} competitors` : 'No competitors yet'}
+                      {selectedProject.geography ? ` · ${selectedProject.geography}` : ''}
+                      {selectedProject.decision_context ? ` · ${selectedProject.decision_context}` : ''}
+                    </p>
+                  </div>
+                  {messages.length === 0 && !isLoading ? (
+                    <button
+                      type="button"
+                      onClick={() => onComposerSend(`Build a market baseline for ${selectedProject.product}. Compare the tracked competitors, summarize current positioning, pricing, market signals, evidence gaps, and the most important decision implications${selectedProject.decision_context ? ` for this decision: ${selectedProject.decision_context}` : ''}.`)}
+                      className="shrink-0 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-accent-foreground hover:opacity-90"
+                    >
+                      Run baseline
+                    </button>
+                  ) : null}
+                </div>
+              )}
+              {selectedProject ? (
+                <MarketProjectOverview
+                  projectId={selectedProject.id}
+                  refreshKey={currentResult?.persistedId ?? currentResult?.id ?? null}
+                />
+              ) : null}
               {messages.length === 0 && !isLoading && !hasResult && !currentResult && (
                 <ChatPanel
                   showEmptyState
@@ -215,6 +253,19 @@ export function DashboardWorkspace({
                   showComposer={false}
                   onSend={onComposerSend}
                   {...composerProps}
+                />
+              )}
+              {messages.length > 0 && (
+                <ConversationTimeline
+                  messages={messages}
+                  currentResultId={currentResult?.id}
+                  textMain={chrome.textMain}
+                  textMuted={chrome.textMuted}
+                  textSubtle={chrome.textSubtle}
+                  cardBg={chrome.cardBg}
+                  cardBg2={chrome.cardBg2}
+                  accentInk={chrome.accentInk}
+                  neuExtrudedSm={chrome.neuExtrudedSm}
                 />
               )}
               <AppErrorBoundary label="Agent progress">
@@ -319,6 +370,8 @@ export function DashboardWorkspace({
             composerPlaceholder={hasResult ? 'Ask a follow-up about this analysis…' : 'Ask a growth intelligence question…'}
             viewMode={viewMode}
             onViewModeChange={onViewModeChange}
+            turnMode={turnMode}
+            onTurnModeChange={onTurnModeChange}
             {...composerProps}
           />
         </AppErrorBoundary>

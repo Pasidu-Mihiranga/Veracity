@@ -28,6 +28,8 @@ import { UserProfileModal } from '@/components/profile/UserProfileModal';
 import { featureFlags } from '@/lib/feature-flags';
 import { buildPipelineStages, getOutputForDomain, getRunForDomain } from '@/lib/agent-progress';
 import { unwrapApiPayload } from '@/lib/api-client';
+import type { MarketProject } from '@/lib/projects';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import {
   defaultSelectedAgents,
   loadSelectedAgents,
@@ -72,8 +74,12 @@ export default function VeracityDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [topTab, setTopTab] = useState<TopTab>('intelligence');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
+  const [turnMode, setTurnMode] = useState<ResearchTurnMode>('verify');
 
-  const currentResult = [...messages].reverse().find((m) => m.role === 'assistant');
+  const currentResult = [...messages].reverse().find((m) =>
+    m.role === 'assistant'
+    && (m.type === 'intelligence' || Boolean(m.orchestratorOutput) || Boolean(m.agentRuns?.length)),
+  );
 
   useEffect(() => {
     resetHeaderCompress();
@@ -173,7 +179,7 @@ export default function VeracityDashboard() {
     setAttachedImages([]);
     requestAnimationFrame(autoResizeTextarea);
   }, [autoResizeTextarea]);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<MarketProject | null>(null);
 
   const {
     isLoading, isFollowingUp, mirofishRunning, sessionUsage,
@@ -183,7 +189,7 @@ export default function VeracityDashboard() {
   } = useChatOrchestration({
     messages, setMessages, followUps, setFollowUps, currentSessionId, setCurrentSessionId,
     selectedAgentIds, selectedAgents, forceFullSweep, streamChat, userMemory, refreshUserMemory: async () => { await memoryQuery.refetch(); },
-    refreshSessions, resetDraftInput, targetFolder: selectedFolder, viewMode,
+    refreshSessions, resetDraftInput, targetProject: selectedProject, viewMode, turnMode,
   });
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,13 +204,12 @@ export default function VeracityDashboard() {
     setAttachedImages(prev => [...prev, ...imgs]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
-  const handleNewQuery = useCallback((folderName?: string) => {
+  const handleNewQuery = useCallback((project?: MarketProject) => {
     resetConversation();
     setExpandedDomain(null);
     setAttachedImages([]);
     resetSessionUsage();
-    if (folderName) setSelectedFolder(folderName);
-    else setSelectedFolder(null);
+    setSelectedProject(project ?? null);
   }, [resetConversation, resetSessionUsage]);
   const getRunFor = (d: Domain) => getRunForDomain(currentResult?.agentRuns, d);
   const getOutputFor = (d: Domain) => getOutputForDomain(currentResult?.orchestratorOutput, d);
@@ -246,8 +251,8 @@ export default function VeracityDashboard() {
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
           onNewQuery={handleNewQuery}
-          selectedFolder={selectedFolder}
-          onSelectFolder={setSelectedFolder}
+          selectedProject={selectedProject}
+          onSelectProject={setSelectedProject}
           sessions={sessions}
           loadingSessions={loadingSessions}
           currentSessionId={currentSessionId}
@@ -309,6 +314,7 @@ export default function VeracityDashboard() {
           onMainScroll={onMainScroll}
           currentResult={currentResult}
           currentSessionId={currentSessionId}
+          selectedProject={selectedProject}
           messages={messages}
           followUps={followUps}
           followUpEndRef={followUpEndRef}
@@ -347,6 +353,8 @@ export default function VeracityDashboard() {
           onClearCompare={clearCompareBaseline}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
+          turnMode={turnMode}
+          onTurnModeChange={setTurnMode}
           onResetHeader={resetHeaderCompress}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
@@ -357,6 +365,7 @@ export default function VeracityDashboard() {
       open={memoryDrawerOpen}
       onClose={() => setMemoryDrawerOpen(false)}
       memory={userMemory}
+      projectId={selectedProject?.id ?? null}
       textMain={textMain}
       textMuted={textMuted}
       textSubtle={textSubtle}

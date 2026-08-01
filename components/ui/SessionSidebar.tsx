@@ -1,10 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import {
-  Plus, History, Trash2, PanelLeft, PanelLeftClose, Folder, FolderOpen, FolderPlus, ChevronDown, ChevronRight, MessageSquare,
+  Plus, History, Trash2, PanelLeft, PanelLeftClose, Folder, FolderOpen, FolderPlus, ChevronDown, ChevronRight, MessageSquare, Pencil,
 } from 'lucide-react';
-import { listFolders, createFolder, deleteFolder, updateSessionFolder, type ChatSession } from '@/lib/conversations';
+import type { ChatSession } from '@/lib/conversations';
+import {
+  createMarketProject,
+  deleteMarketProject,
+  listMarketProjects,
+  updateMarketProject,
+  type MarketProject,
+} from '@/lib/projects';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 import { SidebarAgentRow } from '@/components/ui/SidebarAgentRow';
 import { WatchlistsPanel } from '@/components/ui/WatchlistsPanel';
@@ -15,9 +23,9 @@ import { featureFlags } from '@/lib/feature-flags';
 export type SessionSidebarProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  onNewQuery: (folderName?: string) => void;
-  selectedFolder?: string | null;
-  onSelectFolder?: (folderName: string | null) => void;
+  onNewQuery: (project?: MarketProject) => void;
+  selectedProject?: MarketProject | null;
+  onSelectProject?: (project: MarketProject | null) => void;
   sessions: ChatSession[];
   loadingSessions: boolean;
   currentSessionId: string | null;
@@ -40,8 +48,8 @@ export function SessionSidebar({
   collapsed,
   onToggleCollapsed,
   onNewQuery,
-  selectedFolder,
-  onSelectFolder,
+  selectedProject,
+  onSelectProject,
   sessions,
   loadingSessions,
   currentSessionId,
@@ -60,20 +68,22 @@ export function SessionSidebar({
   textSubtle,
 }: SessionSidebarProps) {
   const [scrollTop, setScrollTop] = useState(0);
-  const [folders, setFolders] = useState<string[]>([]);
+  const [projects, setProjects] = useState<MarketProject[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({ Recent: true });
   const [showFolderModal, setShowFolderModal] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
+  const [newProject, setNewProject] = useState({
+    name: '', product: '', productUrl: '', competitors: '', geography: '', decisionContext: '', approvedSources: '', blockedSources: '',
+  });
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [projectError, setProjectError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    type: 'folder' | 'session';
+    type: 'project' | 'session';
     idOrName: string;
     displayTitle: string;
   } | null>(null);
 
   useEffect(() => {
-    listFolders().then((remoteFolders) => {
-      setFolders(remoteFolders);
-    });
+    listMarketProjects().then(setProjects).catch(() => setProjects([]));
   }, []);
 
   const toggleFolder = (folderName: string) => {
@@ -85,31 +95,72 @@ export function SessionSidebar({
 
   const executeDelete = async () => {
     if (!deleteConfirm) return;
-    if (deleteConfirm.type === 'folder') {
-      const folderName = deleteConfirm.idOrName;
-      setFolders((prev) => prev.filter((f) => f !== folderName));
-      if (selectedFolder === folderName && onSelectFolder) {
-        onSelectFolder(null);
+    if (deleteConfirm.type === 'project') {
+      const projectId = deleteConfirm.idOrName;
+      setProjects((prev) => prev.filter((project) => project.id !== projectId));
+      if (selectedProject?.id === projectId && onSelectProject) {
+        onSelectProject(null);
       }
-      await deleteFolder(folderName);
+      await deleteMarketProject(projectId);
     } else {
       await onDeleteSession(deleteConfirm.idOrName);
     }
     setDeleteConfirm(null);
   };
 
-  const handleCreateFolder = async (e?: React.FormEvent) => {
+  const handleCreateProject = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const trimmed = newFolderName.trim();
-    if (trimmed) {
-      if (!folders.includes(trimmed)) {
-        setFolders((prev) => [...prev, trimmed]);
-        setExpandedFolders((prev) => ({ ...prev, [trimmed]: true }));
-      }
-      await createFolder(trimmed);
+    const name = newProject.name.trim();
+    const product = newProject.product.trim();
+    if (!name || !product) return;
+    setProjectError('');
+    try {
+      const input = {
+        name,
+        product,
+        productUrl: newProject.productUrl.trim(),
+        competitors: newProject.competitors.split(',').map((value) => value.trim()).filter(Boolean),
+        geography: newProject.geography.trim(),
+        decisionContext: newProject.decisionContext.trim(),
+        approvedSources: newProject.approvedSources.split(',').map((value) => value.trim()).filter(Boolean),
+        blockedSources: newProject.blockedSources.split(',').map((value) => value.trim()).filter(Boolean),
+      };
+      const created = editingProjectId
+        ? await updateMarketProject(editingProjectId, input)
+        : await createMarketProject(input);
+      setProjects((prev) => [created, ...prev.filter((project) => project.id !== created.id)]);
+      setExpandedFolders((prev) => ({ ...prev, [created.id]: true }));
+      if (editingProjectId) onSelectProject?.(created);
+      else onNewQuery(created);
+      setNewProject({ name: '', product: '', productUrl: '', competitors: '', geography: '', decisionContext: '', approvedSources: '', blockedSources: '' });
+      setEditingProjectId(null);
+      setShowFolderModal(false);
+    } catch {
+      setProjectError('Could not save this project. Apply the market-project migration and try again.');
     }
-    setNewFolderName('');
-    setShowFolderModal(false);
+  };
+
+  const openCreateProject = () => {
+    setEditingProjectId(null);
+    setProjectError('');
+    setNewProject({ name: '', product: '', productUrl: '', competitors: '', geography: '', decisionContext: '', approvedSources: '', blockedSources: '' });
+    setShowFolderModal(true);
+  };
+
+  const openEditProject = (project: MarketProject) => {
+    setEditingProjectId(project.id);
+    setProjectError('');
+    setNewProject({
+      name: project.name,
+      product: project.product,
+      productUrl: project.product_url ?? '',
+      competitors: project.competitors.join(', '),
+      geography: project.geography ?? '',
+      decisionContext: project.decision_context ?? '',
+      approvedSources: project.approved_sources.join(', '),
+      blockedSources: project.blocked_sources.join(', '),
+    });
+    setShowFolderModal(true);
   };
 
   return (
@@ -159,11 +210,11 @@ export function SessionSidebar({
       >
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center gap-2.5">
-            <img
+            <Image
               src="/robot.avif"
               alt=""
               width={40}
-              height={46}
+              height={40}
               className="brand-mascot w-10 h-10 shrink-0"
               draggable={false}
             />
@@ -178,10 +229,10 @@ export function SessionSidebar({
 
         <div className="px-3 pt-3 pb-2">
           <button
-            onClick={() => onNewQuery()}
+            onClick={() => onNewQuery(selectedProject ?? undefined)}
             className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11"
           >
-            <Plus size={14} /> New query
+            <Plus size={14} /> {selectedProject ? 'New project research' : 'New research'}
           </button>
         </div>
 
@@ -191,14 +242,14 @@ export function SessionSidebar({
               <div className="flex items-center gap-1.5">
                 <Folder size={12} style={{ color: textSubtle }} />
                 <span className="ui-section-label" style={{ color: textSubtle }}>
-                  Project Folders
+                  Market Projects
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => setShowFolderModal(true)}
+                onClick={openCreateProject}
                 className="hover:text-accent p-1 text-muted-foreground transition-colors"
-                title="Create Project Folder"
+                title="Create Market Project"
               >
                 <FolderPlus size={13} />
               </button>
@@ -214,54 +265,64 @@ export function SessionSidebar({
                 </div>
               ) : (
                 <>
-                  {/* Custom Project Folders */}
-                  {folders.map((folderName) => {
-                    const isOpen = expandedFolders[folderName] !== false;
+                  {projects.map((project) => {
+                    const isOpen = expandedFolders[project.id] !== false;
                     const folderSessions = sessions.filter(
-                      (s) => s.folder_name?.toLowerCase() === folderName.toLowerCase(),
+                      (session) => session.project_id === project.id,
                     );
 
                     return (
-                      <div key={folderName} className="flex flex-col gap-0.5">
+                      <div key={project.id} className="flex flex-col gap-0.5">
                         <div
                           onClick={() => {
-                            toggleFolder(folderName);
-                            if (onSelectFolder) onSelectFolder(folderName);
+                            toggleFolder(project.id);
+                            onSelectProject?.(project);
                           }}
                           className={`flex items-center justify-between px-2 py-1.5 rounded-xl cursor-pointer select-none transition-all group relative border ${
-                            selectedFolder?.toLowerCase() === folderName.toLowerCase()
+                            selectedProject?.id === project.id
                               ? 'bg-accent/20 border-accent/40 shadow-xs ring-1 ring-accent/30 text-accent'
                               : 'border-transparent hover:bg-accent/10'
                           }`}
                         >
                           <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
                             {isOpen ? (
-                              <ChevronDown size={13} className={selectedFolder?.toLowerCase() === folderName.toLowerCase() ? 'text-accent' : 'text-muted-foreground shrink-0'} />
+                              <ChevronDown size={13} className={selectedProject?.id === project.id ? 'text-accent' : 'text-muted-foreground shrink-0'} />
                             ) : (
-                              <ChevronRight size={13} className={selectedFolder?.toLowerCase() === folderName.toLowerCase() ? 'text-accent' : 'text-muted-foreground shrink-0'} />
+                              <ChevronRight size={13} className={selectedProject?.id === project.id ? 'text-accent' : 'text-muted-foreground shrink-0'} />
                             )}
                             {isOpen ? (
                               <FolderOpen size={14} className="text-accent shrink-0" />
                             ) : (
                               <Folder size={14} className="text-accent/80 shrink-0" />
                             )}
-                            <span className={`text-xs truncate ${selectedFolder?.toLowerCase() === folderName.toLowerCase() ? 'font-bold text-accent' : 'font-semibold text-foreground'}`}>
-                              {folderName}
+                            <span className={`min-w-0 truncate text-xs ${selectedProject?.id === project.id ? 'font-bold text-accent' : 'font-semibold text-foreground'}`} title={`${project.product}${project.geography ? ` · ${project.geography}` : ''}`}>
+                              {project.name}
                             </span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openEditProject(project);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-accent hover:bg-accent/10 rounded-md transition-all cursor-pointer"
+                              title={`Edit project ${project.name}`}
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setDeleteConfirm({
-                                  type: 'folder',
-                                  idOrName: folderName,
-                                  displayTitle: `folder "${folderName}"`,
+                                  type: 'project',
+                                  idOrName: project.id,
+                                  displayTitle: `project "${project.name}"`,
                                 });
                               }}
                               className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-600 hover:bg-red-500/15 rounded-md transition-all cursor-pointer"
-                              title={`Delete folder ${folderName}`}
+                              title={`Delete project ${project.name}`}
                             >
                               <Trash2 size={12} className="text-red-500" />
                             </button>
@@ -275,13 +336,16 @@ export function SessionSidebar({
                           <div className="ml-3 pl-2.5 border-l border-border/40 flex flex-col gap-0.5 my-0.5">
                             {folderSessions.length === 0 ? (
                               <span className="text-[11px] text-muted-foreground italic px-2 py-1 block">
-                                No chats in folder
+                                No research conversations yet
                               </span>
                             ) : (
                               folderSessions.map((session) => (
                                 <div
                                   key={session.id}
-                                  onClick={() => onLoadSession(session.id)}
+                                  onClick={() => {
+                                    onSelectProject?.(project);
+                                    onLoadSession(session.id);
+                                  }}
                                   className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-xs transition-all ${
                                     currentSessionId === session.id
                                       ? 'bg-accent/20 text-accent font-semibold'
@@ -346,7 +410,10 @@ export function SessionSidebar({
                           sessions.map((session) => (
                             <div
                               key={session.id}
-                              onClick={() => onLoadSession(session.id)}
+                              onClick={() => {
+                                onSelectProject?.(projects.find((project) => project.id === session.project_id) ?? null);
+                                onLoadSession(session.id);
+                              }}
                               className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-xs transition-all ${
                                 currentSessionId === session.id
                                   ? 'bg-accent/20 text-accent font-semibold'
@@ -402,7 +469,7 @@ export function SessionSidebar({
             <div className="flex items-center justify-between pb-2 border-b border-border/50">
               <div className="flex items-center gap-2">
                 <FolderPlus size={16} className="text-accent" />
-                <h3 className="text-sm font-bold text-foreground">Create Project Folder</h3>
+                <h3 className="text-sm font-bold text-foreground">{editingProjectId ? 'Edit Market Project' : 'Create Market Project'}</h3>
               </div>
               <button
                 type="button"
@@ -413,20 +480,101 @@ export function SessionSidebar({
               </button>
             </div>
 
-            <form onSubmit={handleCreateFolder} className="flex flex-col gap-3">
+            <form onSubmit={handleCreateProject} className="flex flex-col gap-3">
               <div>
                 <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                  Folder Name
+                  Project name
                 </label>
                 <input
                   type="text"
                   autoFocus
-                  placeholder="e.g. 2026 Competitive Strategy"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="e.g. Acme 2026 market watch"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject((value) => ({ ...value, name: e.target.value }))}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
                 />
               </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Product or company</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Analytics"
+                  value={newProject.product}
+                  onChange={(e) => setNewProject((value) => ({ ...value, product: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Product URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://…"
+                    value={newProject.productUrl}
+                    onChange={(e) => setNewProject((value) => ({ ...value, productUrl: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Geography</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sri Lanka"
+                    value={newProject.geography}
+                    onChange={(e) => setNewProject((value) => ({ ...value, geography: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Competitors</label>
+                <input
+                  type="text"
+                  placeholder="Comma separated: Rival A, Rival B"
+                  value={newProject.competitors}
+                  onChange={(e) => setNewProject((value) => ({ ...value, competitors: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Decision to support</label>
+                <textarea
+                  rows={3}
+                  placeholder="What decision should this research help you make?"
+                  value={newProject.decisionContext}
+                  onChange={(e) => setNewProject((value) => ({ ...value, decisionContext: e.target.value }))}
+                  className="w-full resize-none px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Preferred domains</label>
+                  <input
+                    type="text"
+                    placeholder="official.com, regulator.gov"
+                    value={newProject.approvedSources}
+                    onChange={(e) => setNewProject((value) => ({ ...value, approvedSources: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Avoid domains</label>
+                  <input
+                    type="text"
+                    placeholder="Research preference, not a security block"
+                    value={newProject.blockedSources}
+                    onChange={(e) => setNewProject((value) => ({ ...value, blockedSources: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              {projectError ? <p className="text-xs text-red-500">{projectError}</p> : null}
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
@@ -438,10 +586,10 @@ export function SessionSidebar({
                 </button>
                 <button
                   type="submit"
-                  disabled={!newFolderName.trim()}
+                  disabled={!newProject.name.trim() || !newProject.product.trim()}
                   className="px-4.5 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
-                  Create Folder
+                  {editingProjectId ? 'Save Project' : 'Create Project'}
                 </button>
               </div>
             </form>
@@ -462,7 +610,10 @@ export function SessionSidebar({
               <div>
                 <h3 className="text-sm font-bold text-foreground">Confirm Deletion</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Are you sure you want to delete {deleteConfirm.displayTitle}? This action will permanently remove it from your database.
+                  Are you sure you want to delete {deleteConfirm.displayTitle}?
+                  {deleteConfirm.type === 'project'
+                    ? ' Its conversations will remain available under All Recent Research.'
+                    : ' This conversation will be permanently removed.'}
                 </p>
               </div>
             </div>

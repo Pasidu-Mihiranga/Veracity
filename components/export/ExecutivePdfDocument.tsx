@@ -179,11 +179,11 @@ function barColor(direction: ReportTrendBar['direction']): string {
 }
 
 function TrendBars({ trends }: { trends: ReportTrendBar[] }) {
-  const max = Math.max(...trends.map((t) => t.changePercent || 1), 1);
+  const max = Math.max(...trends.map((t) => Math.abs(t.changePercent)), 1);
   return (
     <>
       {trends.map((t, i) => {
-        const widthPct = Math.max(8, Math.round((t.changePercent / max) * 100));
+        const widthPct = Math.max(0, Math.round((Math.abs(t.changePercent) / max) * 100));
         const dirLabel = t.direction === 'up' ? '↑' : t.direction === 'down' ? '↓' : '→';
         return (
           <View key={`${t.keyword}-${i}`} style={styles.trendRow} wrap={false}>

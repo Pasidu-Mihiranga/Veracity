@@ -1,19 +1,74 @@
 'use client';
 
-import { Scale, ShieldAlert } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookmarkCheck, Scale, ShieldAlert } from 'lucide-react';
 import type { OrchestratorOutput } from '@/lib/agents/types';
 import type { ProductViewMode } from '@/types/chat-ui';
+import { confidenceFromRecLevel } from '@/lib/decision-policy';
+import { recommendationKey } from '@/lib/feedback';
 
 type Props = {
   output?: OrchestratorOutput;
   viewMode: ProductViewMode;
+  sessionId?: string | null;
 };
 
-export function DecisionSupportPack({ output, viewMode }: Props) {
+type DecisionAction = 'accepted' | 'deferred' | 'rejected';
+
+export function DecisionSupportPack({ output, viewMode, sessionId }: Props) {
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState<DecisionAction | null>(null);
+  const [status, setStatus] = useState('');
+  const decisionIdentity = `${output?.product ?? ''}:${output?.decisionFrame?.recommendation ?? ''}`;
+
+  useEffect(() => {
+    setReason('');
+    setStatus('');
+    setSaving(null);
+  }, [decisionIdentity]);
+
+  const supportingRecommendation = useMemo(() => {
+    if (!output?.decisionFrame) return undefined;
+    return output.topRecommendations?.find(
+      (item) => item.title === output.decisionFrame?.recommendation,
+    ) ?? output.topRecommendations?.[0];
+  }, [output]);
+
   if (!output?.decisionFrame || !output.executiveContent) return null;
   const frame = output.decisionFrame;
   const appendix = output.executiveContent.decisionAppendix;
   const executive = viewMode === 'executive' || viewMode === 'business';
+
+  const saveDecision = async (decision: DecisionAction) => {
+    if (!sessionId || !reason.trim() || saving) return;
+    setSaving(decision);
+    setStatus('');
+    try {
+      const response = await fetch('/api/decisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: frame.recommendation,
+          rationale: supportingRecommendation?.rationale ?? frame.situation,
+          decision,
+          reason: reason.trim(),
+          confidence: confidenceFromRecLevel(supportingRecommendation?.confidence),
+          sessionId,
+          sourceRecommendationKey: recommendationKey(
+            frame.recommendation,
+            supportingRecommendation?.rationale ?? frame.situation,
+          ),
+          evidenceUrls: supportingRecommendation?.sourceUrls ?? [],
+        }),
+      });
+      if (!response.ok) throw new Error('Decision could not be saved');
+      setStatus(decision === 'accepted' ? 'Decision adopted.' : decision === 'deferred' ? 'Decision added to watch.' : 'Decision rejected.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Decision could not be saved');
+    } finally {
+      setSaving(null);
+    }
+  };
 
   return (
     <section className="veracity-card p-5 lg:p-6 flex flex-col gap-5">
@@ -64,6 +119,40 @@ export function DecisionSupportPack({ output, viewMode }: Props) {
         </div>
       </div>
 
+      {sessionId ? (
+        <div className="border-t border-border pt-4 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <BookmarkCheck size={13} className="text-accent" />
+            <p className="text-[10px] font-mono uppercase text-muted-foreground">Record this decision</p>
+          </div>
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Why does this fit—or not fit—your situation?"
+            rows={2}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus:border-accent"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              ['accepted', 'Adopt'],
+              ['deferred', 'Watch'],
+              ['rejected', 'Reject'],
+            ] as Array<[DecisionAction, string]>).map(([decision, label]) => (
+              <button
+                key={decision}
+                type="button"
+                disabled={!reason.trim() || Boolean(saving)}
+                onClick={() => { void saveDecision(decision); }}
+                className="rounded-lg border border-border bg-background px-3 py-1.5 text-[10px] font-mono uppercase text-foreground disabled:opacity-40"
+              >
+                {saving === decision ? 'Saving…' : label}
+              </button>
+            ))}
+            {status ? <span role="status" className="text-xs text-muted-foreground">{status}</span> : null}
+          </div>
+        </div>
+      ) : null}
+
       {executive ? (
         <details className="border-t border-border pt-4">
           <summary className="cursor-pointer flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
@@ -104,4 +193,3 @@ function AppendixList({ label, values }: { label: string; values: string[] }) {
     </div>
   );
 }
-
