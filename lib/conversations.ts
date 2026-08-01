@@ -4,6 +4,7 @@ export interface ChatSession {
   id: string;
   title: string;
   folder_name?: string | null;
+  project_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -17,12 +18,16 @@ export interface StoredMessage {
   created_at: string;
 }
 
-export async function createSession(title: string, folderName?: string | null): Promise<ChatSession | null> {
+export async function createSession(
+  title: string,
+  folderName?: string | null,
+  projectId?: string | null,
+): Promise<ChatSession | null> {
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ title, folderName }),
+    body: JSON.stringify({ title, folderName, projectId }),
   });
   if (!res.ok) {
     console.error('createSession:', res.status);

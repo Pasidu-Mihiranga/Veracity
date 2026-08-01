@@ -6,7 +6,7 @@ const FORCE_FULL_PREFIX = 'veracity:forceFullSweep:';
 
 export function defaultSelectedAgents(): Record<Domain, boolean> {
   return Object.fromEntries(
-    ALL_DOMAINS.map((d) => [d, d !== 'mirofish-live']),
+    ALL_DOMAINS.map((d) => [d, d !== 'mirofish' && d !== 'mirofish-live']),
   ) as Record<Domain, boolean>;
 }
 

@@ -12,6 +12,7 @@ import type {
   SessionUsage,
   SourceLink,
 } from '@/types/chat-ui';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 
 export type ChatRequestBody = {
   query: string;
@@ -25,6 +26,7 @@ export type ChatRequestBody = {
   forceFullSweep?: boolean;
   sessionId?: string;
   conversationId?: string;
+  turnMode?: ResearchTurnMode;
 };
 
 export type ChatHistoryItem = {
@@ -168,7 +170,7 @@ export function applyResultToAssistant(
       ...agentRuns.filter(r => r.agentId !== 'mirofish'),
       {
         agentId: 'mirofish',
-        name: 'MiroFish (Forecast)',
+        name: 'Swarm Decision Lab',
         status: 'running',
         startedAt: new Date().toISOString(),
       } as AgentRun,
@@ -180,7 +182,7 @@ export function applyResultToAssistant(
       ...agentRuns.filter(r => r.agentId !== 'mirofish-live'),
       {
         agentId: 'mirofish-live',
-        name: 'MiroFish Live (Real VPS)',
+        name: 'Swarm Decision Lab (Live)',
         status: 'running',
         startedAt: new Date().toISOString(),
       } as AgentRun,

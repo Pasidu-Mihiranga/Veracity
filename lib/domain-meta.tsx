@@ -106,8 +106,8 @@ export const DOMAIN_META: Record<Domain, DomainMeta> = {
     border: 'rgba(0,82,163,0.35)',
   },
   mirofish: {
-    label: 'MiroFish (Forecast)',
-    short: 'MiroFish',
+    label: 'Swarm Decision Lab',
+    short: 'Scenario Lab',
     icon: <Fish size={14} />,
     color: '#9ED8FF',
     colorLight: '#0B4F8C',
@@ -116,8 +116,8 @@ export const DOMAIN_META: Record<Domain, DomainMeta> = {
     border: 'rgba(11,79,140,0.4)',
   },
   'mirofish-live': {
-    label: 'MiroFish Live (Real VPS)',
-    short: 'MiroFish Live',
+    label: 'Swarm Decision Lab (Live)',
+    short: 'Live Scenario',
     icon: <Fish size={14} />,
     color: '#1A5A9A',
     colorLight: '#063A6B',
