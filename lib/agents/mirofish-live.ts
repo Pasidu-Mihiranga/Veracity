@@ -3,9 +3,8 @@
  *
  * Runs against the real MiroFish VPS at MIROFISH_LIVE_BASE_URL.
  * Unlike the standard mirofish agent there is NO synthetic fallback —
- * if the backend is unreachable the agent returns a clear empty output
- * so the UI can show "Live VPS unavailable" rather than silently
- * substituting synthetic data.
+ * if the backend is unreachable the agent fails clearly rather than silently
+ * substituting synthetic data or invented neutral values.
  *
  * This agent is opt-in only (not in ALL_AGENTS) and is dispatched via
  * runMirofishLiveAgent in orchestrator.ts when the user has toggled it.
@@ -24,37 +23,13 @@ import type {
   AgentConfig,
   AgentContext,
   AgentOutput,
-  ForecastOutput,
+  SwarmScenarioOutput,
   AgentSource,
 } from './types';
 import { scoreToLevel } from './types';
+import { normalizeScenarioDistribution } from '../swarm-scenario';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeEmptyForecast(query: string, reason: string): ForecastOutput {
-  return {
-    agentId: 'mirofish-live',
-    domain: 'mirofish-live',
-    artifactType: 'forecast-chart',
-    confidence: 'low',
-    confidenceScore: 0.1,
-    facts: [],
-    interpretation: [`MiroFish Live unavailable: ${reason}`],
-    sources: [],
-    generatedAt: new Date().toISOString(),
-    question: query,
-    pointEstimate: 0,
-    unit: 'probability',
-    confidenceLow: 0,
-    confidenceHigh: 0,
-    direction: 'flat',
-    swarmSize: 0,
-    timeHorizon: 'unknown',
-    distribution: [],
-    contributingSignals: [],
-    rationale: `Live swarm unavailable: ${reason}`,
-  };
-}
 
 function getLiveMaxAgents(): number {
   return getConfig().MIROFISH_LIVE_MAX_AGENTS;
@@ -83,14 +58,14 @@ async function translateToEnglishIfNeeded(text: string | undefined): Promise<str
   }
 }
 
-async function formulateForecastQuestion(
+async function formulateScenarioQuestion(
   query: string,
   product: string,
   competitor: string | undefined,
   priorContext: string | undefined,
 ): Promise<string> {
   const fallback = query.trim();
-  const prompt = `You are a prediction-market question writer.
+  const prompt = `You prepare questions for a synthetic stakeholder scenario panel.
 
 Product: ${product}${competitor ? `\nCompetitor: ${competitor}` : ''}
 ${priorContext ? `Prior context:\n${priorContext}\n` : ''}
@@ -135,50 +110,40 @@ function sanitiseInterviewQuestion(raw: string | undefined, fallback: string): s
   return cleaned || fallback;
 }
 
-async function synthesiseForecast(params: {
-  forecastQuestion: string;
+async function synthesiseScenario(params: {
+  scenarioQuestion: string;
   product: string;
   swarmResponses: string[];
   swarmSize: number;
   trendSummary: string;
   priorContext: string | undefined;
 }): Promise<{
-  pointEstimate: number;
-  unit: 'probability' | 'value' | 'percent';
-  confidenceLow: number;
-  confidenceHigh: number;
-  direction: 'up' | 'down' | 'flat';
   timeHorizon: string;
   distribution: { label: string; count: number }[];
-  contributingSignals: { persona: string; weight: number; excerpt?: string }[];
+  perspectives: { persona: string; weight: number; excerpt?: string }[];
   confidenceScore: number;
-  facts: string[];
+  scenarioObservations: string[];
   interpretation: string[];
   rationale: string;
 }> {
   const responsesSample = params.swarmResponses.slice(0, 30).join('\n---\n');
-  const prompt = `You are a market-intelligence analyst synthesising a live swarm of real simulated personas.
+  const prompt = `You are a market-intelligence analyst synthesising a configured panel of synthetic personas.
 
-Swarm question: "${params.forecastQuestion}"
+Scenario question: "${params.scenarioQuestion}"
 Product/Subject: ${params.product}
-Live swarm size: ${params.swarmSize} personas responded from MiroFish VPS
+Panel size: ${params.swarmSize} synthetic personas responded from MiroFish VPS
 ${params.priorContext ? `Prior research context:\n${params.priorContext}\n` : ''}
 Trend baseline: ${params.trendSummary || 'unavailable'}
 
 Live swarm responses (sample):
 ${responsesSample}
 
-Synthesise into a structured swarm consensus. Stay true to what was asked.
-For threat/landscape questions, pointEstimate = severity (0=none, 1=critical).
-For future-event questions, pointEstimate = probability.
+Summarise this synthetic panel. Stay true to what was asked and preserve disagreement.
+Do not estimate real-world probability, market share, confidence intervals, or population representativeness.
+Distribution counts MUST be non-negative integers and MUST sum exactly to ${params.swarmSize}.
 
 Reply with ONLY valid JSON:
 {
-  "pointEstimate": 0.0-1.0,
-  "unit": "probability",
-  "confidenceLow": 0.0-1.0,
-  "confidenceHigh": 0.0-1.0,
-  "direction": "up"|"down"|"flat",
   "timeHorizon": "string",
   "distribution": [
     { "label": "high", "count": 0 },
@@ -186,40 +151,23 @@ Reply with ONLY valid JSON:
     { "label": "neutral", "count": 0 },
     { "label": "low", "count": 0 }
   ],
-  "contributingSignals": [
+  "perspectives": [
     { "persona": "string", "weight": -1.0 to 1.0, "excerpt": "short quote" }
   ],
   "confidenceScore": 0.0-1.0,
-  "facts": ["string"],
+  "scenarioObservations": ["string"],
   "interpretation": ["string"],
   "rationale": "string"
 }
 
 All output must be in English.
-If source snippets are non-English, translate them into English before writing facts, interpretation, or contributingSignals excerpts.`;
+If source snippets are non-English, translate them into English before writing observations, interpretation, or perspective excerpts.`;
 
-  try {
-    return await generateHuggingFaceJson<any>(
-      'You are a prediction-market analyst.',
-      prompt,
-      { maxNewTokens: 1400, temperature: 0.2 },
-    );
-  } catch {
-    return {
-      pointEstimate: 0.5,
-      unit: 'probability',
-      confidenceLow: 0.3,
-      confidenceHigh: 0.7,
-      direction: 'flat',
-      timeHorizon: '6 months',
-      distribution: [],
-      contributingSignals: [],
-      confidenceScore: 0.35,
-      facts: [`${params.swarmSize} live personas were polled from MiroFish VPS`],
-      interpretation: ['Live synthesis parsing failed; raw swarm data was received'],
-      rationale: 'Live synthesis step encountered an error. Raw swarm data was collected from the VPS.',
-    };
-  }
+  return generateHuggingFaceJson<any>(
+    'You summarize synthetic stakeholder scenarios without claiming real-world prediction.',
+    prompt,
+    { maxNewTokens: 1400, temperature: 0.2 },
+  );
 }
 
 // ── Main run ─────────────────────────────────────────────────────────────────
@@ -231,23 +179,17 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   // Step 0: Resolve simulation_id from LIVE map
   const simulationId = getLiveSimulationIdForProduct(product);
   if (!simulationId) {
-    return makeEmptyForecast(
-      query,
-      'No simulation configured — add MIROFISH_LIVE_SIMULATIONS to your env and run the bootstrap script against MIROFISH_LIVE_BASE_URL.',
-    );
+    throw new Error('No simulation configured. Add MIROFISH_LIVE_SIMULATIONS and prepare the scenario before enabling the live panel.');
   }
 
   // Step 1: Health check — fail fast if VPS is down
   const ready = await isLiveSimulationReady(simulationId).catch(() => false);
   if (!ready) {
-    return makeEmptyForecast(
-      query,
-      `MiroFish Live at ${getLiveBaseUrlOrLabel()} is unreachable or simulation not ready. Check MIROFISH_LIVE_BASE_URL and service health.`,
-    );
+    throw new Error(`MiroFish Live at ${getLiveBaseUrlOrLabel()} is unreachable or the configured scenario is not ready.`);
   }
 
-  // Step 2: Formulate forecast question
-  const forecastQuestion = await formulateForecastQuestion(
+  // Step 2: Formulate a faithful scenario question
+  const scenarioQuestion = await formulateScenarioQuestion(
     query, product, competitor, priorContext,
   ).catch(() => sanitiseInterviewQuestion(query, query));
 
@@ -256,7 +198,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   let trendSummary = '';
 
   const [interviewResult, trendsResult] = await Promise.allSettled([
-    interviewLiveSwarm(simulationId, forecastQuestion, {
+    interviewLiveSwarm(simulationId, scenarioQuestion, {
       timeoutSec: getLiveInterviewTimeoutSec(),
       maxAgents: getLiveMaxAgents(),
     }),
@@ -265,17 +207,14 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   ]);
 
   if (interviewResult.status === 'rejected') {
-    return makeEmptyForecast(
-      query,
-      `Live swarm interviews failed: ${interviewResult.reason instanceof Error ? interviewResult.reason.message : String(interviewResult.reason)}`,
-    );
+    throw new Error(`Live scenario interviews failed: ${interviewResult.reason instanceof Error ? interviewResult.reason.message : String(interviewResult.reason)}`);
   }
 
   swarmBundle = interviewResult.value.data;
 
   sources.push({
     url: interviewResult.value.sourceUrl ?? `${getLiveBaseUrlOrLabel()}/api/simulation/interview`,
-    title: `MiroFish Live VPS — ${swarmBundle.totalCount} real personas polled`,
+    title: `MiroFish Live VPS — ${swarmBundle.totalCount} synthetic personas interviewed`,
     timestamp: new Date().toISOString(),
     tool: 'mirofish-live',
   });
@@ -297,13 +236,13 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   }
 
   if (!swarmBundle.totalCount) {
-    return makeEmptyForecast(query, 'Live swarm returned no responses.');
+    throw new Error('The configured live scenario returned no persona responses.');
   }
 
-  // Step 4: Synthesise live swarm responses
+  // Step 4: Synthesise responses as a labeled scenario, never a forecast.
   const swarmResponseTexts = swarmBundle.responses.map(r => r.response).filter(Boolean);
-  const synthesised = await synthesiseForecast({
-    forecastQuestion,
+  const synthesised = await synthesiseScenario({
+    scenarioQuestion,
     product,
     swarmResponses: swarmResponseTexts,
     swarmSize: swarmBundle.totalCount,
@@ -311,44 +250,57 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     priorContext,
   });
 
-  const [factsEn, interpretationEn, rationaleEn, signalsEn] = await Promise.all([
-    Promise.all((synthesised.facts ?? []).map(f => translateToEnglishIfNeeded(f))).then(arr => arr.filter(Boolean) as string[]),
+  const [observationsEn, interpretationEn, rationaleEn, perspectivesEn] = await Promise.all([
+    Promise.all((synthesised.scenarioObservations ?? []).map(f => translateToEnglishIfNeeded(f))).then(arr => arr.filter(Boolean) as string[]),
     Promise.all((synthesised.interpretation ?? []).map(i => translateToEnglishIfNeeded(i))).then(arr => arr.filter(Boolean) as string[]),
     translateToEnglishIfNeeded(synthesised.rationale).then(v => v ?? synthesised.rationale),
-    Promise.all((synthesised.contributingSignals ?? []).map(async s => ({
+    Promise.all((synthesised.perspectives ?? []).map(async s => ({
       ...s,
       persona: (await translateToEnglishIfNeeded(s.persona)) ?? s.persona,
       excerpt: await translateToEnglishIfNeeded(s.excerpt),
     }))),
   ]);
 
+  const distribution = normalizeScenarioDistribution(synthesised.distribution, swarmBundle.totalCount);
+  const distributionLimitation = distribution.length === 0
+    ? ['Generated category counts did not reconcile to panel size, so the distribution chart is hidden.']
+    : [];
+
   return {
     agentId: 'mirofish-live',
     domain: 'mirofish-live',
-    artifactType: 'forecast-chart',
+    artifactType: 'scenario-distribution',
+    dataClass: 'synthetic',
     confidence: scoreToLevel(synthesised.confidenceScore),
     confidenceScore: synthesised.confidenceScore,
-    facts: factsEn,
+    facts: [],
     interpretation: interpretationEn,
     sources,
     generatedAt: new Date().toISOString(),
-    question: forecastQuestion,
-    pointEstimate: synthesised.pointEstimate,
-    unit: synthesised.unit,
-    confidenceLow: synthesised.confidenceLow,
-    confidenceHigh: synthesised.confidenceHigh,
-    direction: synthesised.direction,
+    question: scenarioQuestion,
     swarmSize: swarmBundle.totalCount,
     timeHorizon: synthesised.timeHorizon,
-    distribution: synthesised.distribution ?? [],
-    contributingSignals: signalsEn ?? [],
+    distribution,
+    perspectives: perspectivesEn ?? [],
+    scenarioObservations: observationsEn,
+    personaResponses: swarmBundle.responses.map((response, index) => ({
+      persona: `Synthetic persona ${index + 1}`,
+      response: response.response,
+    })),
     rationale: rationaleEn ?? synthesised.rationale,
-  } as ForecastOutput;
+    methodology: `Configured MiroFish Live panel; ${swarmBundle.totalCount} synthetic personas interviewed and summarized by the configured language model.`,
+    limitations: [
+      'Synthetic personas are not a representative survey sample.',
+      'Responses reflect model behavior and scenario inputs, not observed customer decisions.',
+      'Use this output to discover objections and test assumptions, not to estimate market probability.',
+      ...distributionLimitation,
+    ],
+  } as SwarmScenarioOutput;
 }
 
 export const mirofishLiveAgent: AgentConfig = {
   id: 'mirofish-live',
-  name: 'MiroFish Live (Real VPS)',
-  description: 'Live swarm forecasting — interviews real MiroFish personas via MIROFISH_LIVE_BASE_URL. No synthetic fallback.',
+  name: 'Swarm Decision Lab (Live)',
+  description: 'Configured synthetic stakeholder scenario served by MIROFISH_LIVE_BASE_URL. No fabricated fallback.',
   run,
 };

@@ -39,6 +39,8 @@ export interface AgentOutput {
   sources: AgentSource[];
   generatedAt: string;
   artifactType: ArtifactType;
+  /** Public truth class for the artifact. Never infer synthetic output as observed evidence. */
+  dataClass?: 'observed' | 'derived' | 'synthetic';
   /**
    * When quality gate abstains (weak / ambiguous entity), Stage-1 cards are
    * category context — not claims about a confirmed product.
@@ -142,6 +144,7 @@ export type ArtifactType =
   | 'mind-map'
   | 'scorecard'
   | 'execution-plan'
+  | 'scenario-distribution'
   | 'forecast-chart';
 
 // ─── Domain-specific output shapes ───────────────────────────────────────────
@@ -490,7 +493,7 @@ export interface RefinementInfo {
   feedbackSummary: string;
 }
 
-// ─── MiroFish Forecast output (Member 3 — Swarm-Simulation Agent) ────────────
+// ─── Legacy MiroFish forecast output (read compatibility only) ───────────────
 
 export interface ForecastSignal {
   persona: string;        // e.g. "skeptical VP of Engineering"
@@ -516,6 +519,27 @@ export interface ForecastOutput extends AgentOutput {
   distribution: DistributionBucket[];   // sentiment distribution across the swarm
   contributingSignals: ForecastSignal[]; // top 3-5 personas + influence weight
   rationale: string;                    // 2-3 sentence plain-English forecast summary
+}
+
+export interface SwarmPersonaResponse {
+  persona: string;
+  response: string;
+}
+
+/** Synthetic stakeholder scenario. It is not survey evidence or a calibrated forecast. */
+export interface SwarmScenarioOutput extends AgentOutput {
+  artifactType: 'scenario-distribution';
+  dataClass: 'synthetic';
+  question: string;
+  swarmSize: number;
+  timeHorizon: string;
+  distribution: DistributionBucket[];
+  perspectives: ForecastSignal[];
+  scenarioObservations: string[];
+  personaResponses: SwarmPersonaResponse[];
+  rationale: string;
+  methodology: string;
+  limitations: string[];
 }
 
 // ─── Image attachment ────────────────────────────────────────────────────────

@@ -871,7 +871,7 @@ export async function orchestrate(
 }
 
 // ── Optional MiroFish agent — runs independently after main result ────────────
-// Called by the route handler only when the user has toggled "MiroFish Forecast".
+// Called by the route handler only when the user has enabled the scenario lab.
 // This keeps orchestrate() fast (6 agents) while MiroFish completes in the
 // background with the stream still open.
 export async function runMirofishAgent(
@@ -907,7 +907,7 @@ export async function runMirofishAgent(
   onAgentUpdate?.(run);
 
   try {
-    onOrchestrationLog?.('MiroFish: running forecast agent…');
+    onOrchestrationLog?.('Swarm Decision Lab: running synthetic stakeholder scenario…');
     const output = await mirofishAgent.run(agentContext);
     onAgentUpdate?.({ ...run, status: 'completed', completedAt: new Date().toISOString() });
     return output;
@@ -917,7 +917,7 @@ export async function runMirofishAgent(
   }
 }
 
-// ── MiroFish Live agent — real VPS only, no synthetic fallback ────────────────
+// ── MiroFish Live agent — configured service only, no fabricated fallback ────
 // Dispatched only when the user has toggled "MiroFish Live" in the UI.
 export async function runMirofishLiveAgent(
   query: string,
@@ -927,18 +927,6 @@ export async function runMirofishLiveAgent(
   memoryContext?: string,
   onOrchestrationLog?: (message: string) => void,
 ): Promise<AgentOutput | null> {
-  const isUnavailableLiveOutput = (output: AgentOutput): boolean => {
-    const forecastLike = output as AgentOutput & { rationale?: string; swarmSize?: number };
-    const interpretation = Array.isArray(output.interpretation) ? output.interpretation : [];
-    const rationale = typeof forecastLike.rationale === 'string' ? forecastLike.rationale : '';
-    const swarmSize = typeof forecastLike.swarmSize === 'number' ? forecastLike.swarmSize : undefined;
-    return (
-      interpretation.some(line => /mirofish live unavailable|live swarm unavailable|live swarm interviews failed/i.test(line)) ||
-      /unavailable|interviews failed|no responses/i.test(rationale) ||
-      swarmSize === 0
-    );
-  };
-
   onOrchestrationLog?.('MiroFish Live: connecting via MIROFISH_LIVE_BASE_URL…');
   const classification = await classifyQuery(query, history, images, memoryContext);
   const { product, competitor, productUrl, competitorUrl, intent } = classification;
@@ -968,14 +956,12 @@ export async function runMirofishLiveAgent(
   onAgentUpdate?.(liveRun);
 
   try {
-    onOrchestrationLog?.('MiroFish Live: interviewing live swarm…');
+    onOrchestrationLog?.('Swarm Decision Lab (Live): interviewing configured synthetic panel…');
     const output = await mirofishLiveAgent.run(agentContext);
-    const failed = isUnavailableLiveOutput(output);
     onAgentUpdate?.({
       ...liveRun,
-      status: failed ? 'failed' : 'completed',
+      status: 'completed',
       completedAt: new Date().toISOString(),
-      ...(failed ? { error: (output as AgentOutput & { rationale?: string }).rationale ?? 'Live swarm unavailable' } : {}),
     });
     return output;
   } catch (err) {

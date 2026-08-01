@@ -20,6 +20,7 @@ import {
   transitionResearchJobRetry,
 } from '@/lib/research-jobs';
 import { processMonitoringJobResult } from '@/lib/monitoring/process-result';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 
 export type SweepRequestedData = {
   jobId: string;
@@ -36,6 +37,7 @@ export type SweepRequestedData = {
   forceExecution?: boolean;
   includeMirofish?: boolean;
   includeMirofishLive?: boolean;
+  turnMode?: ResearchTurnMode;
   kind?: string;
   watchlistId?: string;
   product?: string;

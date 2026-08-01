@@ -112,33 +112,10 @@ Produce a JSON object with this exact shape:
   "confidenceScore": number            // 0.0 - 1.0
 }`;
 
-  let parsed: any = {};
-  try {
-    parsed = await generateHuggingFaceJson<any>(systemPrompt, userPrompt, {
-      maxNewTokens: 1400,
-      temperature: 0.2,
-    });
-  } catch {
-    parsed = {
-      brief: {
-        objective: `Drive pipeline for ${product}`,
-        targetAudience: 'VP Sales / Head of Growth at Series B+ SaaS',
-        painPoints: ['Manual outreach at scale', 'Poor signal-to-noise in prospecting', 'Headcount constraints'],
-        keyMessagingAngles: [
-          { angle: 'ROI-focused', hypothesis: 'Buyers prioritise cost-per-meeting over features' },
-          { angle: 'Competitor gap', hypothesis: 'Highlighting competitor weakness increases curiosity' },
-        ],
-        variantsSummary: 'Two initial variants: ROI and competitor-gap angles',
-        channelStrategy: 'Cold email + LinkedIn',
-        successMetrics: ['reply rate > 4%', 'meetings booked per 100 outreach'],
-        nextSteps: ['Run A/B test on Variant A vs B', 'Analyse reply sentiment after 72h'],
-      },
-      angles: ['ROI-focused', 'Competitor gap', 'Insight-led'],
-      facts: rawContent.slice(0, 3).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['Content synthesis temporarily unavailable — raw data used as fallback.'],
-      confidenceScore: 0.4,
-    };
-  }
+  const parsed = await generateHuggingFaceJson<any>(systemPrompt, userPrompt, {
+    maxNewTokens: 1400,
+    temperature: 0.2,
+  });
 
   const rawScore: number = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0.6;
   const toolResults = extractToolResults([pageResult, redditResult, newsResult]);

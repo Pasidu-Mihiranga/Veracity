@@ -1,8 +1,8 @@
 /**
- * MiroFish Forecast Agent — Stage 1 specialist
+ * MiroFish Scenario Agent — optional synthetic stakeholder panel
  *
  * Runs in parallel with the 6 research agents.  Calls a pre-prepared MiroFish
- * swarm simulation to produce a probabilistic forecast for forward-looking queries.
+ * swarm simulation to stress-test a decision against synthetic perspectives.
  *
  * Fast path: uses /api/simulation/interview/all on an existing simulation.
  * Slow setup path: handled once out-of-band via scripts/mirofish-bootstrap.ts.
@@ -15,47 +15,21 @@ import type {
   AgentConfig,
   AgentContext,
   AgentOutput,
-  ForecastOutput,
+  SwarmScenarioOutput,
   AgentSource,
 } from './types';
 import { scoreToLevel } from './types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Return a graceful empty forecast when MiroFish is unavailable. */
-function makeEmptyForecast(query: string, reason: string): ForecastOutput {
-  return {
-    agentId: 'mirofish',
-    domain: 'mirofish',
-    artifactType: 'forecast-chart',
-    confidence: 'low',
-    confidenceScore: 0.1,
-    facts: [],
-    interpretation: [`MiroFish unavailable: ${reason}`],
-    sources: [],
-    generatedAt: new Date().toISOString(),
-    question: query,
-    pointEstimate: 0,
-    unit: 'probability',
-    confidenceLow: 0,
-    confidenceHigh: 0,
-    direction: 'flat',
-    swarmSize: 0,
-    timeHorizon: 'unknown',
-    distribution: [],
-    contributingSignals: [],
-    rationale: `Swarm prediction unavailable: ${reason}`,
-  };
-}
-
 /** Turn the user's query into a swarm poll question that stays faithful to the original intent. */
-async function formulateForecastQuestion(
+async function formulateScenarioQuestion(
   query: string,
   product: string,
   competitor: string | undefined,
   priorContext: string | undefined,
 ): Promise<string> {
-  const prompt = `You are a prediction-market question writer.
+  const prompt = `You prepare questions for a synthetic stakeholder scenario panel.
 
 Product: ${product}${competitor ? `\nCompetitor: ${competitor}` : ''}
 ${priorContext ? `Prior context:\n${priorContext}\n` : ''}
@@ -77,25 +51,20 @@ Reply with ONLY the rephrased question string, no JSON, no preamble.`;
   return result.trim() || query;
 }
 
-/** Send swarm responses + trend baseline to Gemini → structured ForecastOutput fields. */
-async function synthesiseForecast(params: {
-  forecastQuestion: string;
+/** Summarize the configured synthetic panel without claiming survey validity. */
+async function synthesiseScenario(params: {
+  scenarioQuestion: string;
   product: string;
   swarmResponses: string[];
   swarmSize: number;
   trendSummary: string;
   priorContext: string | undefined;
 }): Promise<{
-  pointEstimate: number;
-  unit: 'probability' | 'value' | 'percent';
-  confidenceLow: number;
-  confidenceHigh: number;
-  direction: 'up' | 'down' | 'flat';
   timeHorizon: string;
   distribution: { label: string; count: number }[];
-  contributingSignals: { persona: string; weight: number; excerpt?: string }[];
+  perspectives: { persona: string; weight: number; excerpt?: string }[];
   confidenceScore: number;
-  facts: string[];
+  scenarioObservations: string[];
   interpretation: string[];
   rationale: string;
 }> {
@@ -103,7 +72,7 @@ async function synthesiseForecast(params: {
 
   const prompt = `You are a market-intelligence analyst synthesising a swarm of simulated market personas.
 
-Swarm question: "${params.forecastQuestion}"
+Scenario question: "${params.scenarioQuestion}"
 Product/Subject: ${params.product}
 Swarm size: ${params.swarmSize} personas responded
 ${params.priorContext ? `Prior research context:\n${params.priorContext}\n` : ''}
@@ -112,17 +81,12 @@ Trend baseline: ${params.trendSummary || 'unavailable'}
 Swarm responses (sample):
 ${responsesSample}
 
-Synthesise these into a structured swarm consensus. Stay true to what was asked — do NOT reframe the question.
-For questions about threats, competitors, or landscape, "pointEstimate" represents the overall severity/concern level (0=no threat, 1=critical threat).
-For questions about future events, "pointEstimate" represents probability.
+Summarise this synthetic panel. Stay true to what was asked and preserve disagreement.
+Do not estimate real-world probability, market share, confidence intervals, or population representativeness.
+Distribution counts MUST be non-negative integers and MUST sum exactly to ${params.swarmSize}.
 
 Reply with ONLY valid JSON matching this exact shape:
 {
-  "pointEstimate": 0.0-1.0,           // severity/concern level or probability, depending on question type
-  "unit": "probability",
-  "confidenceLow": 0.0-1.0,          // lower bound of 90% confidence interval
-  "confidenceHigh": 0.0-1.0,         // upper bound
-  "direction": "up"|"down"|"flat",   // trend direction (up = increasing threat/likelihood)
   "timeHorizon": "string",            // e.g. "2026", "next 12 months" — use context from the question
   "distribution": [                   // 4-6 buckets reflecting swarm sentiment on THIS specific question
     { "label": "high threat", "count": 0 },
@@ -130,96 +94,20 @@ Reply with ONLY valid JSON matching this exact shape:
     { "label": "neutral", "count": 0 },
     { "label": "low threat", "count": 0 }
   ],
-  "contributingSignals": [            // top 3 persona perspectives that most influenced the synthesis
+  "perspectives": [                   // representative majority and dissenting perspectives
     { "persona": "string", "weight": -1.0 to 1.0, "excerpt": "short quote directly addressing the question" }
   ],
-  "confidenceScore": 0.0-1.0,        // overall confidence in this synthesis
-  "facts": ["string"],                // 2-4 specific findings from the swarm directly answering the question
+  "confidenceScore": 0.0-1.0,        // quality/completeness of the synthesis, not predictive confidence
+  "scenarioObservations": ["string"], // 2-4 observations about this synthetic panel only
   "interpretation": ["string"],       // 2-3 analyst insights that directly address what was asked
   "rationale": "string"               // 2-3 sentence summary that directly answers the original question
 }`;
 
-  try {
-    return await generateHuggingFaceJson<any>('You are a prediction-market analyst.', prompt, {
-      maxNewTokens: 1400,
-      temperature: 0.2,
-    });
-  } catch {
-    return {
-      pointEstimate: 0.5,
-      unit: 'probability',
-      confidenceLow: 0.3,
-      confidenceHigh: 0.7,
-      direction: 'flat',
-      timeHorizon: '6 months',
-      distribution: [],
-      contributingSignals: [],
-      confidenceScore: 0.3,
-      facts: [`${params.swarmSize} simulated personas were polled`],
-      interpretation: ['Synthesis parsing failed; raw swarm data was received'],
-      rationale: 'Synthesis step encountered an error. Raw swarm data was collected but could not be fully structured.',
-    };
-  }
+  return generateHuggingFaceJson<any>('You summarize synthetic stakeholder scenarios without claiming real-world prediction.', prompt, {
+    maxNewTokens: 1400,
+    temperature: 0.2,
+  });
 }
-
-// ── Synthetic swarm fallback ──────────────────────────────────────────────────
-// When no MiroFish backend is available, Gemini role-plays as a diverse
-// population of market personas.  Each persona gives a probability estimate +
-// short rationale.  The output is structurally identical to a real swarm run.
-
-const SYNTHETIC_PERSONAS = [
-  'enterprise CTO evaluating AI vendors',
-  'Series B SaaS founder',
-  'growth-stage product manager',
-  'B2B sales leader in tech',
-  'VC analyst tracking AI infrastructure',
-  'startup operator with sales automation background',
-  'mid-market RevOps director',
-  'digital-native SMB founder',
-  'technical co-founder building with agents',
-  'analyst at a research firm covering AI tooling',
-  'CMO at a scale-up',
-  'procurement lead at a Fortune-500 firm',
-  'developer advocate in the LLM ecosystem',
-  'early adopter SaaS power user',
-  'CFO evaluating AI ROI',
-];
-
-async function runSyntheticSwarm(
-  forecastQuestion: string,
-  product: string,
-): Promise<{ responses: string[]; totalCount: number }> {
-  const personaList = SYNTHETIC_PERSONAS.map((p, i) => `${i + 1}. ${p}`).join('\n');
-
-  const prompt = `You are simulating a panel of ${SYNTHETIC_PERSONAS.length} independent market personas answering a question about ${product}.
-
-Panel members:
-${personaList}
-
-Question: "${forecastQuestion}"
-
-For EACH persona, write a 1-2 sentence response in their voice that:
-- Directly answers the question as asked (do NOT reframe or change the topic)
-- Gives their specific view based on their background
-- Is grounded in realistic market signals for 2025/2026
-
-Reply with ONLY a JSON object with a "responses" field containing an array of ${SYNTHETIC_PERSONAS.length} strings (one per persona, in order):
-{ "responses": ["response1", "response2", ...] }`;
-
-  try {
-    const parsed = await generateHuggingFaceJson<{ responses?: string[] }>(
-      'You are a simulation engine producing structured persona responses.',
-      prompt,
-      { maxNewTokens: 1600, temperature: 0.5 },
-    );
-    const responses = Array.isArray(parsed?.responses) ? parsed.responses.filter(Boolean) : [];
-    return { responses, totalCount: responses.length };
-  } catch {
-    return { responses: [], totalCount: 0 };
-  }
-}
-
-
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext } = ctx;
@@ -234,91 +122,55 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     ? await isSimulationReady(simulationId).catch(() => false)
     : false;
 
-  // Step 2: Formulate a good forecast question from the user query
-  const forecastQuestion = await formulateForecastQuestion(
+  if (!simulationId) {
+    throw new Error(`No prepared MiroFish scenario is configured for ${product}.`);
+  }
+  if (!useRealSwarm) {
+    throw new Error(`The configured MiroFish scenario for ${product} is unavailable.`);
+  }
+
+  // Step 2: Formulate a faithful scenario question from the user query
+  const scenarioQuestion = await formulateScenarioQuestion(
     query, product, competitor, priorContext,
   ).catch(() => query);
 
-  // Step 3: Fan-out — interview swarm (real or synthetic) + trend baseline in parallel
-  let swarmBundle: { responses: { response: string }[]; totalCount: number };
-  let swarmSourceLabel: string;
+  // Step 3: Interview only the explicitly configured scenario. Provider
+  // failures are errors; they must never be replaced with plausible role-play.
+  const [interviewResult, trendsResult] = await Promise.all([
+    interviewSwarm(simulationId, scenarioQuestion, { timeoutSec: 90 }),
+    searchTrends([product, competitor].filter(Boolean) as string[]).catch(() => null),
+  ]);
+  const swarmBundle = interviewResult.data;
 
-  if (useRealSwarm && simulationId) {
-    const [interviewResult, trendsResult] = await Promise.allSettled([
-      interviewSwarm(simulationId, forecastQuestion, { timeoutSec: 90 }),
-      searchTrends([product, competitor].filter(Boolean) as string[]),
-    ]);
-
-    if (interviewResult.status === 'rejected') {
-      // Real swarm failed — fall through to synthetic below
-      const synth = await runSyntheticSwarm(forecastQuestion, product);
-      swarmBundle = { responses: synth.responses.map(r => ({ response: r })), totalCount: synth.totalCount };
-      swarmSourceLabel = `Synthetic swarm — ${synth.totalCount} AI personas (real swarm failed)`;
-    } else {
-      swarmBundle = interviewResult.value.data;
-      swarmSourceLabel = `MiroFish swarm — ${swarmBundle.totalCount} simulated personas polled`;
-      if (trendsResult.status === 'fulfilled') {
-        const td = trendsResult.value;
-        trendSummary = Array.isArray(td.data)
-          ? (td.data as Array<{ keyword?: string; value?: number }>)
-              .slice(0, 3)
-              .map(p => `${p.keyword ?? ''}: ${p.value ?? ''}`)
-              .join(', ')
-          : String(td.data ?? '');
-        sources.push({
-          url: td.sourceUrl ?? '',
-          title: 'Google Trends baseline',
-          timestamp: td.timestamp,
-          tool: 'serpapi',
-        });
-      }
-    }
-
+  if (trendsResult) {
+    trendSummary = Array.isArray(trendsResult.data)
+      ? (trendsResult.data as Array<{ keyword?: string; value?: number }>)
+          .slice(0, 3)
+          .map(p => `${p.keyword ?? ''}: ${p.value ?? ''}`)
+          .join(', ')
+      : String(trendsResult.data ?? '');
     sources.push({
-      url: interviewResult.status === 'fulfilled'
-        ? (interviewResult.value.sourceUrl ?? `${process.env.MIROFISH_BASE_URL ?? 'http://localhost:5001'}/api/simulation/interview/all`)
-        : 'synthetic',
-      title: swarmSourceLabel,
-      timestamp: new Date().toISOString(),
-      tool: 'mirofish',
+      url: trendsResult.sourceUrl ?? '',
+      title: 'Google Trends baseline',
+      timestamp: trendsResult.timestamp,
+      tool: 'serpapi',
     });
-  } else {
-    // No real simulation available — use LLM-based synthetic swarm
-    const [synthResult, trendsResult] = await Promise.allSettled([
-      runSyntheticSwarm(forecastQuestion, product),
-      searchTrends([product, competitor].filter(Boolean) as string[]),
-    ]);
-
-    const synth = synthResult.status === 'fulfilled' ? synthResult.value : { responses: [], totalCount: 0 };
-    swarmBundle = { responses: synth.responses.map(r => ({ response: r })), totalCount: synth.totalCount };
-
-    sources.push({
-      url: 'synthetic',
-      title: `Synthetic swarm — ${synth.totalCount} AI personas (no live simulation)`,
-      timestamp: new Date().toISOString(),
-      tool: 'mirofish',
-    });
-
-    if (trendsResult.status === 'fulfilled') {
-      const td = trendsResult.value;
-      sources.push({
-        url: td.sourceUrl ?? '',
-        title: 'Google Trends baseline',
-        timestamp: td.timestamp,
-        tool: 'serpapi',
-      });
-    }
   }
+  sources.push({
+    url: interviewResult.sourceUrl ?? `${process.env.MIROFISH_BASE_URL ?? 'http://localhost:5001'}/api/simulation/interview/all`,
+    title: `Configured MiroFish scenario — ${swarmBundle.totalCount} synthetic personas interviewed`,
+    timestamp: new Date().toISOString(),
+    tool: 'mirofish',
+  });
 
-  // If swarm is empty (total failure), return graceful empty
   if (!swarmBundle.totalCount) {
-    return makeEmptyForecast(query, 'Both real and synthetic swarm returned no responses. Check GEMINI_API_KEY / model quota.');
+    throw new Error('The configured MiroFish scenario returned no persona responses.');
   }
 
-  // Step 4: Synthesise swarm responses → structured forecast (via HF JSON)
+  // Step 4: Synthesise responses as a labeled scenario, never a forecast.
   const swarmResponseTexts = swarmBundle.responses.map(r => r.response).filter(Boolean);
-  const synthesised = await synthesiseForecast({
-    forecastQuestion,
+  const synthesised = await synthesiseScenario({
+    scenarioQuestion,
     product,
     swarmResponses: swarmResponseTexts,
     swarmSize: swarmBundle.totalCount,
@@ -326,35 +178,49 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     priorContext,
   });
 
+  const { normalizeScenarioDistribution } = await import('@/lib/swarm-scenario');
+  const distribution = normalizeScenarioDistribution(synthesised.distribution, swarmBundle.totalCount);
+  const distributionLimitation = distribution.length === 0
+    ? ['Generated category counts did not reconcile to panel size, so the distribution chart is hidden.']
+    : [];
+
   return {
     agentId: 'mirofish',
     domain: 'mirofish',
-    artifactType: 'forecast-chart',
+    artifactType: 'scenario-distribution',
+    dataClass: 'synthetic',
     confidence: scoreToLevel(synthesised.confidenceScore),
     confidenceScore: synthesised.confidenceScore,
-    facts: synthesised.facts,
+    facts: [],
     interpretation: synthesised.interpretation,
     sources,
     generatedAt: new Date().toISOString(),
-    question: forecastQuestion,
-    pointEstimate: synthesised.pointEstimate,
-    unit: synthesised.unit,
-    confidenceLow: synthesised.confidenceLow,
-    confidenceHigh: synthesised.confidenceHigh,
-    direction: synthesised.direction,
+    question: scenarioQuestion,
     swarmSize: swarmBundle.totalCount,
     timeHorizon: synthesised.timeHorizon,
-    distribution: synthesised.distribution ?? [],
-    contributingSignals: synthesised.contributingSignals ?? [],
+    distribution,
+    perspectives: synthesised.perspectives ?? [],
+    scenarioObservations: synthesised.scenarioObservations ?? [],
+    personaResponses: swarmBundle.responses.map((response, index) => ({
+      persona: response.persona?.name ?? `Synthetic persona ${index + 1}`,
+      response: response.response,
+    })),
     rationale: synthesised.rationale,
-  } as ForecastOutput;
+    methodology: `Configured MiroFish panel; ${swarmBundle.totalCount} synthetic personas interviewed independently and summarized by the configured language model.`,
+    limitations: [
+      'Synthetic personas are not a representative survey sample.',
+      'Responses reflect model behavior and scenario inputs, not observed customer decisions.',
+      'Use this output to discover objections and test assumptions, not to estimate market probability.',
+      ...distributionLimitation,
+    ],
+  } as SwarmScenarioOutput;
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const mirofishAgent: AgentConfig = {
   id: 'mirofish',
-  name: 'MiroFish (Forecast)',
-  description: 'Swarm-simulation forecasting — interviews thousands of simulated personas to predict what happens next',
+  name: 'Swarm Decision Lab',
+  description: 'Optional synthetic stakeholder scenario used to stress-test decisions and surface dissent',
   run,
 };
