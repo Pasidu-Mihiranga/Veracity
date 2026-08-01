@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight, ChevronDown, ChevronRight, GitBranch, Layers, Rocket, ThumbsDown, ThumbsUp, Terminal, ShieldCheck,
 } from 'lucide-react';
-import type { AgentOutput, MindMapOutput } from '@/lib/agents/types';
+import type {
+  AgentOutput,
+  EvidenceClaimBinding,
+  EvidenceSupportLevel,
+  MindMapOutput,
+  Recommendation,
+} from '@/lib/agents/types';
 import type { ChatMessage, ProductViewMode } from '@/types/chat-ui';
 import { ArtifactRenderer } from '@/components/artifacts/ArtifactRenderer';
 import { ResultsInsightCharts } from '@/components/artifacts/ResultsInsightCharts';
@@ -17,6 +23,8 @@ import { SourceTrustBadge } from '@/components/ui/SourceTrustBadge';
 import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
 import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
+import { ResearchWorkflowPack } from '@/components/ui/ResearchWorkflowPack';
+import { DecisionSupportPack } from '@/components/ui/DecisionSupportPack';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
 import { CompetitiveTimeline } from '@/components/ui/CompetitiveTimeline';
@@ -35,6 +43,7 @@ const VIZ_PRIORITY = [
   'win-loss-scorecard',
   'positioning-gap',
   'threat-heatmap',
+  'scenario-distribution',
   'forecast-chart',
 ] as const;
 
@@ -53,9 +62,12 @@ function hasUsefulVisual(output: AgentOutput): boolean {
     case 'win-loss-scorecard':
       return Array.isArray(o.factors) && (o.factors as unknown[]).length > 0
         || Array.isArray(o.scorecard) && (o.scorecard as unknown[]).length > 0;
+    case 'scenario-distribution':
     case 'forecast-chart':
-      return Array.isArray(o.points) && (o.points as unknown[]).length > 0
-        || Array.isArray(o.forecast) && (o.forecast as unknown[]).length > 0;
+      return typeof o.swarmSize === 'number' && o.swarmSize > 0
+        && (Array.isArray(o.distribution) && (o.distribution as unknown[]).length > 0
+          || Array.isArray(o.scenarioObservations) && (o.scenarioObservations as unknown[]).length > 0
+          || Array.isArray(o.perspectives) && (o.perspectives as unknown[]).length > 0);
     case 'threat-heatmap':
       return Array.isArray(o.threats) && (o.threats as unknown[]).length > 0
         || Array.isArray(o.cells) && (o.cells as unknown[]).length > 0;
@@ -71,6 +83,7 @@ function pickPrimaryVisual(outputs: AgentOutput[] = []): AgentOutput | null {
   for (const type of VIZ_PRIORITY) {
     const hit = outputs.find((o) => {
       if (o.artifactType !== type || !hasUsefulVisual(o)) return false;
+      if (o.decisionUseSuppressed) return false;
       // Never promote empty/soft category shells as the "Key visual"
       if (o.contextOnly && o.artifactType === 'competitive-matrix') {
         const matrix = (o as AgentOutput & { matrix?: unknown[] }).matrix;
@@ -309,7 +322,10 @@ export function IntelligenceResults({
             <Layers size={14} style={{ color: 'var(--accent)' }} />
             <span className="results-section-title">{layout.answerLabel}</span>
             {(() => {
-              const template = selectReportTemplate(currentResult.content || product);
+              const template = selectReportTemplate(
+                currentResult.content || product,
+                currentResult.orchestratorOutput?.researchIntent,
+              );
               return (
                 <span
                   className="ui-mono px-2 py-0.5 rounded-full text-[11px] font-semibold"
@@ -365,6 +381,13 @@ export function IntelligenceResults({
         </div>
       </section>
 
+      <ResearchWorkflowPack output={currentResult.orchestratorOutput} />
+      <DecisionSupportPack
+        output={currentResult.orchestratorOutput}
+        viewMode={viewMode}
+        sessionId={currentSessionId}
+      />
+
       {/* Level 2: Actionable Recommendations */}
       {currentResult.recommendations && currentResult.recommendations.length > 0 ? (
         <section className="results-panel p-5 lg:p-6">
@@ -372,8 +395,10 @@ export function IntelligenceResults({
             <Rocket size={13} style={{ color: 'var(--accent)' }} /> {layout.recsLabel}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {currentResult.recommendations.map((rec: {
-              title?: string; rationale?: string; priority?: string; confidence?: string; score?: number; evidence?: string[]; sourceUrls?: string[];
+            {currentResult.recommendations.map((rec: Partial<Recommendation> & {
+              score?: number;
+              evidenceStatus?: EvidenceSupportLevel;
+              evidenceBindings?: EvidenceClaimBinding[];
             }, i: number) => {
               const rk = recommendationKey(rec.title ?? '', rec.rationale ?? '');
               const current = ratedRecs[rk];
@@ -416,7 +441,12 @@ export function IntelligenceResults({
                     border: `1px solid ${borderC || 'var(--border)'}`,
                   }}
                 >
-                  <h4 className="rec-title">{rec.title}</h4>
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 text-[10px] font-mono font-semibold text-accent border border-accent/20 bg-accent/5 rounded px-1.5 py-0.5">
+                      #{rec.rank ?? i + 1}
+                    </span>
+                    <h4 className="rec-title">{rec.title}</h4>
+                  </div>
                   <p className="rec-body">{rec.rationale}</p>
                   <div className="flex flex-wrap gap-1.5">
                     <span
@@ -435,12 +465,48 @@ export function IntelligenceResults({
                       level={(rec.confidence as 'high' | 'medium' | 'low' | undefined)
                         ?? ((rec.score ?? 0) >= 80 ? 'high' : (rec.score ?? 0) >= 55 ? 'medium' : 'low')}
                     />
+                    {rec.evidenceStatus ? (
+                      <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${
+                        rec.evidenceStatus === 'supported'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : rec.evidenceStatus === 'weakly-supported'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-red-50 text-red-600 border-red-200'
+                      }`}>
+                        {rec.evidenceStatus.replace('-', ' ')}
+                      </span>
+                    ) : null}
+                    {rec.impact ? (
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-border bg-muted text-muted-foreground">
+                        Impact {rec.impact}
+                      </span>
+                    ) : null}
+                    {rec.effort ? (
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-border bg-muted text-muted-foreground">
+                        Effort {rec.effort}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 text-[11px] text-muted-foreground">
+                    {rec.timing ? <p><span className="font-mono uppercase">Timing:</span> {rec.timing}</p> : null}
+                    {rec.ownerSuggestion ? <p><span className="font-mono uppercase">Owner:</span> {rec.ownerSuggestion}</p> : null}
+                    {rec.riskOfInaction ? <p><span className="font-mono uppercase">Risk of inaction:</span> {rec.riskOfInaction}</p> : null}
+                    {rec.falsifier ? <p><span className="font-mono uppercase">Falsifier:</span> {rec.falsifier}</p> : null}
+                    {(rec.dependencies?.length ?? 0) > 0 ? (
+                      <p><span className="font-mono uppercase">Depends on:</span> {rec.dependencies!.join(' · ')}</p>
+                    ) : null}
+                    {isDevMode && rec.learningAdjustment?.delta ? (
+                      <p className={rec.learningAdjustment.delta > 0 ? 'text-emerald-600' : 'text-amber-700'}>
+                        <span className="font-mono uppercase">Learning:</span> {rec.learningAdjustment.delta > 0 ? '+' : ''}{rec.learningAdjustment.delta} · {rec.learningAdjustment.reason}
+                      </p>
+                    ) : null}
                   </div>
                   {(viewMode === 'analyst' || viewMode === 'developer') ? (
                     <EvidenceTrail
                       evidence={rec.evidence}
                       sourceUrls={rec.sourceUrls}
                       sources={currentResult.sources}
+                      evidenceBindings={rec.evidenceBindings}
                     />
                   ) : null}
                   {currentSessionId && (
@@ -816,4 +882,3 @@ export function IntelligenceResults({
     </div>
   );
 }
-

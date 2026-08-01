@@ -13,10 +13,12 @@ dist/
 # Build artifacts
 *.tsbuildinfo
 coverage/
+artifacts/evals/
 
 # Environment
 .env*
 !.env.example
+.local/
 
 # OS
 .DS_Store

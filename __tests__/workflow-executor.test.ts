@@ -72,7 +72,11 @@ describe('currentExecutor', () => {
     };
 
     const steps = planMission(['competitive', 'win-loss']);
-    const scratchpad = { productFacts: [], competitorFacts: [], openQuestions: [] };
+    const scratchpad: {
+      productFacts: string[];
+      competitorFacts: string[];
+      openQuestions: string[];
+    } = { productFacts: [], competitorFacts: [], openQuestions: [] };
     const updates: string[] = [];
 
     const result = await currentExecutor.execute(
@@ -123,6 +127,44 @@ describe('currentExecutor', () => {
     );
     expect(result.outputs).toHaveLength(0);
     expect(result.agentRuns[0]?.status).toBe('failed');
+  });
+
+  it('records explicit and inferred agent open questions', async () => {
+    const explicit: AgentConfig = {
+      id: 'competitive',
+      name: 'Competitive',
+      description: 'test',
+      run: async () => ({
+        ...stubOutput('competitive', ['Known fact']),
+        openQuestions: ['Is the official pricing page current?'],
+      }),
+    };
+    const uncertain: AgentConfig = {
+      id: 'pricing',
+      name: 'Pricing',
+      description: 'test',
+      run: async () => ({
+        ...stubOutput('pricing', ['Directional price']),
+        confidence: 'medium',
+        confidenceScore: 0.6,
+      }),
+    };
+    const scratchpad: {
+      productFacts: string[];
+      competitorFacts: string[];
+      openQuestions: string[];
+    } = { productFacts: [], competitorFacts: [], openQuestions: [] };
+    await currentExecutor.execute(
+      {
+        steps: planMission(['competitive', 'pricing']),
+        agents: [explicit, uncertain],
+        context: { query: 'Compare pricing', product: 'P', competitor: 'C' },
+        scratchpad,
+      },
+      { onAgentUpdate: () => undefined },
+    );
+    expect(scratchpad.openQuestions).toContain('Is the official pricing page current?');
+    expect(scratchpad.openQuestions.some((q) => q.includes('pricing uncertainty'))).toBe(true);
   });
 
   it('throws when shouldCancel returns true before a wave', async () => {

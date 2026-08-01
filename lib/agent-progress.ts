@@ -88,7 +88,7 @@ function phaseFromLogs(domain: Domain, lines: string[]): string | null {
   if (/scrap|firecrawl|crawl/.test(hay)) return 'Scraping';
   if (/search|serp|google|hn|reddit/.test(hay)) return 'Searching';
   if (/synth|draft|summar/.test(hay)) return 'Synthesizing';
-  if (/forecast|mirofish|swarm/.test(hay)) return 'Forecasting';
+  if (/scenario|mirofish|swarm/.test(hay)) return 'Testing scenario';
   if (/execut|outreach|variant|copy/.test(hay)) return 'Drafting';
   return null;
 }

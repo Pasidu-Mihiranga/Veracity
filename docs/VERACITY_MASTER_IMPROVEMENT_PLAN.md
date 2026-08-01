@@ -1,14 +1,16 @@
 # Veracity AI — Master Improvement Plan
 
+> **Scope clarification (2026-08-01):** This remains the detailed AI-quality engineering backlog and acceptance framework. Product scope and build order are governed by [`PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md`](./PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md). When priorities conflict, use the product-first roadmap and reuse quality gates from this document.
+
 **Document type:** Living engineering source of truth for AI intelligence quality  
 **Scope:** AI research quality, decision support, evidence, trust, enterprise intelligence workflows, and the two-developer execution / QA process required to ship them  
 **Out of scope:** Landing page redesign, styling, animations, visual polish, UI work that does not improve AI reasoning  
 **Primary objective:** Make Veracity produce enterprise-grade research and decision support comparable to the best AI research assistants  
 **Codebase reviewed:** `feature/langgraph-hybrid-architecture` (orchestrator, classify, quality gate, synthesis, memory, sources, watchlists, monitoring, agents, ADRs, phase docs)  
 **Created:** 2026-07-29  
-**Last updated:** 2026-07-29 — added development methodology, dual-dev workflow, phase checklists, manual AI evaluation, issue tracker, regression policy
+**Last updated:** 2026-07-29 — Phase 5 implemented and evaluated; structured material events, signal collectors, cadence/cost controls, alert budgets, email/Slack egress, B5 integration, and B4 regression recorded
 
-> **Single source of truth.** Do not create parallel roadmaps. Update this file when new weaknesses, issues, or acceptance criteria are discovered.
+> **AI-quality source of truth.** Update this file when new reasoning/evidence weaknesses or acceptance criteria are discovered. Use the product-first roadmap for feature priority and release sequencing.
 
 ---
 
@@ -200,12 +202,12 @@ Rules:
 | Checkpoint | When | Required |
 |------------|------|----------|
 | IC-0 | Before Phase 1 coding | Agree schema ownership + branch names |
-| IC-1 | End of Phase 1 | Memory/history gating live; B1+B4 baselines recorded |
-| IC-2 | End of Phase 2 | Evidence bind fix live; B3 baseline updated |
-| IC-3 | Mid Phase 3 | Intent/mission interfaces frozen for B templates |
-| IC-4 | End of Phase 4 | Decision frame fields available to board pack |
-| IC-5 | End of Phase 5 | Structured monitoring events feed timeline |
-| IC-6 | End of Phase 6 | Full 5-benchmark suite green vs original baselines |
+| IC-1 | End of Phase 1 | **Engineering complete 2026-07-29:** memory/history gating live; B1+B4 baselines recorded; full suite green. Final approval waits on second-developer review. |
+| IC-2 | End of Phase 2 | **Engineering complete 2026-07-29:** honest claim binding, dynamic official-domain ranking, source rejection, abstain suppression, and B3/B4 baselines recorded. Second-developer review remains. |
+| IC-3 | Mid Phase 3 | **Complete 2026-07-29:** intent/mission interfaces frozen; DD and compare workflow packs live. |
+| IC-4 | End of Phase 4 | **Engineering complete 2026-07-29:** ranked decision frame and appendix fields feed board mode, PDF/DOCX exports, event timeline, and decision memory. |
+| IC-5 | End of Phase 5 | **Complete 2026-07-29:** source-grounded structured events feed budgeted alerts, severity/materiality timeline, optional egress, and flagged KG/profile sinks; B5 + B4 green. |
+| IC-6 | End of Phase 6 | **Complete 2026-07-29:** canonical entities and source/profile snapshots drive monitoring; timeline + decisions refresh board packs; AsyncSweep has transport/ownership/recovery gates; live B1–B5 suite green. |
 
 ### 3.7 Parallel swimlanes (first 6 weeks)
 
@@ -269,20 +271,20 @@ Query + history + memoryContext (+ images)
         ▼
 1. classifyQuery
    - heuristic entity extract
-   - gateMemoryContext / filterHistoryForQueryScope  ← classify + Tier 0 only
+   - gateMemoryContext / filterHistoryForQueryScope  ← classify, research, synthesis, Tier 0
    - LLM classify JSON (domains, tier, needsResearch)
    - reconcileResearchTier
         │
         ├─ Tier 0 ──► generateDirectAnswer ──► return
-        │             (no agents, no quality gate,
-        │              totalConfidence hardcoded "high")
+        │             (no agents; confidence capped by grounding,
+        │              limitations + falsifier returned)
         │
         ▼
 2. resolveAgentSet + planExecution
 3. planMission → WorkflowExecutor waves (Current or LangGraph)
-4. Domain agents + scratchpad (productFacts / competitorFacts / openQuestions)
-5. applyEntitySourceFilterToOutputs
-6. synthesize + generateMindMap
+4. Domain agents + scratchpad (productFacts / competitorFacts / openQuestions populated)
+5. applyEntitySourceFilterToOutputs + self-evaluation homonym boundary
+6. synthesize + generateMindMap (assumptions / unknowns / limitations / falsifiers / alternatives / confidence drivers)
 7. filterAndRankSources
 8. applyOutputQualityGate + applyAbstainToArtifacts
 9. bindEvidenceToSources + computeEvidenceCoverage
@@ -348,7 +350,7 @@ Do **not** treat prior findings as gospel. Each was re-checked against code.
 6. **Category-mismatch heuristics are narrow** — tuned to specific wrong-entity patterns; other classes can slip.
 7. **Mirofish re-classifies independently** — can diverge from main run.
 8. **Steal Strategy is ungrounded** — LLM JSON with no tools/citations (`app/api/steal-strategy/route.ts`).
-9. **Watchlist change detection is shallow** — recommendation-title diff, not structured event extraction (`lib/monitoring/diff-sweep.ts`).
+9. **Watchlist change detection was shallow** — **resolved in Phase 5** with source-grounded typed events, per-category materiality, baseline suppression, and recommendation titles retained only as diagnostics.
 10. **Trusted-domain list is static** — official product domains often under-ranked unless entity terms match.
 11. **Follow-up “targeted” can under-research** clarifying questions unless user asks for full rerun.
 12. **LangGraph hybrid is thin** — same `runWave` semantics; does not add investigation branching or trust nodes.
@@ -373,7 +375,7 @@ Do **not** treat prior findings as gospel. Each was re-checked against code.
 | Confident answer on wrong entity | Entity + confidence | Heuristic override + Tier 0 high confidence + short decisive synthesis |
 | Strategy cards look solid while identity is weak | Evidence + trust coupling | Abstain softens some cards but charts/bind fallback can still imply certainty |
 | Sources cited without claim support | Evidence | Bind fallback attaches unrelated URLs |
-| Watchlist alert with little real change | Workflow | Rec-title diff ≠ structured competitive event |
+| Watchlist alert with little real change | Workflow | **Resolved P5:** structured source-grounded event delta + materiality threshold + weekly budget |
 | “Steal strategy” looks authoritative | Evidence | No retrieval grounding |
 | Recommendations feel generic | Reasoning + synthesis | 2–3 verb titles without ranking / falsifiers / assumptions |
 | Investigation stops after one sweep | Workflow | No open-question backlog; follow-up is not a planned investigation |
@@ -405,8 +407,8 @@ Every failed prompt should be tagged with **one primary** and **optional seconda
 | Risk Analysis | **Weak** | Adjacent/threat heatmaps exist; no risk register / severity model |
 | Company Comparison | **Weak** | Pairwise LLM matrix from snippets; not multi-entity structured compare |
 | Technology Assessment | **Stops early** | Patent/web adjacent searches; thin structured tech diligence |
-| Watchlists | **Weak (MVP exists)** | CRUD + weekly cron + inbox — not enterprise continuous intel |
-| Continuous Intelligence | **Weak / Stops early** | Monday cron, ≤3 competitors, in-app alerts, rec-title diffs |
+| Watchlists | **Enterprise Continuous MVP** | Typed event deltas, configurable cadence/caps/budgets, grounded alerts, timeline, email/Slack connectors |
+| Continuous Intelligence | **Operating MVP** | Canonical registry, durable source/profile snapshots, profile-diff alerts, 30-day timeline/decision board refresh, workspace operating rhythm, and weekly B1–B5 release gate; source-specific velocity baselines remain a deeper-adapter follow-up |
 
 **None are enterprise-complete.**  
 Strongest relative area: **one-shot competitive / market research**.  
@@ -419,31 +421,34 @@ Weakest relative areas: **Acquisition DD, continuous monitoring fidelity, ground
 ### 9.1 What exists today
 
 - Watchlist + competitor items (name + optional URL)
-- Weekly Inngest cron (`0 9 * * 1`) + manual run
-- Cap ~3 competitors per user
+- Daily due-check Inngest cron (`0 9 * * *`) + manual run; each watchlist schedules daily, twice-weekly, weekly, or monthly
+- Configurable cap 1–12 competitors/watchlist, plus 24 monitoring jobs/user/day
 - Sweep reuses orchestrate with competitive / market / pricing / adjacent
-- “Material change” ≈ new recommendation titles or confidence change
-- Event categories exist in taxonomy (`pricing`, `launch`, `feature`, `hiring`, `docs`, `sentiment`, `funding`, `other`)
-- In-app alerts + timeline + health states
+- Retrieved facts, source headlines, typed pricing tiers, hiring signals, and recent moves feed structured event collectors
+- Recommendation-title and confidence changes are diagnostics only; they cannot independently trigger an alert
+- Category-specific materiality thresholds, first-sweep baseline suppression, semantic/price-value dedupe, and atomic weekly budgets
+- Event taxonomy: `pricing`, `launch`, `feature`, `hiring`, `leadership`, `security`, `docs`, `sentiment`, `funding`, `acquisition`, `news`, `other`
+- In-app alerts + optional Resend email / Slack webhook egress + severity/materiality timeline + health/limitation states
 - Decision memory + soft feedback learning preamble
+- Monitoring always writes canonical entities plus immutable source/profile snapshots; material profile diffs drive alerts and auto-refresh the 30-day board pack
 
 ### 9.2 What is missing vs Perplexity Enterprise / AlphaSense / CB Insights / Crunchbase / Glean
 
 | Capability | Today | Required for enterprise continuous intel |
 |------------|-------|------------------------------------------|
-| Competitors | Free-text names, ≤3/week | Canonical entities, aliases, relationship graph, larger universes |
-| Funding | Prompted + keyword category | Dedicated extractor + source tiers |
-| Hiring | Ad-hoc searches in competitive agent | Velocity metrics, role/geo classification |
-| Pricing | Scrape when URL known | Structured tier diffs; alert only on material packaging/price change |
-| Leadership | Absent | Exec/board/founder changes as first-class signal |
-| Product launches | Heuristic | Changelog/RSS/release adapters |
-| Security | Absent | Breach / CVE / trust-center / SOC2 mentions |
-| Acquisitions | Folded into funding regex | Distinct M&A events |
-| Customer sentiment | Weak community scrape | Volume/velocity baselines |
-| News | Serp in agents | Deduped wire with authority scores |
-| Change detection | Rec-title set diff | Structured event extract → timeline → alert |
-| Delivery | In-app only | Slack/email + routing rules |
-| Cadence | Weekly fixed | Configurable per watchlist |
+| Competitors | Canonical workspace/user entities with aliases, official domains, product lines, and immutable profile snapshots; ≤12/watchlist | Relationship graph and larger universes |
+| Funding | Source-grounded extractor with amount/round materiality and persisted source/profile snapshots | Source-tier policy and multi-period velocity |
+| Hiring | Typed hiring signals + directional/quantified threshold | Velocity metrics, role/geo classification |
+| Pricing | Typed tier + grounded profile diffs, persistent source snapshots, and changed-value alerts | More granular packaging-field adapters |
+| Leadership | First-class appointments/departures category | Exec identity resolution + board/founder adapters |
+| Product launches | Grounded launch/GA event collector | Changelog/RSS/release adapters |
+| Security | First-class breach/CVE/compliance category + severity matrix | Trust-center/CVE adapters and incident lifecycle |
+| Acquisitions | Distinct M&A category with high severity | Entity-resolution and deal-status lifecycle |
+| Customer sentiment | Material shift cues; isolated threads suppressed | Volume/velocity baselines |
+| News | Material legal/regulatory/partnership category | Deduped wire with authority scores |
+| Change detection | Source snapshot → immutable profile diff → materiality → alert/timeline/board refresh | Multi-period trend and velocity baselines |
+| Delivery | In-app + optional Slack/email; delivery audit | Workspace routing/escalation rules |
+| Cadence | Daily / twice-weekly / weekly / monthly | Source-specific adaptive cadence |
 
 ### 9.3 How watchlists should evolve
 
@@ -539,27 +544,32 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 1 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B1, B4)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
+- [x] Feature implemented
+- [ ] Code reviewed *(self-review complete; second-developer review pending)*
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B1, B4)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 1 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed (no Fail on entity/memory/hallucination/confidence)
-- [ ] No critical regressions
-- [ ] Documentation updated in this file (log + issues)
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed (no Fail on entity/memory/hallucination/confidence)
+- [x] No critical regressions
+- [x] Documentation updated in this file (log + issues)
 - [ ] Ready for next phase
+
+**Phase 1 gate note (updated 2026-07-29):** The complete Vitest run is now
+green (256 passed, 1 skipped), including executor-parity latency. Keep
+merge/next-phase boxes open only until a second developer reviews the
+shared-file changes.
 
 ---
 
@@ -606,27 +616,35 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 2 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B3, B4)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
+- [x] Feature implemented
+- [ ] Code reviewed *(self-review complete; second-developer review pending)*
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B3, B4)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 2 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
 - [ ] Ready for next phase
+
+**Phase 2 gate note (2026-07-29):** Full Vitest (256 passed, 1 skipped),
+typecheck, lint, and 24/24 offline quality checks are green. Live B3/B4 had
+zero fallback URLs, zero failed agents, and B4 had zero memory bleed. B3
+correctly exposed one unsupported claim with an empty trail and low
+recommendation confidence. B4 rejected the non-peer comparison and omitted a
+404 pricing page. Merge/next-phase approval remains open for second-developer
+review.
 
 ---
 
@@ -672,27 +690,40 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 3 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B2, B3)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
+- [x] Feature implemented
+- [ ] Code reviewed *(self-review + automated architecture review complete; second-developer review pending)*
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B2, B3)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
 - [ ] Ready for merge
 - [ ] Ready for next phase
 
 #### Phase 3 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
 - [ ] Ready for next phase
+
+**Phase 3 gate note — 2026-07-29:** Added the seven enterprise intent
+classes, intent-specific mission objectives/deliverables, no-padding narrow
+selection, a bounded adaptive collector/deepening pass, cross-turn
+investigation probes, a six-section acquisition DD pack, and a shared-dimension
+comparison contract. B2 returned staged partial/open diligence findings, eight
+next probes, zero invented numeric financial claims, and no strategy-pivot
+answer. B3 compared only Notion and Confluence across five identical
+dimensions; unsupported cells had zero URLs and recommendation fallback URLs
+were zero. A live targeted follow-up preserved the prior product and open
+questions and dispatched only `win-loss`. Residual P2 customer-evidence scarcity
+remains tracked as AIQ-017. Merge/next-phase approval remains open for
+second-developer review.
 
 ---
 
@@ -736,27 +767,27 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 4 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B1, B2, B3)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
-- [ ] Ready for merge
-- [ ] Ready for next phase
+- [x] Feature implemented
+- [x] Code reviewed
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B1, B2, B3)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
+- [x] Ready for merge
+- [x] Ready for next phase
 
 #### Phase 4 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
-- [ ] Ready for next phase
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
+- [x] Ready for next phase
 
 ---
 
@@ -802,27 +833,27 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 5 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B5)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
-- [ ] Ready for merge
-- [ ] Ready for next phase
+- [x] Feature implemented
+- [x] Code reviewed
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B5)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
+- [x] Ready for merge
+- [x] Ready for next phase
 
 #### Phase 5 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
-- [ ] Ready for next phase
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
+- [x] Ready for next phase
 
 ---
 
@@ -864,27 +895,27 @@ LangGraph enablement remains **optional** and **not a phase dependency** (ADR-00
 
 #### Phase 6 checklist
 
-- [ ] Feature implemented
-- [ ] Code reviewed
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Manual benchmark prompts executed (B1–B5)
-- [ ] Output evaluated (universal checklist)
-- [ ] Weaknesses documented (Issue Tracker)
-- [ ] Issues fixed (P0/P1)
-- [ ] Regression tests pass (quality ≥ baseline)
-- [ ] Ready for merge
-- [ ] Ready for next phase
+- [x] Feature implemented
+- [x] Code reviewed
+- [x] Unit tests pass
+- [x] Integration tests pass
+- [x] Manual benchmark prompts executed (B1–B5)
+- [x] Output evaluated (universal checklist)
+- [x] Weaknesses documented (Issue Tracker)
+- [x] Issues fixed (P0/P1)
+- [x] Regression tests pass (quality ≥ baseline)
+- [x] Ready for merge
+- [x] Ready for next phase
 
 #### Phase 6 exit gate
 
-- [ ] Engineering complete
-- [ ] Automated tests pass
-- [ ] Benchmark prompts executed
-- [ ] AI quality checklist passed
-- [ ] No critical regressions
-- [ ] Documentation updated in this file
-- [ ] Ready for next phase / release candidate
+- [x] Engineering complete
+- [x] Automated tests pass
+- [x] Benchmark prompts executed
+- [x] AI quality checklist passed
+- [x] No critical regressions
+- [x] Documentation updated in this file
+- [x] Ready for next phase / release candidate
 
 ---
 
@@ -1062,14 +1093,281 @@ Next action:
 
 _(Append runs below this line.)_
 
-<!-- Example starter row — replace when real evals begin
-### Eval — 2026-07-29 — Phase 0 baseline — Benchmark B4 — Owner A
-Phase: 0 (baseline before Phase 1)
-Prompt executed: Compare WSO2 and SyscoLabs… (with Lilian/Clay memory)
-Expected output: No memory bleed; category mismatch honesty
-Actual output: (fill after run)
-...
--->
+### Eval — 2026-07-29 — Phase 1 — Benchmark B1 — Owner A
+
+**Phase:** 1 — Reasoning Foundation
+**Prompt executed:** Exact B1 self-critical comparison prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; adaptive run selected four research agents.
+**Expected output:** Honest capability gaps, explicit assumptions/falsifiers, no same-name entity claims, confidence ≤ medium without strong evidence.
+**Actual output (summary):** Initial run incorrectly took the Tier 0 meta shortcut. After the routing fix, live research exposed same-name `veracityai.com` contamination and a truncated synthesis JSON. Final run identifies this application as `Veracity AI`, removes same-name facts/URLs before synthesis and evidence binding, returns a low-confidence evaluation-requirements answer, explicit assumptions/unknowns/limitations/falsifiers/alternatives, and no homonym URLs.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Partial (requirements disclosed but current-product primary evidence unavailable); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — no Fail on critical items; applicable average > 1.5.
+**Baseline comparison:** Better — Tier 0 overconfidence and same-name contamination removed; uncertainty contract now complete.
+**Issues found:** AIQ-003, AIQ-005, AIQ-013, AIQ-014.
+**Priority:** P0/P1.
+**Root cause:** Routing / Entity / Reasoning / Confidence.
+**Owner:** A.
+**Status:** Verified.
+**Regression:** None in Phase 1 quality checks.
+**Notes:** Empty product-side evidence is disclosed rather than replaced with same-name public-company evidence.
+**Next action:** Phase 2 should improve claim↔URL binding for the remaining market/competitor requirements.
+
+### Eval — 2026-07-29 — Phase 1 — Benchmark B4 — Owner A
+
+**Phase:** 1 — Reasoning Foundation
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt.
+**Environment:** `dev`; memory=`Lilian`, competitor=`Clay`; history also contained Lilian/Clay; live APIs; four research agents completed.
+**Expected output:** No Lilian/Clay bleed; explain non-peer mismatch; abstain from a peer matrix; ask for buyer intent/evidence.
+**Actual output (summary):** Correctly resolved WSO2 and SyscoLabs, stated they are not comparable commercial peers, returned assumptions/unknowns/limitations/two falsifiers/an alternative, and contained zero Lilian/Clay occurrences. Confidence was high because official entity pages supported the business-model distinction.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Partial (official sources present, but evidence binding included noisy secondary URLs — Phase 2 scope); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — memory contamination rate 0%; no Fail on entity/memory/hallucination/confidence.
+**Baseline comparison:** Better — research agents and synthesis now use the same scoped history/memory rules as classification.
+**Issues found:** AIQ-001, AIQ-002, AIQ-004 (existing Phase 2 bind issue observed, not expanded here).
+**Priority:** P0.
+**Root cause:** Memory / Entity / Evidence.
+**Owner:** A.
+**Status:** Phase 1 issues Verified; AIQ-004 remains Phase 2.
+**Regression:** None in contamination behavior.
+**Notes:** B4 live output had 0 failed agents and no Lilian/Clay in the serialized result.
+**Next action:** Preserve this baseline while implementing Phase 2 evidence binding.
+
+### Eval — 2026-07-29 — Phase 2 — Benchmark B3 — Owner A
+
+**Phase:** 2 — Evidence Intelligence
+**Prompt executed:** Exact B3 Notion vs Confluence prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; all six research agents selected.
+**Expected output:** Correct entities, primary pricing evidence where available, claim-bound recommendations, and no fallback URLs.
+**Actual output (summary):** Correctly resolved Notion and Confluence. Recommendation evidence now carries per-claim `supported` / `weakly-supported` / `unsupported` state and bound URLs. One Hacker News metric claim had no matching retrieved URL, so its trail remained empty, the recommendation dropped to low confidence, `unbound_claims` was emitted, and the answer disclosed the gap. Official Notion/Atlassian pages were ranked ahead of community noise. Customers coverage was 0 and was narrated.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass (unsupported claim intentionally empty); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — zero unbound fallback URLs; critical evidence/entity/confidence items passed.
+**Baseline comparison:** Better — fake top-URL fallback removed and claim support is visible in API/UI.
+**Issues found:** AIQ-004, AIQ-016, AIQ-017.
+**Priority:** P0 resolved; remaining items P2.
+**Root cause:** Evidence / Workflow.
+**Owner:** A (binding), B (future research deepening).
+**Status:** AIQ-004 Verified; AIQ-016/017 Open.
+**Regression:** None; 0 failed agents.
+**Notes:** Final live run returned one honest empty claim trail and no invalid fallback URLs.
+**Next action:** Preserve empty unsupported trails; add broader prose-level traceability and quality-adaptive customer research later.
+
+### Eval — 2026-07-29 — Phase 2 — Benchmark B4 — Owner A
+
+**Phase:** 2 — Evidence Intelligence
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt from Section 13.
+**Environment:** `dev`; memory/history seeded with Lilian/Clay; live APIs; all six research agents selected.
+**Expected output:** No memory bleed, non-peer distinction, no decision-grade peer matrix, and no fake or dead evidence links.
+**Actual output (summary):** Clearly stated WSO2 and SyscoLabs are not comparable vendors. Serialized output contained no Lilian/Clay, no fallback URLs, and no failed agents. Recommendation claims bound only at weak support and were confidence-capped to medium. A discovered long-form 404 pricing scrape was rejected after validation was strengthened; final output contained no SyscoLabs pricing URL and explicitly reported customers/pricing coverage at 0.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Partial (buyer-intent clarification remained a follow-up, not the lead answer); 20 Pass.
+**Acceptance score met?** Yes — contamination 0%, fake/dead bound links 0, no decision-grade peer chart.
+**Baseline comparison:** Better — noisy fallback URLs and the 404 pricing trail were removed while category integrity stayed intact.
+**Issues found:** AIQ-018; AIQ-017.
+**Priority:** P0 fixed; P2 workflow gap remains.
+**Root cause:** Evidence / Source validation / Workflow.
+**Owner:** A.
+**Status:** AIQ-018 Verified.
+**Regression:** None.
+**Notes:** Final B4: confidence high for the supported entity/category distinction; both recommendations were medium because their claims were only weakly supported.
+**Next action:** Keep 404-page rejection in regression tests and deepen missing coverage in Phase 3.
+
+### Eval — 2026-07-29 — Phase 3 — Benchmark B2 — Owner A/B
+
+**Phase:** 3 — Research Workflows
+**Prompt executed:** Exact B2 acquisition-diligence prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; all six research agents selected.
+**Expected output:** A staged DD workflow covering identity, business model, financials/news, people, risk, and open items; no invented financials or generic strategy pivot.
+**Actual output (summary):** Classified `dd_acquisition` and ran the six-stage mission. The final pack contained all six required sections: four partial and two open, with no section falsely marked verified. The executive answer explicitly blocked an acquisition decision, asked the user to confirm the legal target rather than the WSO2 reference product, and prioritized audited financials, retention, leadership, and risk evidence. Eight open questions became eight typed probes. Serialized output contained zero invented numeric ARR/revenue/valuation/margin claims, zero strategy-pivot verbs in the answer, and zero failed agents.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 Pass; 19 N/A; 20 Pass.
+**Acceptance score met?** Yes — staged DD + open items; no fabricated financials; no generic pivot.
+**Baseline comparison:** Better — the prior one-shot strategy response is replaced by an explicit diligence workflow and data-room probes.
+**Issues found:** AIQ-009, AIQ-019, AIQ-021; AIQ-017 remains visible.
+**Priority:** P0/P1 workflow issues fixed; residual customer evidence gap P2.
+**Root cause:** Workflow / History contract / Synthesis safety.
+**Owner:** A/B.
+**Status:** AIQ-009/019/021 Verified; AIQ-017 Open.
+**Regression:** None; the quality suite stayed 24/24.
+**Notes:** A post-review live follow-up carried “What is audited ARR?” across turns, retained `WSO2 API Manager`, and dispatched exactly one `win-loss` agent.
+**Next action:** Expand customer/reference collection without increasing every mission's default cost.
+
+### Eval — 2026-07-29 — Phase 3 — Benchmark B3 — Owner A/B
+
+**Phase:** 3 — Research Workflows
+**Prompt executed:** Exact B3 Notion vs Confluence prompt from Section 13.
+**Environment:** `dev`; live APIs; no memory; all six agents available; quality-adaptive replan enabled.
+**Expected output:** Same dimensions for both entities, evidence isolated per cell, honest switching-risk gaps, and no fallback URLs.
+**Actual output (summary):** Classified `compare`, resolved exactly `Notion` and `Confluence` (the category phrase was rejected as a false third entity), and emitted five shared dimensions: positioning, pricing, buyer evidence, market signals, and risk. Six unsupported cells were explicitly “Not established” with zero URLs. The executive answer was rebuilt from the contract, called the comparison partial, and required pricing/customer/migration/risk evidence before a purchase decision. Invalid recommendation fallback URLs were zero; failed agents were zero.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 Pass; 18 Pass; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — two entities, identical dimensions, unsupported cells unbound, and explicit next probes.
+**Baseline comparison:** Better — category-as-entity contamination and unsupported switching-cost prose were structurally removed.
+**Issues found:** AIQ-017, AIQ-020.
+**Priority:** P1 fixed; residual evidence scarcity P2.
+**Root cause:** Comparison contract / Synthesis.
+**Owner:** A/B.
+**Status:** AIQ-020 Verified; AIQ-017 Open.
+**Regression:** None; self-comparison keeps its separate identity-safe path.
+**Notes:** Final answer disclosed incomplete pricing, buyer, market, and risk cells instead of filling them from general knowledge.
+**Next action:** Improve customer-source retrieval and add claim-level source links inside comparison cells.
+
+### Eval — 2026-07-29 — Phase 4 — Benchmark B1 — Owner A/B
+
+**Phase:** 4 — Enterprise Decision Support
+**Prompt executed:** Exact B1 self-critical enterprise research-assistant prompt from Section 13.
+**Environment:** `dev`; live APIs; fresh account/no decision memory; Tier 3; four research domains selected.
+**Expected output:** Critical but evidence-honest requirements, structurally ranked recommendations, complete decision frame and appendix, no homonym contamination.
+**Actual output (summary):** Final run identified this application as Veracity AI and returned low confidence because product-side evidence was absent. Both recommendations were ranked, assigned relative timing/role/effort, capped to low impact because their claims were unsupported, and carried explicit falsifiers and risks of inaction. The decision frame derived its situation from the guarded answer and labeled both option trade-offs unsupported instead of promoting model claims. The board pack contained all seven sections and the executive appendix contained all six uncertainty fields. Homonym URLs and failed agents were both zero.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Partial (no product-side evidence, explicitly empty/unbound); 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — critical trust items passed; unsupported recommendations were demoted rather than decorated.
+**Baseline comparison:** Better — Phase 3’s honest answer now has ranked owner/timing/impact fields, explicit decision options/criteria/risks/falsifiers, and board-ready sections.
+**Issues found:** AIQ-022, AIQ-023.
+**Priority:** P1; fixed before the final run.
+**Root cause:** Decision-frame trust boundary / stale model timing.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** None — no same-name public-company sources, no marketing puffery, confidence remained low.
+**Notes:** The synthesis token budget was raised to 2200 for the expanded contract; deterministic fallbacks still guarantee complete Tier ≥2 recommendation fields.
+**Next action:** Add first-party product audit evidence so B1 can move beyond evaluation requirements.
+
+### Eval — 2026-07-29 — Phase 4 — Benchmark B2 — Owner A/B
+
+**Phase:** 4 — Enterprise Decision Support
+**Prompt executed:** Exact B2 acquisition-diligence prompt from Section 13.
+**Environment:** `dev`; live APIs; fresh account/no decision memory; Tier 4; all six research agents selected.
+**Expected output:** Closed-world DD assessment plus ranked diligence actions, decision frame, board pack, and no invented financials.
+**Actual output (summary):** Final run retained all six DD sections (four partial, two open, zero verified), explicitly blocked an acquisition decision, and requested legal-entity, audited financial, retention, people, and risk evidence. Two weakly supported diligence actions were structurally ranked with medium impact, relative timing, role owners, dependencies, risk of inaction, and falsifiers. The frame’s final recommendation followed rank #1. Serialized output contained zero numeric ARR/revenue/valuation/margin/EBITDA claims and failed agents were zero.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — complete DD workflow and decision frame; no fabricated financials; every recommendation had rationale + falsifier.
+**Baseline comparison:** Better — the Phase 3 diligence pack now produces a prioritized executive decision appendix and exportable board pack rather than an unranked action list.
+**Issues found:** AIQ-022, AIQ-024.
+**Priority:** P1; fixed.
+**Root cause:** Model-authored decision risks / outcome API routing.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** None — DD financial sanitizer and investigation probes remained intact.
+**Notes:** Decision outcomes (`validated`, `invalidated`, `adopted_after_reject`) now route to `setDecisionOutcome` instead of failing the upsert contract.
+**Next action:** Improve customer and internal data-room evidence coverage.
+
+### Eval — 2026-07-29 — Phase 4 — Benchmark B3 — Owner A/B
+
+**Phase:** 4 — Enterprise Decision Support
+**Prompt executed:** Exact B3 Notion vs Confluence prompt from Section 13.
+**Environment:** `dev`; live APIs; fresh account/no decision memory; Tier 2; final run completed with zero failed agents.
+**Expected output:** Shared comparison dimensions, real claim bindings, prioritized buyer actions, evidence-aware decision options, and no fake fallback URLs.
+**Actual output (summary):** Final run resolved exactly Notion and Confluence and kept the comparison explicitly partial. Recommendation #1 was weakly supported/medium impact; unsupported recommendation #2 was automatically capped to low impact and its option trade-off was replaced by a verification warning. Both used relative 30–90 day timing and complete owner/effort/risk/falsifier fields. Unsupported comparison cells had zero URLs, invalid recommendation fallback URLs were zero, and frame risks came from unknowns/limitations rather than unsupported model-authored claims.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 Pass; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — evidence isolation, ranked actions, decision frame, and no fallback citations.
+**Baseline comparison:** Better — Phase 3’s comparison contract now drives a board-ready decision path while structurally demoting unsupported options.
+**Issues found:** AIQ-022, AIQ-023.
+**Priority:** P1; fixed and rerun live.
+**Root cause:** Prompt-authored risk promotion / absolute calendar timing.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** None — final run had zero failed agents and zero unsupported-cell URLs.
+**Notes:** The accept/reject eval harness independently proved that a rejected pricing pattern is downranked and an accepted customer pattern is boosted; the resulting rank also controls the frame recommendation. Live Steal Strategy verification returned `ungrounded-educational`, `enterpriseEligible: false`, and no sources.
+**Next action:** Broaden primary enterprise pricing/customer/migration collection while preserving unsupported empty cells.
+
+### Eval — 2026-07-29 — Phase 5 — Benchmark B5 — Owner B
+
+**Phase:** 5 — Watchlists (Enterprise Continuous MVP)
+**Prompt / job executed:** “Run watchlist monitoring for competitor X. Report only material changes since last sweep.” Synthetic previous/current research jobs injected an official-source price change (`$20` → `$25`) plus a documentation wording tweak.
+**Environment:** `dev`; real PostgreSQL `research_jobs` → `processMonitoringJobResult` → `alert_events` / `competitive_events` integration path; Phase 5 migration applied.
+**Expected output:** One source-grounded `pricing` alert and timeline event; copy tweak suppressed; no recommendation-title-only materiality; deterministic weekly budget.
+**Actual output (summary):** Exactly one alert and one timeline event were persisted. The event category was `pricing`, materiality was `0.92`, the official source URL remained attached, and one copy-only signal was suppressed. The 100-event soak fixture admitted nine events after three of a 12-alert weekly budget were already consumed. The first sweep establishes a baseline and emits no alert.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 N/A; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — material price change detected; wording-only change suppressed; alert not based on recommendation titles; source and materiality diagnostics persisted.
+**Baseline comparison:** Better — baseline emitted alerts for recommendation-title/confidence churn and had only eight categories, fixed weekly cadence, three-target cap, and in-app-only delivery.
+**Issues found:** AIQ-026, AIQ-027, AIQ-028, AIQ-029, AIQ-030.
+**Priority:** P1/P2; all P1 issues fixed before final integration run; P2 source-snapshot/tool-health limitations remain documented for Phase 6.
+**Root cause:** Non-atomic egress/budget path, fabricated empty-state examples, and lack of durable source snapshots.
+**Owner:** B.
+**Status:** Verified.
+**Regression:** Focused Phase 5 suite passed 18 tests; DB budget/upsert integration returned first insert `true` and duplicate delivery blocked; full suite passed 296 tests with one skipped, and all 24 quality checks passed.
+**Notes:** Email uses Resend and Slack uses a server-side webhook. Missing connector credentials produce audited `skipped` delivery status and never block in-app alerts. Material events project into the evidence graph / competitor profile only when those platform flags are enabled.
+**Next action:** Phase 6 should persist official-page/source snapshots, add source-specific adapters and velocity baselines, and make provider-level scrape failures first-class.
+
+### Eval — 2026-07-29 — Phase 5 — Benchmark B4 Regression — Owner A/B
+
+**Phase:** 5 regression spot-check — Closed-world entity integrity.
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt with adversarial memory containing Lilian and Clay.
+**Environment:** `dev`; live APIs; final run resolved WSO2/SyscoLabs, medium confidence, zero failed research agents.
+**Expected output:** Zero Lilian/Clay memory bleed; explicitly reject an unsupported peer comparison; request official URLs and buyer intent.
+**Actual output (summary):** Final answer contained zero Lilian/Clay references, stated that retrieved evidence did not establish WSO2 and SyscoLabs as comparable product peers, prohibited treating the output as a peer matrix, and requested both official product URLs plus buyer intent/use case/procurement criteria. It also disclosed unsupported pricing/customer evidence.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes — memory bleed was false; peer mismatch and evidence requirements were explicit.
+**Baseline comparison:** No regression after fix. The first Phase 5 spot-check preserved memory isolation but called the comparison merely “partial” and failed to request official URLs/buyer intent; this was fixed and rerun live.
+**Issues found:** AIQ-031.
+**Priority:** P1; fixed before final run.
+**Root cause:** Comparison prose treated evidence for only one entity as an established shared dimension.
+**Owner:** A/B.
+**Status:** Verified.
+**Regression:** Focused Phase 3 + Phase 5 suites passed 39 tests; final live run had zero failed agents and medium (not high) confidence.
+**Notes:** `buildComparisonExecutiveAnswer` now counts a dimension as established only when every compared entity has supported evidence; fewer than two shared dimensions triggers peer-abstention language.
+**Next action:** Add entity-type/canonical-profile evidence in Phase 6/7 so valid peer relationships can be positively established rather than inferred from sparse dimensions.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B1 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B1 self-critical enterprise research-assistant prompt.
+**Environment:** `dev`; live Gemini + retrieval tools; six-agent full sweep; zero failed research agents.
+**Expected output:** Critical gaps, assumptions, falsifiers, calibrated confidence, and no unsupported high-confidence recommendation.
+**Actual output (summary):** Returned low confidence, two assumptions, three falsifiers, two evidence-gated recommendations, explicit evidence limitations, and no maturity overclaim.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes.
+**Baseline comparison:** Equal or better — honesty and structural decision fields remain green after the monitoring/platform changes.
+**Issues found:** None critical; sparse first-party evidence correctly forced low confidence.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B2 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B2 WSO2-like acquisition diligence prompt.
+**Environment:** `dev`; live APIs; zero failed research agents.
+**Expected output:** DD mission/pack, known-vs-unknown separation, probes, and no invented financials.
+**Actual output (summary):** Classified `dd_acquisition`, produced the diligence pack, three explicit unknowns and eight next probes; stated zero verified/four partial sections and made no precise ARR, revenue, valuation, or EBITDA claim.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes; invented-financial automatic-fail condition was false.
+**Baseline comparison:** Equal — Phase 3/4 DD honesty and investigation structure are preserved.
+**Issues found:** None.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B3 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B3 Notion vs Confluence enterprise comparison prompt.
+**Environment:** `dev`; live APIs; 18 retrieved source records; zero failed research agents.
+**Expected output:** Correct entities, comparison contract, bound URLs, and cautious pricing/switching claims.
+**Actual output (summary):** Included both entities in the structured comparison, preserved retrieved HTTP(S) evidence only, discussed pricing with evidence/unknown caveats, and returned medium confidence.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes; no unbound/fake citation automatic failure.
+**Baseline comparison:** Equal — Phase 2 evidence binding and Phase 3 comparison structure remain green.
+**Issues found:** None.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B4 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt executed:** Exact B4 WSO2 vs SyscoLabs prompt with adversarial Lilian/Clay memory.
+**Environment:** `dev`; live APIs; zero failed research agents.
+**Expected output:** Zero memory contamination, peer mismatch, abstention/caveat, official URLs and buyer-intent request.
+**Actual output (summary):** Contained no Lilian/Clay reference, did not establish WSO2/SyscoLabs as product peers, and requested official product URLs plus buyer intent/use case/procurement criteria.
+**Checklist score:** 1 Pass; 2 Pass; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 Pass; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 Pass; 15 Pass; 16 Pass; 17 Pass; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes; contamination automatic-fail condition was false.
+**Baseline comparison:** Equal — final Phase 5 peer-honesty behavior is preserved.
+**Issues found:** None.
+**Status:** Verified.
+
+### Eval — 2026-07-29 — Phase 6 — Benchmark B5 — Owner A/B
+
+**Phase:** 6 — Continuous Intelligence release gate.
+**Prompt/job executed:** Synthetic official pricing baseline (`$20`) → material change (`$25`) plus wording-only documentation change.
+**Environment:** `dev`; local PostgreSQL with `0005_continuous_intelligence.sql`; full process-result integration.
+**Expected output:** Profile-diff pricing alert and timeline event; wording tweak suppressed; source/profile snapshot and board refresh persisted.
+**Actual output (summary):** One `pricing` alert at materiality `0.92`, one timeline event, one immutable competitor profile snapshot, and one timeline/decision board pack; one copy-only signal suppressed. Alert metadata identifies `materialityBasis=profile-diff` and the profile snapshot ID.
+**Checklist score:** 1 Pass; 2 N/A; 3 Pass; 4 Pass; 5 Pass; 6 Pass; 7 N/A; 8 N/A; 9 Pass; 10 Pass; 11 Pass; 12 Pass; 13 Pass; 14 N/A; 15 Pass; 16 Pass; 17 N/A; 18 N/A; 19 Pass; 20 Pass.
+**Acceptance score met?** Yes.
+**Baseline comparison:** Better — Phase 5 structured-event diff now has a canonical entity, durable source/profile sink, profile-diff alert provenance, and automatic 30-day board refresh.
+**Issues found:** AIQ-029, AIQ-030, AIQ-032, AIQ-033, AIQ-034, AIQ-035.
+**Priority:** All P1 findings fixed; velocity/source-specific adaptive cadence remains P2.
+**Status:** Verified.
+**Regression:** 305 tests passed with one skipped; Phase 6 focused tests passed 9; DB integration passed; 24/24 output-quality checks passed; typecheck and lint completed with no errors.
 
 ---
 
@@ -1088,18 +1386,41 @@ Do **not** create a separate issues markdown file.
 
 | Issue ID | Title | Description | Priority | Phase | Owner | Status | Resolved Version | Notes |
 |----------|-------|-------------|----------|-------|-------|--------|------------------|-------|
-| AIQ-001 | Ungated research memory | Research agents/synthesis receive full memory despite classify-time gating | P0 | 1 | A | Open | | Confirmed in orchestrator |
-| AIQ-002 | Unscoped research history | Agents/synthesis use unscoped recent history | P0 | 1 | A | Open | | Context leakage |
-| AIQ-003 | Tier 0 hardcoded high confidence | Direct answers always `totalConfidence: high` | P0 | 1 | A | Open | | Confidence mismatch |
-| AIQ-004 | Evidence bind fallback | Attaches unrelated top URLs when overlap fails | P0 | 2 | A | Open | | Fake trust trails |
-| AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Open | | |
-| AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Open | | Blocks investigation loop |
-| AIQ-007 | Watchlist title-only materiality | Diff uses recommendation titles, not structured events | P0 | 5 | B | Open | | |
-| AIQ-008 | Steal Strategy ungrounded | No retrieval/citations | P1 | 4 | B | Open | | |
-| AIQ-009 | Weak DD workflow | No acquisition diligence mission | P1 | 3 | B | Open | | |
-| AIQ-010 | Domain padding over-research | normalizeDomains forces ≥3 domains | P2 | 3 | A | Open | | |
-| AIQ-011 | Heuristic entity hard-override | Dual heuristic entities ignore LLM names | P1 | 1 | A | Open | | |
-| AIQ-012 | Missing leadership/security watch signals | Continuous intel gaps | P2 | 5 | B | Open | | |
+| AIQ-001 | Ungated research memory | Research agents/synthesis receive full memory despite classify-time gating | P0 | 1 | A | Verified | dev@2026-07-29 | B4 live: 0 Lilian/Clay bleed |
+| AIQ-002 | Unscoped research history | Agents/synthesis use unscoped recent history | P0 | 1 | A | Verified | dev@2026-07-29 | Same query-scope gate used by classify, research, synthesis |
+| AIQ-003 | Tier 0 hardcoded high confidence | Direct answers always `totalConfidence: high` | P0 | 1 | A | Verified | dev@2026-07-29 | Tier 0 capped at medium/low with limitations + falsifier |
+| AIQ-004 | Evidence bind fallback | Attaches unrelated top URLs when overlap fails | P0 | 2 | A | Verified | dev@2026-07-29 | Empty unsupported trails + `unbound_claims`; B3/B4 invalid fallback URLs = 0 |
+| AIQ-005 | Missing falsifiers/assumptions schema | Synthesis JSON lacks assumptions/unknowns/whatWouldChangeThis | P1 | 1 | A | Verified | dev@2026-07-29 | Added assumptions, unknowns, limitations, falsifiers, alternatives, confidence drivers |
+| AIQ-006 | openQuestions never written | Scratchpad field unused | P1 | 1–3 | A | Verified | dev@2026-07-29 | Agents emit questions; workflow records/infers them, builds probes, and carries them into targeted follow-ups |
+| AIQ-007 | Watchlist title-only materiality | Diff uses recommendation titles, not structured events | P0 | 5 | B | Verified | dev@2026-07-29 | Recommendation titles are diagnostic-only; B5 emitted one grounded pricing event and suppressed copy churn |
+| AIQ-008 | Steal Strategy ungrounded | No retrieval/citations | P1 | 4 | B | Verified | dev@2026-07-29 | Chose explicit demotion path: API/UI label educational and ungrounded, sources empty, `enterpriseEligible=false`, excluded from board packs |
+| AIQ-009 | Weak DD workflow | No acquisition diligence mission | P1 | 3 | B | Verified | dev@2026-07-29 | Six-section DD pack + contract-driven executive answer; B2 no invented numeric financials |
+| AIQ-010 | Domain padding over-research | normalizeDomains forces ≥3 domains | P2 | 3 | A | Verified | dev@2026-07-29 | `normalizeDomains` no longer pads; deliberate single-domain market/pricing missions keep one agent |
+| AIQ-011 | Heuristic entity hard-override | Dual heuristic entities ignore LLM names | P1 | 1 | A | Verified | dev@2026-07-29 | LLM resolution preferred; disagreement logged and final confidence capped |
+| AIQ-012 | Missing leadership/security watch signals | Continuous intel gaps | P2 | 5 | B | Verified | dev@2026-07-29 | First-class leadership/security categories, materiality rules, severity matrix, clustering, timeline labels, and fixtures |
+| AIQ-013 | Self-comparison identity contamination | B1 took Tier 0 path, then treated same-name public companies as this application | P0 | 1 | A | Verified | dev@2026-07-29 | Self-comparison routing + structural fact/source boundary; final B1 had zero homonym URLs |
+| AIQ-014 | Honesty schema truncates synthesis JSON | 768-token cap truncated expanded synthesis contract and forced weak fallback | P1 | 1 | A | Verified | dev@2026-07-29 | Raised to 1400 in Phase 1 and 2200 for the Phase 4 decision contract; live B1/B2/B3 returned complete JSON |
+| AIQ-015 | Executor parity p95 gate red locally | Synthetic p95 previously exceeded 30ms despite functional parity | P2 | 1 | A | Verified | dev@2026-07-29 | Full suite rerun passed executor parity; 256 tests passed, 1 skipped |
+| AIQ-016 | Prose lacks sentence-level source bindings | Recommendation evidence is claim-bound, but executive prose still has aggregate rather than sentence-level trails | P2 | 2–4 | A | Open | | Current Phase 2 contract covers recommendation claims; extend traceability without clutter |
+| AIQ-017 | Customer evidence coverage stays empty | Customer evidence can remain sparse after the bounded single-domain deepening pass | P2 | 3 | B | Open | | Adaptive deepening + targeted probes now exist; broaden customer/reference collectors |
+| AIQ-018 | Long 404 page accepted as scraped evidence | A guessed pricing URL returned enough markdown to pass length-only validation and enter a trail | P0 | 2 | A | Verified | dev@2026-07-29 | Reject 404/410/not-found page content; final B4 pricing URL absent |
+| AIQ-019 | Investigation state stripped from chat history | Client sent content-only history, so prior openQuestions and target identity disappeared on follow-up | P0 | 3 | A | Verified | dev@2026-07-29 | Slim history carries product/competitor + open questions; live follow-up retained WSO2 and ran only win-loss |
+| AIQ-020 | Comparison prose outruns cell evidence | Synthesis asserted switching advantages while the comparison contract had no switching evidence | P1 | 3 | B | Verified | dev@2026-07-29 | Executive answer now derives from supported shared-dimension cells and names incomplete dimensions |
+| AIQ-021 | DD recommendation financial fail-open | Prompt-only guard could allow invented financial metrics outside the contract-driven answer | P0 | 3 | A | Verified | dev@2026-07-29 | Deterministic DD recommendation sanitizer strips numeric financial inventions and strategy pivots |
+| AIQ-022 | Decision frame promotes unsupported model risks | Model-authored options/situation/risks could outrun guarded answer and claim-bound recommendation evidence | P1 | 4 | A | Verified | dev@2026-07-29 | Situation comes from guarded answer; options from ranked recs; risks from rec support + unknowns/limitations; unsupported trade-offs are replaced by verification text |
+| AIQ-023 | Recommendation timing can be stale | Model returned Q1 2026 during a July 2026 benchmark | P1 | 4 | A | Verified | dev@2026-07-29 | Priority deterministically maps to relative windows (0–30 days, 30–90 days, next 2–4 quarters) |
+| AIQ-024 | Decision outcome controls no-op | Memory drawer posted `{id,outcome}` into the create/upsert-only route | P1 | 4 | B | Verified | dev@2026-07-29 | Outcome requests now validate the enum and call `setDecisionOutcome`; missing records return 404 |
+| AIQ-025 | Board timeline omitted monitoring events | Initial board pack used retrieval timestamps but not persisted competitive events | P1 | 4–5 | B | Verified | dev@2026-07-29 | Recent `competitive_events` enter learning context and entity-filter into board timeline; retrieval provenance remains fallback |
+| AIQ-026 | Alert egress re-sends deduped events | Alert upsert conflict still called Slack/email and duplicated timeline/KG writes | P1 | 5 | B | Verified | dev@2026-07-29 | `is_new` gates timeline, egress, and KG; duplicate weekly dedupe rows no longer resend |
+| AIQ-027 | Parallel monitoring jobs exceed weekly budget | Competitor jobs counted alerts independently before insert | P1 | 5 | B | Verified | dev@2026-07-29 | Atomic advisory-lock count+upsert enforces per-watchlist budget across parallel jobs |
+| AIQ-028 | Watchlist empty state displays fabricated signals | UI showed two demo competitor alerts when the alert table was empty | P1 | 5 | B | Verified | dev@2026-07-29 | Fake fallback removed; empty state explicitly says no material grounded changes detected |
+| AIQ-029 | Monitoring lacks durable source snapshots | Event collectors use retrieved agent facts, typed pricing/hiring fields, and source headlines rather than persisted page-field snapshots | P2 | 6 | B | Verified | dev@2026-07-29 | Canonical entity source snapshots persist URL/type/title/content hash/extracted fields; immutable profile snapshots and changed fields now drive alert materiality |
+| AIQ-030 | Provider-level scrape failures can look successful | A wrapper may report tool success even when the upstream actor response says quota/subscription failure | P2 | 6 | A/B | Verified | dev@2026-07-29 | HTTP-200 provider payload failures normalize to `failed`; Firecrawl preserves provider error; latency wrapper logs returned `failed`/`degraded` status instead of success-on-no-throw |
+| AIQ-031 | One-entity evidence presented as shared comparison | Comparison answer treated a supported cell for only one entity as an established shared dimension | P1 | 5 | A | Verified | dev@2026-07-29 | Shared dimensions now require supported cells for every entity; sparse compares request official URLs and buyer intent; B4 final passed |
+| AIQ-032 | Async default can enqueue into no transport | Development mode alone made Inngest appear configured, leaving jobs queued without a worker | P1 | 6 | B | Verified | dev@2026-07-29 | Async defaults on only behind an explicit event-key/signing-key or `INNGEST_DEV=1` readiness gate; otherwise chat uses sync fallback |
+| AIQ-033 | Recovered async job can be overwritten by stale worker | Requeued execution changed the execution ID, but the old worker could still write a terminal result | P1 | 6 | B | Verified | dev@2026-07-29 | Terminal writes require current execution ownership; 15-minute recovery requeues or fails jobs stale for 20 minutes |
+| AIQ-034 | Workspace decisions do not refresh board projection | Decision rows lacked workspace stamping and board packs only refreshed after monitoring events | P1 | 6 | B | Verified | dev@2026-07-29 | New decisions stamp workspace ID and trigger recoverable board refresh; weekly org refresh repairs missed projections |
+| AIQ-035 | Monitoring lacks multi-period velocity baselines | Profile snapshots show current structured changes but do not yet calculate hiring/sentiment/source-specific velocity across multiple periods | P2 | 7 | B | Open | | Add role/geo hiring velocity, sentiment volume baselines, and source-specific adaptive cadence after enough snapshot history accumulates |
 
 _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mark `Verified` and set Resolved Version._
 
@@ -1112,7 +1433,7 @@ _Add new rows as benchmarks discover weaknesses. Never delete resolved rows; mar
 | Layer | What | Cadence |
 |-------|------|---------|
 | Offline deterministic | Memory gate, bind fallback absence, abstain flags, entity scope | Every PR (`test:quality` + vitest) |
-| Live prompt suite | 5 master benchmarks + 20–40 extended prompts | Nightly / pre-release |
+| Live prompt suite | B1–B5 automated structural checks + archived JSON report (`weekly-live-quality.yml`) | Weekly + manual pre-release dispatch |
 | Monitoring fixtures | Synthetic HTML/pricing/funding events | PR for monitoring package |
 | LLM-as-judge (optional) | Soft scores for executive clarity / honesty | Weekly, never sole gate |
 
@@ -1198,6 +1519,8 @@ Veracity meets the master objective when:
 | Synthesis prompts | `lib/agents/prompts/synthesis.ts` |
 | Quality gate | `lib/agents/output-quality.ts` |
 | Evidence bind fallback | `lib/agents/bind-evidence.ts` |
+| Decision ranking / board pack | `lib/agents/decision-support.ts` |
+| Executive decision UI | `components/ui/DecisionSupportPack.tsx`, `components/ui/ExecutiveBoardMode.tsx` |
 | Source trust | `lib/tools/source-validator.ts` |
 | Watchlist diff | `lib/monitoring/diff-sweep.ts` |
 | Steal strategy (ungrounded) | `app/api/steal-strategy/route.ts` |

@@ -9,6 +9,7 @@ export type MemoryDrawerProps = {
   open: boolean;
   onClose: () => void;
   memory: UserMemory | null;
+  projectId?: string | null;
   textMain: string;
   textMuted: string;
   textSubtle: string;
@@ -25,6 +26,7 @@ type DecisionLite = {
   decision: string;
   reason: string;
   outcome: string;
+  outcome_note?: string | null;
   confidence: number;
 };
 
@@ -68,22 +70,28 @@ export function MemoryDrawer({
   open,
   onClose,
   memory,
+  projectId,
   textMain,
   textMuted,
   textSubtle,
   accentInk,
 }: MemoryDrawerProps) {
   const [decisions, setDecisions] = useState<DecisionLite[]>([]);
+  const [outcomeNotes, setOutcomeNotes] = useState<Record<string, string>>({});
+
+  const decisionsUrl = projectId
+    ? `/api/decisions?projectId=${encodeURIComponent(projectId)}`
+    : '/api/decisions';
 
   useEffect(() => {
     if (!open || !featureFlags.decisionMemory) return;
-    void fetch('/api/decisions')
+    void fetch(decisionsUrl)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { decisions?: DecisionLite[] } | null) => {
         setDecisions(d?.decisions ?? []);
       })
       .catch(() => {});
-  }, [open]);
+  }, [open, decisionsUrl]);
 
   if (!open) return null;
 
@@ -101,9 +109,9 @@ export function MemoryDrawer({
     await fetch('/api/decisions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, outcome }),
+      body: JSON.stringify({ id, outcome, note: outcomeNotes[id]?.trim() || undefined }),
     });
-    const res = await fetch('/api/decisions');
+    const res = await fetch(decisionsUrl);
     if (res.ok) {
       const d = await res.json() as { decisions?: DecisionLite[] };
       setDecisions(d.decisions ?? []);
@@ -290,8 +298,21 @@ export function MemoryDrawer({
                     <p className="ui-mono" style={{ color: textSubtle, fontSize: 10 }}>
                       Outcome · {d.outcome}
                     </p>
+                    {d.outcome_note ? (
+                      <p className="ui-caption" style={{ color: textMuted }}>{d.outcome_note}</p>
+                    ) : null}
                     {d.outcome === 'pending' ? (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        <input
+                          value={outcomeNotes[d.id] ?? ''}
+                          onChange={(event) => setOutcomeNotes((current) => ({
+                            ...current,
+                            [d.id]: event.target.value,
+                          }))}
+                          placeholder="Optional result note"
+                          className="rounded border border-border bg-background px-2 py-1 text-[11px] text-foreground outline-none"
+                        />
+                        <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
                           className="text-[10px] font-mono uppercase px-2 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-600"
@@ -315,6 +336,7 @@ export function MemoryDrawer({
                             Later adopted
                           </button>
                         ) : null}
+                        </div>
                       </div>
                     ) : null}
                   </div>

@@ -12,10 +12,11 @@ import type {
   SessionUsage,
   SourceLink,
 } from '@/types/chat-ui';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 
 export type ChatRequestBody = {
   query: string;
-  history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  history: ChatHistoryItem[];
   images?: ImageAttachment[];
   memoryContext?: string;
   includeMirofish?: boolean;
@@ -25,7 +26,34 @@ export type ChatRequestBody = {
   forceFullSweep?: boolean;
   sessionId?: string;
   conversationId?: string;
+  turnMode?: ResearchTurnMode;
 };
+
+export type ChatHistoryItem = {
+  role: 'user' | 'assistant';
+  content: string;
+  /** Slim cross-turn workflow state; avoids resending full orchestrator output. */
+  investigationOpenQuestions?: string[];
+  researchProduct?: string;
+  researchCompetitor?: string;
+};
+
+export function historyItemFromMessage(
+  message: Pick<ChatMessage, 'role' | 'content' | 'orchestratorOutput'>,
+): ChatHistoryItem {
+  const openQuestions = message.orchestratorOutput?.investigationPlan?.openQuestions ?? [];
+  const product = message.orchestratorOutput?.product;
+  const competitor = message.orchestratorOutput?.competitor;
+  return {
+    role: message.role,
+    content: message.content,
+    ...(openQuestions.length > 0
+      ? { investigationOpenQuestions: openQuestions.slice(0, 8) }
+      : {}),
+    ...(product ? { researchProduct: product } : {}),
+    ...(competitor ? { researchCompetitor: competitor } : {}),
+  };
+}
 
 export type StreamChatOptions = {
   signal?: AbortSignal;
@@ -74,6 +102,19 @@ export function recommendationsFromOutput(out: OrchestratorOutput) {
     evidence: r.evidence,
     priority: r.priority,
     sourceUrls: r.sourceUrls ?? [],
+    evidenceStatus: r.evidenceStatus,
+    evidenceBindings: r.evidenceBindings ?? [],
+    rank: r.rank,
+    impact: r.impact,
+    effort: r.effort,
+    timing: r.timing,
+    ownerSuggestion: r.ownerSuggestion,
+    dependencies: r.dependencies ?? [],
+    riskOfInaction: r.riskOfInaction,
+    falsifier: r.falsifier,
+    decisionScore: r.decisionScore,
+    learningAdjustment: r.learningAdjustment,
+    pattern: r.pattern,
   }));
 }
 
@@ -129,7 +170,7 @@ export function applyResultToAssistant(
       ...agentRuns.filter(r => r.agentId !== 'mirofish'),
       {
         agentId: 'mirofish',
-        name: 'MiroFish (Forecast)',
+        name: 'Swarm Decision Lab',
         status: 'running',
         startedAt: new Date().toISOString(),
       } as AgentRun,
@@ -141,7 +182,7 @@ export function applyResultToAssistant(
       ...agentRuns.filter(r => r.agentId !== 'mirofish-live'),
       {
         agentId: 'mirofish-live',
-        name: 'MiroFish Live (Real VPS)',
+        name: 'Swarm Decision Lab (Live)',
         status: 'running',
         startedAt: new Date().toISOString(),
       } as AgentRun,

@@ -50,7 +50,16 @@ export function buildEntityTerms(
 export function sourceMatchesEntities(
   source: Pick<AgentSource, 'url' | 'title'>,
   entityTerms: string[],
+  officialDomains: string[] = [],
 ): boolean {
+  try {
+    const hostname = new URL(source.url).hostname.replace(/^www\./, '').toLowerCase();
+    if (officialDomains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`))) {
+      return true;
+    }
+  } catch {
+    // Invalid URLs are rejected by source validation later.
+  }
   if (entityTerms.length === 0) return true; // nothing to gate on
 
   const haystack = `${source.title ?? ''} ${source.url ?? ''}`.toLowerCase();
@@ -72,6 +81,39 @@ export function sourceMatchesEntities(
   }
 
   return false;
+}
+
+/** Personal profiles and academic bios are identity clues, not product evidence. */
+export function isPersonOrSchoolBioSource(
+  source: Pick<AgentSource, 'url' | 'title'>,
+): boolean {
+  const url = source.url.toLowerCase();
+  const title = source.title.toLowerCase();
+  return (
+    /linkedin\.com\/in\//i.test(url)
+    || /\/(?:people|person|faculty|students?|alumni|authors?)\//i.test(url)
+    || /\b(cv|resume|curriculum vitae)\b/i.test(title)
+    || /\b(school of business|university profile|professor|phd student|student at|faculty bio|alumni)\b/i.test(title)
+  );
+}
+
+/** Derive canonical official domains from classifier/user-provided URLs. */
+export function officialDomainsFromUrls(
+  ...urls: (string | undefined | null)[]
+): string[] {
+  const domains = new Set<string>();
+  for (const value of urls) {
+    if (!value?.trim()) continue;
+    try {
+      const candidate = /^https?:\/\//i.test(value.trim())
+        ? value.trim()
+        : `https://${value.trim()}`;
+      domains.add(new URL(candidate).hostname.replace(/^www\./, '').toLowerCase());
+    } catch {
+      // Ignore malformed classifier output.
+    }
+  }
+  return [...domains];
 }
 
 function escapeRegExp(s: string): string {
@@ -128,27 +170,34 @@ export type RelevanceFilterResult = {
 };
 
 /**
- * Keep sources that mention resolved product/competitor entities.
- * If filtering would drop everything, fall back to original list but report
- * matchRatio = 0 so confidence can be lowered.
+ * Keep credible sources that mention resolved entities or belong to an
+ * explicitly supplied official domain. Empty results stay empty.
  */
 export function filterSourcesByEntityRelevance(
   sources: AgentSource[],
   entityTerms: string[],
+  opts?: {
+    officialDomains?: string[];
+    rejectPersonBios?: boolean;
+  },
 ): RelevanceFilterResult {
   if (sources.length === 0) {
     return { kept: [], dropped: 0, matchRatio: 0 };
   }
+  const credible = opts?.rejectPersonBios === false
+    ? sources
+    : sources.filter((source) => !isPersonOrSchoolBioSource(source));
   if (entityTerms.length === 0) {
-    return { kept: sources, dropped: 0, matchRatio: 1 };
+    return {
+      kept: credible,
+      dropped: sources.length - credible.length,
+      matchRatio: credible.length / sources.length,
+    };
   }
-
-  const matched = sources.filter((s) => sourceMatchesEntities(s, entityTerms));
+  const matched = credible.filter((source) =>
+    sourceMatchesEntities(source, entityTerms, opts?.officialDomains ?? []),
+  );
   const matchRatio = matched.length / sources.length;
-
-  if (matched.length === 0) {
-    return { kept: sources, dropped: 0, matchRatio: 0 };
-  }
 
   return {
     kept: matched,

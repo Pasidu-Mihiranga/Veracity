@@ -1,10 +1,12 @@
 import type {
   AgentOutput,
+  BoardPack,
   CompetitiveOutput,
   MarketTrendsOutput,
   MindMapNode,
   MindMapOutput,
   OrchestratorOutput,
+  DecisionFrame,
 } from '@/lib/agents/types';
 import type { ChatMessage } from '@/types/chat-ui';
 
@@ -47,6 +49,13 @@ export type ExecutiveReportData = {
     confidence: string;
     evidence?: string[];
     sourceUrls?: string[];
+    rank?: number;
+    impact?: string;
+    effort?: string;
+    timing?: string;
+    ownerSuggestion?: string;
+    riskOfInaction?: string;
+    falsifier?: string;
   }>;
   domainHighlights: Array<{
     domain: string;
@@ -70,6 +79,8 @@ export type ExecutiveReportData = {
     score: number;
     sourceCount: number;
   }>;
+  decisionFrame?: DecisionFrame;
+  boardPack?: BoardPack;
 };
 
 function flattenMindChildren(nodes: MindMapNode[] | undefined, limit = 6): string[] {
@@ -118,6 +129,13 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
     confidence: String(rec.confidence ?? 'medium'),
     evidence: Array.isArray(rec.evidence) ? rec.evidence.map(String) : [],
     sourceUrls: Array.isArray(rec.sourceUrls) ? rec.sourceUrls.map(String) : [],
+    rank: typeof rec.rank === 'number' ? rec.rank : undefined,
+    impact: rec.impact,
+    effort: rec.effort,
+    timing: rec.timing,
+    ownerSuggestion: rec.ownerSuggestion,
+    riskOfInaction: rec.riskOfInaction,
+    falsifier: rec.falsifier,
   }));
 
   return {
@@ -174,6 +192,8 @@ export function buildExecutiveReport(message: ChatMessage): ExecutiveReportData 
       score: a.score,
       sourceCount: a.sourceCount,
     })),
+    decisionFrame: out?.decisionFrame,
+    boardPack: out?.boardPack,
   };
 }
 

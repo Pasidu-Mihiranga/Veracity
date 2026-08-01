@@ -141,6 +141,7 @@ Produce a JSON object:
   ],
   "hiringSignals": string[],
   "recentMoves": string[],
+  "openQuestions": string[], // unresolved evidence gaps; empty only if evidence resolves them
   "synthesizedAnswer": string,
   "confidenceScore": number
 }
@@ -179,6 +180,7 @@ For the matrix, infer the most relevant feature dimensions from the signals abov
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     competitor: competitorName ?? 'category alternatives',

@@ -5,18 +5,20 @@ import { Presentation, X } from 'lucide-react';
 import type { ChatMessage } from '@/types/chat-ui';
 import { EvidenceCoverageRadar } from '@/components/ui/EvidenceCoverageRadar';
 import { featureFlags } from '@/lib/feature-flags';
+import type { Recommendation } from '@/lib/agents/types';
 
 type Props = {
   message: ChatMessage;
 };
 
-type SlideId = 'decision' | 'coverage' | 'recs' | 'matrix' | 'sources';
+type SlideId = 'decision' | 'coverage' | 'recs' | 'matrix' | 'context' | 'sources';
 
 const SLIDES: { id: SlideId; label: string }[] = [
   { id: 'decision', label: 'Decision' },
   { id: 'coverage', label: 'Coverage' },
   { id: 'recs', label: 'Recommendations' },
   { id: 'matrix', label: 'Battlefield' },
+  { id: 'context', label: 'Timeline & Memory' },
   { id: 'sources', label: 'Sources' },
 ];
 
@@ -53,9 +55,13 @@ export function ExecutiveBoardMode({ message }: Props) {
 
   const slide = SLIDES[index];
   const out = message.orchestratorOutput;
-  const competitive = out?.outputs?.find((o) => o.artifactType === 'competitive-matrix') as
+  const competitive = out?.outputs?.find(
+    (o) => o.artifactType === 'competitive-matrix' && !o.decisionUseSuppressed,
+  ) as
     | { matrix?: Array<{ feature: string; yourProduct: string; competitor: string; gapDirection: string }>; competitor?: string }
     | undefined;
+  const boardPack = out?.boardPack;
+  const comparison = out?.comparisonContract;
 
   return (
     <>
@@ -121,8 +127,32 @@ export function ExecutiveBoardMode({ message }: Props) {
               <div className="flex flex-col gap-6">
                 <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Decision</p>
                 <p className="text-2xl md:text-3xl leading-snug text-foreground whitespace-pre-wrap">
-                  {message.content}
+                  {boardPack?.executiveBrief ?? message.content}
                 </p>
+                {boardPack?.decision ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="veracity-card p-5">
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Situation</p>
+                      <p className="text-sm text-foreground">{boardPack.decision.situation}</p>
+                    </div>
+                    <div className="veracity-card p-5">
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Recommendation</p>
+                      <p className="text-sm text-foreground">{boardPack.decision.recommendation}</p>
+                    </div>
+                    <div className="veracity-card p-5">
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Criteria</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {boardPack.decision.criteria.map((criterion) => <li key={criterion}>• {criterion}</li>)}
+                      </ul>
+                    </div>
+                    <div className="veracity-card p-5">
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground mb-2">What would change this</p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        {boardPack.decision.falsifiers.map((falsifier) => <li key={falsifier}>• {falsifier}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
 
@@ -144,16 +174,30 @@ export function ExecutiveBoardMode({ message }: Props) {
                 <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                   Recommendations
                 </p>
-                {(message.recommendations ?? out?.topRecommendations ?? []).map((rec: {
-                  title?: string;
-                  rationale?: string;
-                  priority?: string;
-                  sourceUrls?: string[];
-                }, i: number) => (
+                {(message.recommendations ?? out?.topRecommendations ?? []).map((rec: Partial<Recommendation>, i: number) => (
                   <div key={i} className="veracity-card p-5 flex flex-col gap-2">
-                    <span className="text-[10px] font-mono uppercase text-accent">{rec.priority}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-semibold text-accent">#{rec.rank ?? i + 1}</span>
+                      <span className="text-[10px] font-mono uppercase text-accent">{rec.priority}</span>
+                      {rec.evidenceStatus ? (
+                        <span className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${
+                          rec.evidenceStatus === 'supported'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            : rec.evidenceStatus === 'weakly-supported'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                          {rec.evidenceStatus.replace('-', ' ')}
+                        </span>
+                      ) : null}
+                    </div>
                     <h3 className="text-xl font-medium text-foreground">{rec.title}</h3>
                     <p className="text-muted-foreground">{rec.rationale}</p>
+                    <p className="text-xs font-mono text-muted-foreground">
+                      Impact {rec.impact ?? 'unknown'} · Effort {rec.effort ?? 'unknown'} · {rec.timing ?? 'timing unknown'} · Owner {rec.ownerSuggestion ?? 'unassigned'}
+                    </p>
+                    {rec.riskOfInaction ? <p className="text-sm text-amber-700">Risk of inaction: {rec.riskOfInaction}</p> : null}
+                    {rec.falsifier ? <p className="text-sm text-muted-foreground">Falsifier: {rec.falsifier}</p> : null}
                     {(rec.sourceUrls?.length ?? 0) > 0 ? (
                       <ul className="flex flex-col gap-1 mt-1">
                         {rec.sourceUrls!.slice(0, 3).map((url) => (
@@ -175,7 +219,31 @@ export function ExecutiveBoardMode({ message }: Props) {
                 <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                   Competitive battlefield{competitive?.competitor ? ` · ${competitive.competitor}` : ''}
                 </p>
-                {(competitive?.matrix?.length ?? 0) > 0 ? (
+                {comparison ? (
+                  <div className="veracity-card overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left text-[10px] font-mono uppercase text-muted-foreground">
+                          <th className="p-3">Dimension</th>
+                          {comparison.entities.map((entity) => <th key={entity} className="p-3">{entity}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comparison.dimensions.map((dimension) => (
+                          <tr key={dimension.id} className="border-b border-border/60 align-top">
+                            <td className="p-3 font-medium">{dimension.label}</td>
+                            {dimension.cells.map((cell) => (
+                              <td key={cell.entity} className="p-3">
+                                <p>{cell.finding}</p>
+                                <span className="text-[9px] font-mono uppercase text-muted-foreground">{cell.confidence}</span>
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (competitive?.matrix?.length ?? 0) > 0 ? (
                   <div className="veracity-card overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
@@ -201,6 +269,32 @@ export function ExecutiveBoardMode({ message }: Props) {
                 ) : (
                   <p className="text-muted-foreground">No competitive matrix in this run.</p>
                 )}
+              </div>
+            )}
+
+            {slide.id === 'context' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="veracity-card p-5">
+                  <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Evidence timeline</p>
+                  {boardPack?.timeline.length ? (
+                    <ul className="space-y-3">
+                      {boardPack.timeline.map((item, i) => (
+                        <li key={`${item.date}-${i}`} className="border-l border-accent/20 pl-3">
+                          <p className="text-[10px] font-mono text-muted-foreground">{new Date(item.date).toLocaleDateString()}</p>
+                          <p className="text-sm text-foreground">{item.label}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p className="text-muted-foreground">No dated evidence available.</p>}
+                </div>
+                <div className="veracity-card p-5">
+                  <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Decision memory</p>
+                  {boardPack?.decisionMemory.length ? (
+                    <ul className="space-y-2 text-sm text-foreground">
+                      {boardPack.decisionMemory.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  ) : <p className="text-muted-foreground">No prior accepted or rejected decisions informed this run.</p>}
+                </div>
               </div>
             )}
 

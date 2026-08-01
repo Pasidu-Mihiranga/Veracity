@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildFallbackAnswer } from '@/lib/agents/synthesize';
+import {
+  buildFallbackAnswer,
+  sanitizeOutputsForSelfEvaluation,
+} from '@/lib/agents/synthesize';
 import { safeParseJson, stripJsonFences } from '@/lib/agents/json-parse';
 import {
   buildSynthesizePrompt,
@@ -54,6 +57,36 @@ describe('buildFallbackAnswer', () => {
   });
 });
 
+describe('self-evaluation evidence boundary', () => {
+  it('removes same-name public-company evidence before synthesis', () => {
+    const output = stub('competitive', [
+      'Veracity AI pricing page returns 404',
+      'The pricing page returns 404',
+      'Glean supports enterprise search',
+    ]);
+    output.sources = [
+      {
+        title: 'Veracity AI pricing',
+        url: 'https://veracityai.com/pricing',
+        timestamp: new Date().toISOString(),
+        tool: 'firecrawl',
+      },
+      {
+        title: 'Glean enterprise search',
+        url: 'https://glean.com/product',
+        timestamp: new Date().toISOString(),
+        tool: 'firecrawl',
+      },
+    ];
+    const [sanitized] = sanitizeOutputsForSelfEvaluation(
+      'If I were competing directly with Glean, what must I improve?',
+      [output],
+    );
+    expect(sanitized.facts).toEqual(['Glean supports enterprise search']);
+    expect(sanitized.sources.map((source) => source.url)).toEqual(['https://glean.com/product']);
+  });
+});
+
 describe('prompt assets', () => {
   it('includes anti-hallucination rules in synthesize prompt', () => {
     const p = buildSynthesizePrompt({
@@ -67,6 +100,19 @@ describe('prompt assets', () => {
     expect(p).toMatch(/ANTI-HALLUCINATION/);
     expect(p).toContain('Acme');
     expect(p).toMatch(/interest score|estimated/i);
+    expect(p).toMatch(/closed world/i);
+    expect(p).toContain('"assumptions"');
+    expect(p).toContain('"unknowns"');
+    expect(p).toContain('"whatWouldChangeThis"');
+    expect(p).toContain('"alternativeHypotheses"');
+    expect(p).toContain('"confidenceDrivers"');
+    expect(p).not.toMatch(/under 120 words/i);
+    expect(p).toMatch(/matched to a retrieved source title\/fact/i);
+    expect(p).toMatch(/not enough evidence/i);
+    expect(p).toMatch(/ENTERPRISE DECISION SUPPORT/);
+    expect(p).toContain('"decisionFrame"');
+    expect(p).toContain('"riskOfInaction"');
+    expect(p).toContain('"falsifier"');
   });
 
   it('adds buyer-vs-builder follow-up rule for compares', () => {
@@ -80,6 +126,21 @@ describe('prompt assets', () => {
       agentCount: 2,
     });
     expect(p).toMatch(/choosing as a buyer or positioning/i);
+  });
+
+  it('treats same-name public pages as homonym noise for self-evaluation', () => {
+    const p = buildSynthesizePrompt({
+      query: 'If I were competing directly with ChatGPT, what must I improve?',
+      product: 'Veracity AI',
+      competitor: 'ChatGPT',
+      priorSummary: '',
+      outputSummariesJson: '[]',
+      citedTitlesJson: '["Veracity Consulting"]',
+      agentCount: 2,
+    });
+    expect(p).toMatch(/SELF-EVALUATION IDENTITY RULE/);
+    expect(p).toMatch(/same-name public company/i);
+    expect(p).toMatch(/evaluation requirements, not proven defects/i);
   });
 
   it('exports mind-map and direct-answer system prompts', () => {

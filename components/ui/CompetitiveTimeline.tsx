@@ -8,7 +8,15 @@ type Cluster = {
   competitor: string;
   weekLabel: string;
   categoryFamily: string;
-  events: Array<{ id: string; title: string; summary: string; event_date: string }>;
+  events: Array<{
+    id: string;
+    title: string;
+    summary: string;
+    event_date: string;
+    category: string;
+    severity?: 'high' | 'medium' | 'low';
+    materiality_score?: number;
+  }>;
 };
 
 type Trend = {
@@ -85,7 +93,10 @@ export function CompetitiveTimeline({ product, competitor }: Props) {
           <ul className="flex flex-col gap-2 m-0 p-0 list-none">
             {clusters.flatMap((c) => c.events).map((e) => (
               <li key={e.id} className="text-sm">
-                <span className="font-mono text-[10px] text-muted-foreground">{e.event_date}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] text-muted-foreground">{e.event_date}</span>
+                  <EventSignalBadge event={e} />
+                </div>
                 <p className="text-foreground">{e.title}</p>
               </li>
             ))}
@@ -109,7 +120,9 @@ export function CompetitiveTimeline({ product, competitor }: Props) {
                 <ul className="mt-2 flex flex-col gap-1.5 m-0 p-0 list-none">
                   {c.events.map((e) => (
                     <li key={e.id} className="text-[12px] text-muted-foreground">
-                      <span className="font-mono text-[10px]">{e.event_date}</span> — {e.title}
+                      <span className="font-mono text-[10px]">{e.event_date}</span>
+                      <span className="mx-1.5"><EventSignalBadge event={e} /></span>
+                      — {e.title}
                     </li>
                   ))}
                 </ul>
@@ -119,5 +132,27 @@ export function CompetitiveTimeline({ product, competitor }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+function EventSignalBadge({ event }: {
+  event: {
+    category: string;
+    severity?: 'high' | 'medium' | 'low';
+    materiality_score?: number;
+  };
+}) {
+  const className = event.severity === 'high'
+    ? 'bg-red-50 text-red-600 border-red-200'
+    : event.severity === 'medium'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-muted text-muted-foreground border-border';
+  return (
+    <span className={`inline-flex text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${className}`}>
+      {event.category}
+      {typeof event.materiality_score === 'number'
+        ? ` · ${Math.round(event.materiality_score * 100)}%`
+        : ''}
+    </span>
   );
 }

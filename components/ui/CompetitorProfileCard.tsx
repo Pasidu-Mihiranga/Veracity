@@ -30,7 +30,7 @@ export function CompetitorProfileCard({ competitorKey, compact }: Props) {
   );
 
   const load = useCallback(async () => {
-    if (!featureFlags.competitorProfiles) return;
+    if (!featureFlags.competitorProfiles && !featureFlags.continuousIntelligence) return;
     if (competitorKey) {
       const res = await fetch(
         `/api/competitors?key=${encodeURIComponent(competitorKey)}`,
@@ -51,7 +51,7 @@ export function CompetitorProfileCard({ competitorKey, compact }: Props) {
     void load();
   }, [load]);
 
-  if (!featureFlags.competitorProfiles) return null;
+  if (!featureFlags.competitorProfiles && !featureFlags.continuousIntelligence) return null;
 
   if (competitorKey && detail?.profile) {
     const p = detail.profile;

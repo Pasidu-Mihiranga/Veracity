@@ -1,5 +1,6 @@
 import type { AgentSource } from '@/lib/agents/types';
 import { cleanCanonicalUrl } from '@/lib/agents/entity-url';
+import { officialDomainsFromUrls } from '@/lib/tools/source-relevance';
 
 // ── Blocked domains ─────────────────────────────────────────────────────────
 // Search-engine result pages, our own app, and generic non-source URLs that
@@ -239,11 +240,16 @@ function cleanSourceTitle(title: string, url: string): string {
 export function filterAndRankSources(
   sources: AgentSource[],
   limit = 12,
+  opts?: {
+    productUrl?: string;
+    competitorUrl?: string;
+  },
 ): AgentSource[] {
   const seen = new Set<string>();
-  const valid: (AgentSource & { _trusted: boolean })[] = [];
+  const officialDomains = officialDomainsFromUrls(opts?.productUrl, opts?.competitorUrl);
+  const valid: (AgentSource & { _rank: number; _index: number })[] = [];
 
-  for (const s of sources) {
+  for (const [index, s] of sources.entries()) {
     if (!isValidSourceUrl(s.url)) continue;
 
     // Normalise URL for dedup (strip trailing slash and fragment)
@@ -259,21 +265,31 @@ export function filterAndRankSources(
     if (seen.has(normalised)) continue;
     seen.add(normalised);
 
+    let hostname = '';
+    try {
+      hostname = new URL(normalised).hostname.replace(/^www\./, '').toLowerCase();
+    } catch {
+      // Already validated above.
+    }
+    const isOfficial = officialDomains.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+    );
+    const tier = getSourceTrustTier(normalised);
     valid.push({
       ...s,
       title: cleanSourceTitle(s.title, s.url),
-      _trusted: isTrustedSource(s.url),
+      _rank: isOfficial ? 3 : tier === 'T1' ? 2 : tier === 'T2' ? 1 : 0,
+      _index: index,
     });
   }
 
-  // Trusted sources float to the top
+  // Explicit official domains outrank press/reviews, which outrank community noise.
   valid.sort((a, b) => {
-    if (a._trusted && !b._trusted) return -1;
-    if (!a._trusted && b._trusted) return 1;
-    return 0;
+    if (a._rank !== b._rank) return b._rank - a._rank;
+    return a._index - b._index;
   });
 
-  return valid.slice(0, limit).map(({ _trusted, ...rest }) => rest);
+  return valid.slice(0, limit).map(({ _rank, _index, ...rest }) => rest);
 }
 
 /**

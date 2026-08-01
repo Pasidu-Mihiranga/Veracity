@@ -1,3 +1,90 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Phase 6 continuous intelligence registry and immutable projections.
+CREATE TABLE IF NOT EXISTS canonical_entities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  workspace_id uuid,
+  scope_key text NOT NULL,
+  entity_key text NOT NULL,
+  entity_type text NOT NULL CHECK (entity_type IN ('company', 'competitor', 'product')),
+  display_name text NOT NULL,
+  official_domains text[] NOT NULL DEFAULT '{}',
+  product_lines text[] NOT NULL DEFAULT '{}',
+  props jsonb NOT NULL DEFAULT '{}',
+  confidence real NOT NULL DEFAULT 0.7 CHECK (confidence BETWEEN 0 AND 1),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (scope_key, entity_type, entity_key)
+);
+CREATE INDEX IF NOT EXISTS canonical_entities_scope_idx ON canonical_entities(user_id, workspace_id, entity_type);
+
+CREATE TABLE IF NOT EXISTS canonical_entity_aliases (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL REFERENCES canonical_entities(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  workspace_id uuid,
+  scope_key text NOT NULL,
+  alias_key text NOT NULL,
+  alias text NOT NULL,
+  source text NOT NULL DEFAULT 'monitoring',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (scope_key, alias_key)
+);
+CREATE INDEX IF NOT EXISTS canonical_entity_aliases_entity_idx ON canonical_entity_aliases(entity_id);
+
+CREATE TABLE IF NOT EXISTS source_snapshots (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL REFERENCES canonical_entities(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  workspace_id uuid,
+  scope_key text NOT NULL,
+  job_id uuid,
+  source_type text NOT NULL,
+  source_url text NOT NULL,
+  source_title text NOT NULL DEFAULT '',
+  content_hash text NOT NULL,
+  extracted jsonb NOT NULL DEFAULT '{}',
+  observed_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (entity_id, source_url, content_hash)
+);
+CREATE INDEX IF NOT EXISTS source_snapshots_entity_observed_idx ON source_snapshots(entity_id, observed_at DESC);
+
+CREATE TABLE IF NOT EXISTS competitor_profile_snapshots (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id uuid NOT NULL REFERENCES canonical_entities(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  workspace_id uuid,
+  job_id uuid,
+  profile_hash text NOT NULL,
+  profile jsonb NOT NULL DEFAULT '{}',
+  diff jsonb NOT NULL DEFAULT '{}',
+  material_event_count integer NOT NULL DEFAULT 0,
+  source_snapshot_ids jsonb NOT NULL DEFAULT '[]',
+  observed_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (entity_id, profile_hash)
+);
+CREATE INDEX IF NOT EXISTS competitor_profile_snapshots_entity_idx ON competitor_profile_snapshots(entity_id, observed_at DESC);
+
+CREATE TABLE IF NOT EXISTS board_pack_snapshots (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  workspace_id uuid,
+  scope_key text NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  pack jsonb NOT NULL,
+  event_count integer NOT NULL DEFAULT 0,
+  decision_count integer NOT NULL DEFAULT 0,
+  content_hash text NOT NULL,
+  refresh_reason text NOT NULL DEFAULT 'scheduled',
+  generated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (scope_key, period_start, period_end, content_hash)
+);
+CREATE INDEX IF NOT EXISTS board_pack_snapshots_scope_idx ON board_pack_snapshots(user_id, workspace_id, generated_at DESC);
 -- Local PostgreSQL schema for Veracity Growth Intelligence Assistant
 -- Apply with: psql -U postgres -d veracity -f db/schema.sql
 
@@ -46,6 +133,24 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
 
 ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;
 
+CREATE TABLE IF NOT EXISTS market_projects (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name             text NOT NULL,
+  product          text NOT NULL,
+  product_url      text,
+  competitors      text[] NOT NULL DEFAULT '{}',
+  geography        text,
+  decision_context text,
+  approved_sources text[] NOT NULL DEFAULT '{}',
+  blocked_sources  text[] NOT NULL DEFAULT '{}',
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id, name)
+);
+
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS user_folders (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -65,6 +170,39 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 CREATE INDEX IF NOT EXISTS chat_sessions_user_id_idx ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS chat_sessions_updated_at_idx ON chat_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS chat_sessions_project_id_idx ON chat_sessions(project_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS market_projects_user_id_idx ON market_projects(user_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS project_research_snapshots (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id     uuid NOT NULL REFERENCES market_projects(id) ON DELETE CASCADE,
+  session_id     uuid REFERENCES chat_sessions(id) ON DELETE SET NULL,
+  message_id     uuid REFERENCES chat_messages(id) ON DELETE SET NULL,
+  product        text NOT NULL,
+  competitor     text,
+  summary        text NOT NULL DEFAULT '',
+  source_urls    jsonb NOT NULL DEFAULT '[]',
+  source_count   integer NOT NULL DEFAULT 0,
+  evidence_score real,
+  generated_at   timestamptz NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(message_id)
+);
+
+CREATE TABLE IF NOT EXISTS project_research_events (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id  uuid NOT NULL REFERENCES market_projects(id) ON DELETE CASCADE,
+  snapshot_id uuid REFERENCES project_research_snapshots(id) ON DELETE CASCADE,
+  event_type  text NOT NULL CHECK (event_type IN ('coverage_changed')),
+  title       text NOT NULL,
+  details     jsonb NOT NULL DEFAULT '{}',
+  observed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS project_research_snapshots_project_idx
+  ON project_research_snapshots(project_id, generated_at DESC);
+CREATE INDEX IF NOT EXISTS project_research_events_project_idx
+  ON project_research_events(project_id, observed_at DESC);
 CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id);
 
 -- ── User memory ──────────────────────────────────────────────────────────────
@@ -196,6 +334,14 @@ CREATE TABLE IF NOT EXISTS watchlists (
   next_sweep_at timestamptz,
   health_status text NOT NULL DEFAULT 'paused'
     CHECK (health_status IN ('healthy', 'degraded', 'stale', 'paused')),
+  cadence text NOT NULL DEFAULT 'weekly'
+    CHECK (cadence IN ('daily', 'twice_weekly', 'weekly', 'monthly')),
+  max_competitors integer NOT NULL DEFAULT 6
+    CHECK (max_competitors BETWEEN 1 AND 12),
+  weekly_alert_budget integer NOT NULL DEFAULT 12
+    CHECK (weekly_alert_budget BETWEEN 1 AND 50),
+  alert_channels text[] NOT NULL DEFAULT ARRAY['in_app']::text[],
+  last_sweep_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -239,20 +385,41 @@ CREATE TABLE IF NOT EXISTS competitive_events (
   title text NOT NULL,
   summary text NOT NULL DEFAULT '',
   category text NOT NULL DEFAULT 'other'
-    CHECK (category IN ('pricing', 'launch', 'feature', 'hiring', 'docs', 'sentiment', 'funding', 'other')),
+    CHECK (category IN (
+      'pricing', 'launch', 'feature', 'hiring', 'leadership', 'security',
+      'docs', 'sentiment', 'funding', 'acquisition', 'news', 'other'
+    )),
   source_urls jsonb NOT NULL DEFAULT '[]',
   job_id uuid,
   confidence text NOT NULL DEFAULT 'medium',
   cluster_key text NOT NULL,
+  severity text NOT NULL DEFAULT 'low'
+    CHECK (severity IN ('high', 'medium', 'low')),
+  materiality_score real NOT NULL DEFAULT 0
+    CHECK (materiality_score BETWEEN 0 AND 1),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS competitive_events_user_comp_idx ON competitive_events(user_id, competitor, event_date DESC);
 CREATE INDEX IF NOT EXISTS competitive_events_cluster_idx ON competitive_events(user_id, cluster_key);
 
+CREATE TABLE IF NOT EXISTS alert_deliveries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  alert_id uuid NOT NULL REFERENCES alert_events(id) ON DELETE CASCADE,
+  channel text NOT NULL CHECK (channel IN ('email', 'slack')),
+  status text NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (alert_id, channel)
+);
+CREATE INDEX IF NOT EXISTS alert_deliveries_user_created_idx
+  ON alert_deliveries(user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS decision_memory (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   session_id uuid REFERENCES chat_sessions(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
   title text NOT NULL,
   rationale text NOT NULL DEFAULT '',
   decision text NOT NULL
@@ -270,6 +437,7 @@ CREATE TABLE IF NOT EXISTS decision_memory (
 );
 CREATE INDEX IF NOT EXISTS decision_memory_user_idx ON decision_memory(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS decision_memory_key_idx ON decision_memory(user_id, source_recommendation_key);
+CREATE INDEX IF NOT EXISTS decision_memory_project_idx ON decision_memory(project_id, created_at DESC);
 
 -- Phase 6: Enterprise tenancy
 CREATE TABLE IF NOT EXISTS workspaces (

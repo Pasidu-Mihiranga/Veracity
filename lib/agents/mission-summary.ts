@@ -1,5 +1,9 @@
 import type { IntelligenceDomain } from '@/lib/agents/types';
 import type { MissionStep } from '@/lib/agents/mission-planner';
+import {
+  MISSION_TEMPLATES,
+  type ResearchIntentClass,
+} from '@/lib/agents/research-intents';
 
 /** Heuristic cost per agent (mirrors live chat readout). */
 export const EST_COST_PER_AGENT_USD =
@@ -14,6 +18,9 @@ export type MissionSummary = {
   estimatedCostUsd: number;
   product?: string;
   competitor?: string;
+  intent?: ResearchIntentClass;
+  objective?: string;
+  deliverables?: string[];
 };
 
 export function buildMissionSummary(input: {
@@ -22,11 +29,13 @@ export function buildMissionSummary(input: {
   competitor?: string;
   /** Exclude execution from count when deferred */
   includeExecution?: boolean;
+  intent?: ResearchIntentClass;
 }): MissionSummary {
   const steps = input.includeExecution === false
     ? input.steps.filter((s) => s.agentId !== 'execution-engine')
     : input.steps;
   const agentCount = steps.length;
+  const template = input.intent ? MISSION_TEMPLATES[input.intent] : undefined;
   return {
     steps: steps.map((s) => ({ id: s.id, label: s.label, agentId: s.agentId })),
     agentCount,
@@ -34,6 +43,9 @@ export function buildMissionSummary(input: {
     estimatedCostUsd: Number((agentCount * EST_COST_PER_AGENT_USD).toFixed(4)),
     product: input.product,
     competitor: input.competitor,
+    intent: input.intent,
+    objective: template?.objective,
+    deliverables: template?.deliverables,
   };
 }
 

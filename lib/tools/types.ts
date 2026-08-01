@@ -14,6 +14,8 @@ export interface ToolResult<T = unknown> {
   timestamp: string;
   confidence: number; // 0-1
   status?: ToolStatus;
+  /** Upstream HTTP-200 failure normalized from provider payloads. */
+  providerError?: string;
   cached: boolean;
 }
 

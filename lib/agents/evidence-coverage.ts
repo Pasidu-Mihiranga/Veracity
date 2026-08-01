@@ -87,3 +87,20 @@ export function computeEvidenceCoverage(
     };
   });
 }
+
+/** Human-readable evidence gaps for answer narration and decision appendices. */
+export function describeEvidenceCoverageGaps(
+  coverage: EvidenceCoverageAxis[],
+): string[] {
+  return coverage.flatMap((axis) => {
+    if (axis.sourceCount === 0 || axis.score === 0) {
+      return [`${axis.label} evidence is missing (0 sources).`];
+    }
+    if (axis.score < 0.35) {
+      return [
+        `${axis.label} evidence is thin (${axis.sourceCount} source${axis.sourceCount === 1 ? '' : 's'}, ${Math.round(axis.score * 100)}% coverage).`,
+      ];
+    }
+    return [];
+  });
+}

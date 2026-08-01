@@ -15,20 +15,23 @@
 
 | Document | Purpose |
 |----------|---------|
+| **[`docs/PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md`](./docs/PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md)** | **Current product direction** — market research, differentiation from general AI, accurate-chart contract, and functional build order |
+| [`docs/VERACITY_FULL_TECHNICAL_AUDIT_2026-08-01.md`](./docs/VERACITY_FULL_TECHNICAL_AUDIT_2026-08-01.md) | Full technical/security/agentic audit and later hardening backlog |
 | **[`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md)** | **Single engineering execution plan (v2.0.1)** — checkboxes, Now/Next/Later (§0C), onboarding (§0D), competition Must-Haves |
 | **[`plan.md`](./plan.md)** | Product thesis & winning strategy |
 | [`docs/adr/`](./docs/adr/) | Architecture Decision Records |
 | [`CLAUDE.md`](./CLAUDE.md) | Agent/domain notes for contributors |
 | [`.env.example`](./.env.example) | Required vs optional environment variables |
 
-> **Rule of thumb:** setup → this README · **what to build today** → phase plan §0C · strategy → `plan.md` · ADRs → `docs/adr/`.
+> **Rule of thumb:** setup → this README · **what product to build now** → product-first roadmap · technical findings → full audit · detailed historical engineering tasks → phase plan · ADRs → `docs/adr/`.
 
 ### 15-minute onboarding
 
 1. Skim this README (setup + architecture).
-2. Open the phase plan → **§0A / §0B / §0C / §0D**.
-3. Copy `.env.example` → `.env`, run `npm install`, `npm run db:setup`, `npm run dev`.
-4. Run `npm test` and `npm run test:quality`.
+2. Open the product-first roadmap → **§1 / §8 / §12 / §20**.
+3. Use the phase plan only for detailed historical engineering tasks and quality gates.
+4. Copy `.env.example` → `.env`, run `npm install`, `npm run db:setup`, `npm run dev`.
+5. Run `npm test` and `npm run test:quality`.
 
 ---
 
@@ -96,10 +99,31 @@ See `.env.example` for tool keys, MiroFish URLs, Google OAuth, and rate-limit Re
 npm run db:setup
 
 # if needed, also apply numbered migrations under db/migrations/
-# e.g. db/migrations/0002_pgvector.sql
+# Existing installations:
+npm run db:migrate:market-projects
+npm run db:migrate:project-history
+npm run db:migrate:project-decisions
 ```
 
 Supabase users: run SQL under `supabase/schema.sql` and `supabase/migrations/` in order.
+For this MVP update, existing Supabase installations must include migrations `010_market_projects.sql`, `011_project_research_history.sql`, and `012_project_decisions.sql`.
+
+#### Isolated local database used by this workspace
+
+This checkout can use its own PostgreSQL 17 + pgvector cluster under the git-ignored `.local/postgres-data` directory. It runs on port `5435` so it does not conflict with Docker/PostgreSQL on the default port.
+
+```bash
+npm run db:local:status
+npm run db:local:start
+npm run db:schema:apply
+npm run db:migrate:market-projects
+npm run db:migrate:project-history
+npm run db:migrate:project-decisions
+npm run db:local:stop
+npm run dev:local             # start the local DB if needed, then start Next.js
+```
+
+The active `.env` must point `DATABASE_URL` at that cluster. The database files and credentials are local development state and must never be committed.
 
 ### 4. Run
 
@@ -118,6 +142,10 @@ npm test
 npm run test:quality   # offline output-quality / anti-hallucination scenarios
 npm run typecheck
 npm run lint
+# with the local app running: authenticated project → research → decision → outcome smoke
+npm run test:e2e:market-project
+# optional and billable: also exercises Gemini + one market-trends agent
+npm run test:e2e:live-research
 # optional (needs running app + real session cookie):
 # COOKIE='veracity_session=…' npm run test:api-smoke
 ```
@@ -135,6 +163,8 @@ npm run lint
 | `npm test` | Vitest unit tests |
 | `npm run test:quality` | Offline quality gate + abstain / category-mismatch scenarios |
 | `npm run test:api-smoke` | Live HTTP smoke of all `/api` routes (`COOKIE=veracity_session=…`) |
+| `npm run test:e2e:market-project` | Authenticated Market Project, snapshot, decision, and outcome journey against a running local app |
+| `npm run test:e2e:live-research` | Same journey plus one bounded live Gemini/market-trends sweep; requires provider keys and may incur API cost |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ---
@@ -209,7 +239,7 @@ Steal-strategy analysis · configured providers/models (no secrets).
 | Dashboard UX | `app/page.tsx`, `components/ui/*`, `components/artifacts/*` |
 | Tools + QA + CI | `lib/tools/*`, `__tests__/*`, `.github/workflows` |
 
-**What to build next:** always check phase plan **§0C Now / Next / Later** and open `[ ]` items in §0. RACI lives in the phase plan §5.
+**What to build next:** use the product-first roadmap **§12** for release sequencing. Reuse task details, quality gates, and ownership guidance from the phase/master plans where they support that sequence.
 
 ---
 

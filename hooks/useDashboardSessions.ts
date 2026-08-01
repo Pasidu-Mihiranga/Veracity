@@ -11,31 +11,14 @@ import {
 import { hydrateMessage } from '@/lib/chat-client';
 import type { ChatMessage, FollowUp } from '@/types/chat-ui';
 
-function splitStoredMessages(messages: Awaited<ReturnType<typeof loadMessages>>) {
-  const mainMessages: ChatMessage[] = [];
-  const loadedFollowUps: FollowUp[] = [];
-
-  messages.forEach((m, i) => {
-    const msg = hydrateMessage(m, i);
-    if (m.metadata?.isFollowUp) {
-      if (m.role === 'user') {
-        loadedFollowUps.push({
-          id: i,
-          question: m.content,
-          answer: '',
-          loading: false,
-        });
-      } else if (m.role === 'assistant' && loadedFollowUps.length > 0) {
-        const lastIndex = loadedFollowUps.length - 1;
-        loadedFollowUps[lastIndex].answer = m.content;
-        loadedFollowUps[lastIndex].sources = msg.sources;
-      }
-    } else {
-      mainMessages.push(msg);
-    }
-  });
-
-  return { mainMessages, loadedFollowUps };
+export function splitStoredMessages(messages: Awaited<ReturnType<typeof loadMessages>>) {
+  // Legacy follow-ups used to be removed from the main transcript and rebuilt
+  // as separate Q&A cards. Keep the return shape during migration, but hydrate
+  // every stored row into one chronological conversation.
+  return {
+    mainMessages: messages.map((message, index) => hydrateMessage(message, index)),
+    loadedFollowUps: [] as FollowUp[],
+  };
 }
 
 export function useDashboardSessions() {

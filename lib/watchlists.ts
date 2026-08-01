@@ -1,8 +1,9 @@
 import { query } from '@/lib/db';
 import {
   computeHealthStatus,
-  nextMondaySweepUtc,
+  nextScheduledSweepUtc,
   type HealthStatus,
+  type WatchlistCadence,
 } from '@/lib/monitoring/health';
 import { featureFlags } from '@/lib/feature-flags';
 import { withTenantScope } from '@/lib/tenant';
@@ -17,6 +18,15 @@ export type WatchlistRow = {
   last_sweep_at: string | null;
   next_sweep_at: string | null;
   health_status: HealthStatus;
+  cadence: WatchlistCadence;
+  max_competitors: number;
+  weekly_alert_budget: number;
+  alert_channels: string[];
+  last_sweep_summary: {
+    materialEvents?: number;
+    suppressedSignals?: number;
+    limitations?: string[];
+  };
   created_at: string;
   updated_at: string;
 };
@@ -42,6 +52,11 @@ export async function ensureWatchlistTablesExist(): Promise<void> {
       last_sweep_at timestamptz,
       next_sweep_at timestamptz,
       health_status text NOT NULL DEFAULT 'stale',
+      cadence      text NOT NULL DEFAULT 'weekly',
+      max_competitors integer NOT NULL DEFAULT 6,
+      weekly_alert_budget integer NOT NULL DEFAULT 12,
+      alert_channels text[] NOT NULL DEFAULT ARRAY['in_app']::text[],
+      last_sweep_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
       created_at    timestamptz NOT NULL DEFAULT now(),
       updated_at    timestamptz NOT NULL DEFAULT now()
     );
@@ -54,6 +69,13 @@ export async function ensureWatchlistTablesExist(): Promise<void> {
       enabled        boolean NOT NULL DEFAULT true,
       created_at     timestamptz NOT NULL DEFAULT now()
     );
+  `).catch(() => null);
+  await query(`
+    ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS cadence text NOT NULL DEFAULT 'weekly';
+    ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS max_competitors integer NOT NULL DEFAULT 6;
+    ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS weekly_alert_budget integer NOT NULL DEFAULT 12;
+    ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS alert_channels text[] NOT NULL DEFAULT ARRAY['in_app']::text[];
+    ALTER TABLE watchlists ADD COLUMN IF NOT EXISTS last_sweep_summary jsonb NOT NULL DEFAULT '{}'::jsonb;
   `).catch(() => null);
 }
 
@@ -78,6 +100,7 @@ export async function getWatchlistForUser(
   userId: string,
   workspaceId?: string | null,
 ): Promise<WatchlistRow | null> {
+  await ensureWatchlistTablesExist();
   const scope = withTenantScope(
     { userId, workspaceId: workspaceId ?? null },
     2,
@@ -95,14 +118,25 @@ export async function createWatchlist(input: {
   name: string;
   product: string;
   enabled?: boolean;
+  cadence?: WatchlistCadence;
+  maxCompetitors?: number;
+  weeklyAlertBudget?: number;
+  alertChannels?: string[];
 }): Promise<WatchlistRow> {
   await ensureWatchlistTablesExist();
-  const next = nextMondaySweepUtc();
+  const cadence = input.cadence ?? 'weekly';
+  const next = nextScheduledSweepUtc(cadence);
   const enabled = input.enabled !== false;
+  const maxCompetitors = clamp(input.maxCompetitors ?? 6, 1, 12);
+  const weeklyAlertBudget = clamp(input.weeklyAlertBudget ?? 12, 1, 50);
+  const alertChannels = normalizeAlertChannels(input.alertChannels);
   if (featureFlags.workspaces && input.workspaceId) {
     const { rows } = await query<WatchlistRow>(
-      `INSERT INTO watchlists (user_id, workspace_id, name, product, enabled, next_sweep_at, health_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO watchlists (
+         user_id, workspace_id, name, product, enabled, next_sweep_at, health_status,
+         cadence, max_competitors, weekly_alert_budget, alert_channels
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         input.userId,
@@ -112,13 +146,20 @@ export async function createWatchlist(input: {
         enabled,
         next.toISOString(),
         enabled ? 'stale' : 'paused',
+        cadence,
+        maxCompetitors,
+        weeklyAlertBudget,
+        alertChannels,
       ],
     );
     return rows[0];
   }
   const { rows } = await query<WatchlistRow>(
-    `INSERT INTO watchlists (user_id, name, product, enabled, next_sweep_at, health_status)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO watchlists (
+       user_id, name, product, enabled, next_sweep_at, health_status,
+       cadence, max_competitors, weekly_alert_budget, alert_channels
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
     [
       input.userId,
@@ -127,6 +168,10 @@ export async function createWatchlist(input: {
       enabled,
       next.toISOString(),
       enabled ? 'stale' : 'paused',
+      cadence,
+      maxCompetitors,
+      weeklyAlertBudget,
+      alertChannels,
     ],
   );
   return rows[0];
@@ -142,6 +187,11 @@ export async function updateWatchlist(
     last_sweep_at: string | null;
     next_sweep_at: string | null;
     health_status: HealthStatus;
+    cadence: WatchlistCadence;
+    max_competitors: number;
+    weekly_alert_budget: number;
+    alert_channels: string[];
+    last_sweep_summary: WatchlistRow['last_sweep_summary'];
   }>,
 ): Promise<WatchlistRow | null> {
   const current = await getWatchlistForUser(id, userId);
@@ -154,8 +204,24 @@ export async function updateWatchlist(
       enabled,
       lastSweepAt: last,
       lastSucceeded: patch.health_status === 'degraded' ? false : undefined,
+      cadence: patch.cadence ?? current.cadence,
     });
-  const next = patch.next_sweep_at ?? (enabled ? nextMondaySweepUtc().toISOString() : current.next_sweep_at);
+  const cadence = patch.cadence ?? current.cadence;
+  const next = patch.next_sweep_at
+    ?? (
+      enabled && (
+        patch.cadence !== undefined
+        || patch.enabled === true && !current.enabled
+        || !current.next_sweep_at
+      )
+        ? nextScheduledSweepUtc(cadence).toISOString()
+        : current.next_sweep_at
+    );
+  const maxCompetitors = clamp(patch.max_competitors ?? current.max_competitors, 1, 12);
+  const weeklyAlertBudget = clamp(patch.weekly_alert_budget ?? current.weekly_alert_budget, 1, 50);
+  const alertChannels = patch.alert_channels
+    ? normalizeAlertChannels(patch.alert_channels)
+    : current.alert_channels;
 
   const { rows } = await query<WatchlistRow>(
     `UPDATE watchlists SET
@@ -165,8 +231,13 @@ export async function updateWatchlist(
        last_sweep_at = $4,
        next_sweep_at = $5,
        health_status = $6,
+       cadence = $7,
+       max_competitors = $8,
+       weekly_alert_budget = $9,
+       alert_channels = $10,
+       last_sweep_summary = $11::jsonb,
        updated_at = now()
-     WHERE id = $7 AND user_id = $8
+     WHERE id = $12 AND user_id = $13
      RETURNING *`,
     [
       patch.name ?? null,
@@ -175,6 +246,11 @@ export async function updateWatchlist(
       last,
       next,
       health,
+      cadence,
+      maxCompetitors,
+      weeklyAlertBudget,
+      alertChannels,
+      JSON.stringify(patch.last_sweep_summary ?? current.last_sweep_summary ?? {}),
       id,
       userId,
     ],
@@ -220,6 +296,8 @@ export async function addWatchlistItem(input: {
   if (input.userId) {
     const wl = await getWatchlistForUser(input.watchlistId, input.userId);
     if (!wl) return null;
+    const items = await listWatchlistItems(input.watchlistId, input.userId);
+    if (items.filter((item) => item.enabled).length >= wl.max_competitors) return null;
   }
   const { rows } = await query<WatchlistItemRow>(
     `INSERT INTO watchlist_items (watchlist_id, competitor, competitor_url)
@@ -243,34 +321,58 @@ export async function deleteWatchlistItem(
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function listEnabledMonitoringTargets(limitPerUser = 3): Promise<Array<{
+export async function listEnabledMonitoringTargets(limitPerUser = 24): Promise<Array<{
   userId: string;
   watchlistId: string;
   product: string;
   competitor: string;
+  competitorUrl: string | null;
 }>> {
+  await ensureWatchlistTablesExist();
   const { rows } = await query<{
     user_id: string;
     watchlist_id: string;
     product: string;
     competitor: string;
-    rn: number;
+    competitor_url: string | null;
+    item_rank: number;
+    jobs_today: number;
   }>(
     `SELECT * FROM (
-       SELECT w.user_id, w.id AS watchlist_id, w.product, wi.competitor,
-         ROW_NUMBER() OVER (PARTITION BY w.user_id ORDER BY wi.created_at ASC) AS rn
+       SELECT w.user_id, w.id AS watchlist_id, w.product, wi.competitor, wi.competitor_url,
+         ROW_NUMBER() OVER (PARTITION BY w.id ORDER BY wi.created_at ASC) AS item_rank,
+         w.max_competitors,
+         (
+           SELECT count(*)::int
+           FROM research_jobs j
+           WHERE j.user_id = w.user_id
+             AND j.request->>'kind' = 'monitoring'
+             AND j.created_at >= date_trunc('day', now())
+         ) AS jobs_today
        FROM watchlists w
        JOIN watchlist_items wi ON wi.watchlist_id = w.id
-       WHERE w.enabled = true AND wi.enabled = true
-     ) t WHERE rn <= $1`,
-    [limitPerUser],
+       WHERE w.enabled = true
+         AND wi.enabled = true
+         AND COALESCE(w.next_sweep_at, now()) <= now()
+     ) t
+     WHERE item_rank <= max_competitors
+     ORDER BY user_id, watchlist_id, item_rank
+     LIMIT 500`,
   );
-  return rows.map((r) => ({
-    userId: r.user_id,
-    watchlistId: r.watchlist_id,
-    product: r.product,
-    competitor: r.competitor,
-  }));
+  const perUser = new Map<string, number>();
+  return rows.filter((row) => {
+    const used = perUser.get(row.user_id) ?? 0;
+    const remainingDailyBudget = Math.max(0, 24 - Number(row.jobs_today ?? 0));
+    if (used >= Math.min(limitPerUser, remainingDailyBudget)) return false;
+    perUser.set(row.user_id, used + 1);
+    return true;
+  }).map((r) => ({
+      userId: r.user_id,
+      watchlistId: r.watchlist_id,
+      product: r.product,
+      competitor: r.competitor,
+      competitorUrl: r.competitor_url,
+    }));
 }
 
 export async function markWatchlistSweepResult(input: {
@@ -279,9 +381,21 @@ export async function markWatchlistSweepResult(input: {
   succeeded: boolean;
 }): Promise<void> {
   const now = new Date();
+  const watchlist = await getWatchlistForUser(input.watchlistId, input.userId);
+  if (!watchlist) return;
   await updateWatchlist(input.watchlistId, input.userId, {
     last_sweep_at: now.toISOString(),
-    next_sweep_at: nextMondaySweepUtc(now).toISOString(),
+    next_sweep_at: nextScheduledSweepUtc(watchlist.cadence, now).toISOString(),
     health_status: input.succeeded ? 'healthy' : 'degraded',
   });
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.floor(value)));
+}
+
+function normalizeAlertChannels(channels?: string[]): string[] {
+  const allowed = new Set(['in_app', 'email', 'slack']);
+  const normalized = (channels ?? ['in_app']).filter((channel) => allowed.has(channel));
+  return [...new Set(normalized.length > 0 ? normalized : ['in_app'])];
 }

@@ -16,11 +16,17 @@ type RunRequestedData = {
 };
 
 async function enqueueTargets(
-  targets: Array<{ userId: string; watchlistId: string; product: string; competitor: string }>,
+  targets: Array<{
+    userId: string;
+    watchlistId: string;
+    product: string;
+    competitor: string;
+    competitorUrl?: string | null;
+  }>,
 ) {
   for (const t of targets) {
     const executionId = newExecutionId();
-    const queryText = `What changed for ${t.product} vs ${t.competitor} this week? Focus on pricing, launches, features, hiring, and funding.`;
+    const queryText = `What materially changed for ${t.product} vs ${t.competitor} since the last monitoring sweep? Collect retrieved evidence for pricing and packaging, launches and features, hiring, leadership changes, security incidents or certifications, funding, acquisitions/M&A, customer sentiment, partnerships, and material news. Report facts and source URLs; do not treat rewritten marketing copy or recommendation-title changes as events.`;
     const job = await createResearchJob({
       userId: t.userId,
       executionId,
@@ -33,6 +39,7 @@ async function enqueueTargets(
         followUpMode: 'full',
         product: t.product,
         competitor: t.competitor,
+        competitorUrl: t.competitorUrl,
         watchlistId: t.watchlistId,
       },
     });
@@ -50,6 +57,7 @@ async function enqueueTargets(
         watchlistId: t.watchlistId,
         product: t.product,
         competitor: t.competitor,
+        competitorUrl: t.competitorUrl,
         kind: 'monitoring',
       },
     });
@@ -61,7 +69,7 @@ export const competitiveAlertsFn = inngest.createFunction(
     id: 'competitive-alerts',
     retries: 0,
     triggers: [
-      { cron: '0 9 * * 1' },
+      { cron: '0 9 * * *' },
       { event: 'monitoring/run.requested' },
     ],
   },
@@ -76,15 +84,18 @@ export const competitiveAlertsFn = inngest.createFunction(
       if (data.userId && data.watchlistId) {
         const wl = await getWatchlistForUser(data.watchlistId, data.userId);
         if (!wl || !wl.enabled) return [];
-        const items = (await listWatchlistItems(wl.id)).filter((i) => i.enabled).slice(0, 3);
+        const items = (await listWatchlistItems(wl.id))
+          .filter((i) => i.enabled)
+          .slice(0, wl.max_competitors);
         return items.map((i) => ({
           userId: data.userId!,
           watchlistId: wl.id,
           product: wl.product,
           competitor: i.competitor,
+          competitorUrl: i.competitor_url,
         }));
       }
-      return listEnabledMonitoringTargets(3);
+      return listEnabledMonitoringTargets(24);
     });
 
     if (targets.length === 0) {

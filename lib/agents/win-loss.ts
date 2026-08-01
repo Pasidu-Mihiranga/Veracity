@@ -43,6 +43,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     hnResult,
     g2ScrapeResult,
     socialReviewResult,
+    caseStudyResult,
   ] = await Promise.allSettled([
     searchWeb(competitorName
       ? `${competitorName} vs ${product} review pros cons 2025`
@@ -54,6 +55,9 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     searchWeb(competitorName
       ? `${competitorName} vs ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com review comparison buyer feedback`
       : `${product} review site:x.com OR site:twitter.com OR site:linkedin.com buyer feedback`),
+    searchWeb(competitorName
+      ? `"${competitorName}" OR "${product}" customer case study success story testimonial reference`
+      : `"${product}" customer case study success story testimonial reference`),
   ]);
 
   // Also search for deal loss reasons in sales-adjacent communities
@@ -100,6 +104,12 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
       rawContent.push(`[SOCIAL REVIEW] ${r.title}: ${r.snippet}`);
     });
   }
+  if (caseStudyResult.status === 'fulfilled') {
+    caseStudyResult.value.data.slice(0, 3).forEach(r => {
+      sources.push({ url: r.url, title: r.title, timestamp: caseStudyResult.value.timestamp, tool: 'serpapi' });
+      rawContent.push(`[CUSTOMER REFERENCE] ${r.title}: ${r.snippet}`);
+    });
+  }
   if (salesRedditResult.status === 'fulfilled') {
     salesRedditResult.value.data.slice(0, 3).forEach(p => {
       sources.push({ url: p.url, title: p.title, timestamp: p.created, tool: 'reddit' });
@@ -136,6 +146,7 @@ Produce JSON:
   ],
   "buyerSentiment": "positive" | "mixed" | "negative",
   "topSwitchTriggers": string[],
+  "openQuestions": string[],
   "synthesizedAnswer": string,
   "confidenceScore": number
 }`;
@@ -172,6 +183,7 @@ Produce JSON:
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     competitor: competitorName ?? 'category alternatives',

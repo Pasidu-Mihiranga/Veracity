@@ -3,6 +3,9 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { MarketTrendsOutput, TrendDataPoint } from '@/lib/agents/types';
 import { useTheme } from '@/lib/theme-provider';
+import { buildTrendChartData } from '@/lib/trend-chart-data';
+import { Download } from 'lucide-react';
+import { downloadCsv, rowsToCsv } from '@/lib/csv-download';
 
 interface TrendChartProps {
   output: MarketTrendsOutput;
@@ -47,11 +50,16 @@ export function TrendChart({ output }: TrendChartProps) {
   const outlook = OUTLOOK_STYLE[categoryOutlook] ?? OUTLOOK_STYLE.emerging;
   const tickFill = isDark ? '#C5D6E8' : '#334155';
 
-  const chartData = trends.map((t) => ({
-    ...t,
-    displayValue: t.direction === 'down' ? -Math.abs(t.changePercent) : Math.abs(t.changePercent || 5),
-    absValue: Math.abs(t.changePercent || 5),
-  }));
+  const chartData = buildTrendChartData(trends);
+  const downloadData = () => {
+    downloadCsv('veracity-market-trends.csv', rowsToCsv(
+      ['keyword', 'direction', 'change_percent', 'signal', 'source', 'time_horizon', 'generated_at', 'data_class'],
+      chartData.map((trend) => [
+        trend.keyword, trend.direction, trend.changePercent, trend.signal, trend.source,
+        timeHorizon, output.generatedAt, output.dataClass ?? 'derived',
+      ]),
+    ));
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -69,6 +77,11 @@ export function TrendChart({ output }: TrendChartProps) {
           <span className="text-[10px] font-mono" style={{ color: textSubtle }}>
             {timeHorizon}
           </span>
+          {chartData.length > 0 ? (
+            <button type="button" onClick={downloadData} className="inline-flex items-center gap-1 text-[10px] font-mono text-accent hover:opacity-80">
+              <Download size={11} /> CSV
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -96,6 +109,15 @@ export function TrendChart({ output }: TrendChartProps) {
         </div>
       )}
 
+      {trends.length > 0 && chartData.length === 0 && (
+        <div
+          className="rounded-xl px-4 py-3 text-[12px]"
+          style={{ background: 'var(--surface-raised)', color: textMuted, border: '1px solid var(--border)' }}
+        >
+          Directional signals are available, but the sources did not provide comparable numeric changes. No percentage chart is shown.
+        </div>
+      )}
+
       <div className="flex items-center gap-4 text-[10px] font-mono" style={{ color: textMuted }}>
         {(['up', 'flat', 'down'] as const).map((dir) => (
           <span key={dir} className="flex items-center gap-1">
@@ -120,6 +142,24 @@ export function TrendChart({ output }: TrendChartProps) {
           ))}
         </div>
       )}
+
+      <details className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+        <summary className="cursor-pointer text-[10px] font-mono uppercase tracking-wider" style={{ color: textMuted }}>
+          Methodology and sources
+        </summary>
+        <p className="mt-2 text-[11px] leading-relaxed" style={{ color: textMuted }}>
+          Percent changes are derived by the research model from the cited market signals; they are not a calibrated market index. Period: {timeHorizon || 'not specified'}. Numeric rows: {chartData.length}. Generated: {new Date(output.generatedAt).toLocaleString()}.
+        </p>
+        {output.sources.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {output.sources.map((source, index) => (
+              <a key={`${source.url}-${index}`} href={source.url} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-accent hover:underline">
+                {source.title}
+              </a>
+            ))}
+          </div>
+        ) : <p className="mt-2 text-[11px] text-amber-600">No source links were stored for this artifact.</p>}
+      </details>
     </div>
   );
 }

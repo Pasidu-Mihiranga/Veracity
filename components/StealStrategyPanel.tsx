@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Crosshair, Loader2, Sparkles, Shield } from 'lucide-react';
+import { AlertTriangle, Crosshair, Loader2, Sparkles, Shield } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
 
 type Result = {
@@ -9,6 +9,13 @@ type Result = {
   historicalCompetitiveMoves: { move: string; context: string; effectOnRivals: string }[];
   modernEntrantPlaybook: { analogy: string; applicationToday: string; exampleTactics: string[] }[];
   guardrails: string;
+  grounding: {
+    status: 'ungrounded-educational';
+    label: string;
+    enterpriseEligible: false;
+    sources: [];
+    limitations: string[];
+  };
 };
 
 const EXAMPLE_COMPANIES = ['Salesforce', 'Notion', 'Stripe', 'HubSpot', 'Figma'];
@@ -63,7 +70,7 @@ export function StealStrategyPanel() {
           Steal strategy
         </h2>
         <p className="ui-body mt-3" style={{ color: textMuted }}>
-          Case-study view: how a category leader competed historically, and how a new entrant can apply those patterns ethically today. Not legal advice — verify for your market.
+          Educational analogy only. This surface does not retrieve sources and is excluded from enterprise decision evidence.
         </p>
       </div>
 
@@ -126,7 +133,7 @@ export function StealStrategyPanel() {
             className="bg-gradient-signature flex items-center justify-center gap-2 px-8 py-2.5 text-[14px] font-semibold disabled:opacity-40 min-h-11 min-w-[200px]"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {loading ? 'Generating…' : 'Generate playbook'}
+            {loading ? 'Generating…' : 'Generate educational analogies'}
           </button>
         </div>
       </div>
@@ -144,8 +151,19 @@ export function StealStrategyPanel() {
 
       {data ? (
         <div className="flex flex-col gap-5">
+          <div className="veracity-card p-4 bg-amber-50 text-amber-700 border-amber-200 flex items-start gap-3">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-wider font-semibold">
+                {data.grounding.label}
+              </p>
+              <p className="text-xs mt-1">
+                No retrieval or primary sources were used. Verify every historical claim independently; this content cannot enter board packs.
+              </p>
+            </div>
+          </div>
           <div className="results-panel p-5 sm:p-6 text-center sm:text-left" style={{ background: 'var(--surface)' }}>
-            <p className="ui-section-label mb-3">Summary</p>
+            <p className="ui-section-label mb-3">Educational summary</p>
             <p className="ui-body max-w-3xl mx-auto sm:mx-0" style={{ color: textMuted }}>
               {data.summary}
             </p>
@@ -153,7 +171,7 @@ export function StealStrategyPanel() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="results-panel p-5 sm:p-6" style={{ background: 'var(--surface)' }}>
-              <p className="ui-section-label mb-4">Historical competitive moves</p>
+              <p className="ui-section-label mb-4">Commonly cited historical analogies</p>
               <ul className="flex flex-col gap-3">
                 {data.historicalCompetitiveMoves.map((h, i) => (
                   <li
@@ -176,7 +194,7 @@ export function StealStrategyPanel() {
             </div>
 
             <div className="results-panel p-5 sm:p-6" style={{ background: 'var(--surface)' }}>
-              <p className="ui-section-label mb-4">Modern entrant playbook</p>
+              <p className="ui-section-label mb-4">Educational entrant patterns</p>
               <ul className="flex flex-col gap-3">
                 {data.modernEntrantPlaybook.map((m, i) => (
                   <li

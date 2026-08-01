@@ -20,6 +20,23 @@ export function recordFacts(scratchpad: SharedScratchpad, agentId: string, facts
   }
 }
 
+export function recordOpenQuestions(
+  scratchpad: SharedScratchpad,
+  output: AgentOutput,
+) {
+  const explicit = (output.openQuestions ?? [])
+    .filter((question) => question.trim().length > 0)
+    .slice(0, 3);
+  const inferred = explicit.length === 0 && output.confidence !== 'high'
+    ? [`What primary evidence would resolve the remaining ${output.domain.replace(/-/g, ' ')} uncertainty?`]
+    : [];
+  for (const question of [...explicit, ...inferred]) {
+    if (!scratchpad.openQuestions.includes(question)) {
+      scratchpad.openQuestions.push(question);
+    }
+  }
+}
+
 export type WaveRunnerState = {
   agentRuns: AgentRun[];
   outputs: AgentOutput[];
@@ -94,6 +111,7 @@ export async function runOneAgent(
         completedAt: new Date().toISOString(),
       };
       recordFacts(state.scratchpad, agent.id, output.facts);
+      recordOpenQuestions(state.scratchpad, output);
     }
     state.cb.onAgentUpdate(state.agentRuns[i]);
     return synthError ? null : output;

@@ -20,6 +20,10 @@ const watchlistPostSchema = z.object({
   product: z.string().optional(),
   seedFromMemory: z.boolean().optional(),
   competitors: z.array(z.string()).optional(),
+  cadence: z.enum(['daily', 'twice_weekly', 'weekly', 'monthly']).optional(),
+  maxCompetitors: z.number().int().min(1).max(12).optional(),
+  weeklyAlertBudget: z.number().int().min(1).max(50).optional(),
+  alertChannels: z.array(z.enum(['in_app', 'email', 'slack'])).max(3).optional(),
 });
 
 export async function GET() {
@@ -78,22 +82,30 @@ export async function POST(req: Request) {
       if (!product && mem.products?.[0]) product = mem.products[0];
       if (competitors.length === 0 && mem.competitors?.length) competitors = mem.competitors;
     }
-    if (competitors.length === 0) {
-      competitors = ['Clay', 'Lilian'];
+    if (!product && competitors.length === 0) {
+      return apiError(
+        'No saved product or competitors were available; enter an explicit product and competitor.',
+        400,
+        'MISSING_WATCHLIST_TARGET',
+      );
     }
-    if (!product) {
-      product = 'Competitor Intelligence Watchlist';
-    }
+  }
+  if (!product) {
+    return apiError('A target product is required', 400, 'MISSING_PRODUCT');
   }
 
   const watchlist = await createWatchlist({
     userId: user.id,
     workspaceId: tenant.workspaceId,
     name,
-    product: product || 'Product',
+    product,
+    cadence: body.cadence,
+    maxCompetitors: body.maxCompetitors,
+    weeklyAlertBudget: body.weeklyAlertBudget,
+    alertChannels: body.alertChannels,
   });
 
-  for (const c of competitors.slice(0, 12)) {
+  for (const c of competitors.slice(0, watchlist.max_competitors)) {
     if (c?.trim()) {
       await addWatchlistItem({ watchlistId: watchlist.id, competitor: c.trim() });
     }

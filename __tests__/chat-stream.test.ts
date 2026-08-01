@@ -4,11 +4,33 @@ import {
   applyAgentUpdate,
   applyResultToAssistant,
   isMirofishLiveFailed,
+  historyItemFromMessage,
   parseSseBuffer,
   recommendationsFromOutput,
 } from '@/lib/chat-stream';
 import type { AgentOutput, AgentRun, OrchestratorOutput } from '@/lib/agents/types';
 import type { ChatMessage } from '@/types/chat-ui';
+
+describe('historyItemFromMessage', () => {
+  it('carries only slim investigation state across turns', () => {
+    const item = historyItemFromMessage({
+      role: 'assistant',
+      content: 'Initial findings',
+      orchestratorOutput: {
+        product: 'TargetCo',
+        investigationPlan: {
+          intent: 'dd_acquisition',
+          openQuestions: ['What is audited ARR?'],
+          proposedNextProbes: [],
+          targetedFollowUpPlan: [],
+        },
+      } as unknown as OrchestratorOutput,
+    });
+    expect(item.investigationOpenQuestions).toEqual(['What is audited ARR?']);
+    expect(item.researchProduct).toBe('TargetCo');
+    expect(item).not.toHaveProperty('orchestratorOutput');
+  });
+});
 
 describe('parseSseBuffer', () => {
   it('parses complete SSE data events and keeps the partial tail', () => {
@@ -89,7 +111,17 @@ describe('message reducers', () => {
     const out = {
       synthesizedAnswer: 'hello',
       outputs: [],
-      topRecommendations: [{ title: 'A', rationale: 'r', confidence: 'high', evidence: [], priority: 1 }],
+      topRecommendations: [{
+        title: 'A',
+        rationale: 'r',
+        confidence: 'high',
+        evidence: [],
+        priority: 'immediate',
+        rank: 1,
+        impact: 'high',
+        effort: 'low',
+        falsifier: 'A primary test fails.',
+      }],
       suggestedFollowUps: ['next'],
     } as unknown as OrchestratorOutput;
 
@@ -97,6 +129,8 @@ describe('message reducers', () => {
     expect(next.content).toBe('hello');
     expect(next.agentRuns?.some(r => r.agentId === 'mirofish' && r.status === 'running')).toBe(true);
     expect(recommendationsFromOutput(out)?.[0].score).toBe(90);
+    expect(recommendationsFromOutput(out)?.[0].rank).toBe(1);
+    expect(recommendationsFromOutput(out)?.[0].falsifier).toBe('A primary test fails.');
   });
 });
 

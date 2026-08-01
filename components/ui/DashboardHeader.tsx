@@ -73,9 +73,10 @@ export function DashboardHeader({
   accentInk,
 }: DashboardHeaderProps) {
   const activeAgents = Object.values(selectedAgents).filter(Boolean).length;
+  const isIntelligence = topTab === 'intelligence';
   return (
     <div
-      className={`shrink-0 z-30 px-2 md:px-5 ${sidebarCollapsed ? 'pl-2 md:pl-14' : ''}`}
+      className={`shrink-0 z-30 px-2 md:px-5 ${isIntelligence && sidebarCollapsed ? 'pl-2 md:pl-14' : ''}`}
       style={{
         height: 60,
         paddingTop: 8,
@@ -86,11 +87,11 @@ export function DashboardHeader({
     >
       <header
         ref={headerIslandRef}
-        className={`header-island ${headerCompact ? 'header-island--compact' : ''} ${sidebarCollapsed ? 'header-island--rail' : ''}`}
+        className={`header-island ${headerCompact ? 'header-island--compact' : ''} ${isIntelligence && sidebarCollapsed ? 'header-island--rail' : ''}`}
         style={{ background: headerBg }}
       >
-        {/* Mobile Hamburger Menu Button */}
-        {onOpenSidebar && (
+        {/* Mobile Hamburger Menu Button (only when sidebar is active) */}
+        {isIntelligence && onOpenSidebar && (
           <button
             type="button"
             onClick={onOpenSidebar}
@@ -101,7 +102,7 @@ export function DashboardHeader({
           </button>
         )}
 
-        {sidebarCollapsed && (
+        {(!isIntelligence || sidebarCollapsed) && (
           <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
             <BrandWordmark size="md" />
           </div>
@@ -153,7 +154,7 @@ export function DashboardHeader({
             ) : null}
             {mirofishRunning ? (
               <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
-                forecast live
+                scenario running
               </span>
             ) : null}
           </div>

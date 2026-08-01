@@ -152,6 +152,7 @@ Produce JSON:
     }
   ],
   "adThemes": string[],
+  "openQuestions": string[],
   "synthesizedAnswer": string,
   "confidenceScore": number
 }
@@ -190,6 +191,7 @@ Dimensions to analyse: Value Framing, Audience Language, Category Claim, Emotion
     confidenceScore: confScore,
     facts: parsed.facts ?? [],
     interpretation: parsed.interpretation ?? [],
+    openQuestions: parsed.openQuestions ?? [],
     sources,
     generatedAt: new Date().toISOString(),
     competitor: competitorName ?? 'category alternatives',

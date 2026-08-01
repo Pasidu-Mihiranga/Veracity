@@ -158,10 +158,17 @@ export async function withToolLatency<T>(
   return withSpan(`tool:${tool}`, { tool, ...fields }, async () => {
     try {
       const result = await fn();
-      logger.info('tool.ok', {
+      const outcome = classifyToolOutcome(result);
+      const log = outcome.status === 'failed'
+        ? logger.warn.bind(logger)
+        : outcome.status === 'degraded'
+          ? logger.warn.bind(logger)
+          : logger.info.bind(logger);
+      log(`tool.${outcome.status}`, {
         tool,
         latencyMs: Date.now() - started,
-        success: true,
+        success: outcome.status !== 'failed',
+        ...(outcome.providerError ? { providerError: outcome.providerError } : {}),
         ...fields,
       });
       return result;
@@ -176,4 +183,21 @@ export async function withToolLatency<T>(
       throw err;
     }
   });
+}
+
+export function classifyToolOutcome(result: unknown): {
+  status: 'ok' | 'degraded' | 'failed';
+  providerError?: string;
+} {
+  if (!result || typeof result !== 'object') return { status: 'ok' };
+  const value = result as { status?: unknown; providerError?: unknown };
+  const status = value.status === 'failed' || value.status === 'degraded' || value.status === 'ok'
+    ? value.status
+    : 'ok';
+  return {
+    status,
+    ...(typeof value.providerError === 'string' && value.providerError.trim()
+      ? { providerError: value.providerError.trim() }
+      : {}),
+  };
 }

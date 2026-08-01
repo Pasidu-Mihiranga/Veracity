@@ -1,5 +1,9 @@
 # Veracity — Product Strategy & Winning Thesis
 
+> **Active build plan:** [`plans/MVP_BUILD_PLAN.md`](./plans/MVP_BUILD_PLAN.md). Current tasks are in [`plans/TODO.md`](./plans/TODO.md), and completed work/verification is recorded in [`log.md`](./log.md). These files supersede the historical phase plans for MVP implementation order.
+
+> **2026-08-01 product reset:** The current market research, positioning, and functional build priority now live in [`docs/PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md`](./docs/PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md). This older thesis remains useful architecture/history, but the product-first roadmap wins if the documents conflict.
+
 > **Share this with other developers.** It explains *why* we build what we build.  
 > For the living engineering checklist (phases, tasks, exit criteria), use  
 > [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md).
@@ -35,7 +39,7 @@ This hits the hard constraints: multi-agent, dynamic UIs, tools/live data, full 
 | Observability | JSON logger + correlation IDs (`lib/logger.ts`) | Chat route emits `x-correlation-id` |
 | Export | `@react-pdf/renderer` executive PDF | Intelligence Summary → Export PDF |
 
-> Historical note: early hackathon drafts mentioned Claude + LangGraph. **This repo runs on Gemini + our orchestrator.** Prefer this file and the phase plan over outdated stack notes elsewhere.
+> Historical note: early hackathon drafts mentioned Claude + LangGraph. **This repo runs on Gemini + our orchestrator.** Use the product-first roadmap for current scope; use this section for the implemented stack context.
 
 ---
 
@@ -62,7 +66,8 @@ All agents return structured outputs so claims stay traceable to sources and too
 |-----|-----------------|
 | [`README.md`](./README.md) | Setup, scripts, API overview |
 | **This file (`plan.md`)** | Product thesis + architecture intent |
-| [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md) | What to build next; mark checkboxes when done |
+| [`docs/PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md`](./docs/PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md) | Current product scope and build order |
+| [`docs/phase_by_phase_improvement_plan.md`](./docs/phase_by_phase_improvement_plan.md) | Historical engineering task inventory and detailed quality gates |
 | [`docs/adr/`](./docs/adr/) | Architecture decisions (governance, env schema) |
 | [`CLAUDE.md`](./CLAUDE.md) | Deeper agent/domain notes for AI-assisted work |
 | [`.env.example`](./.env.example) | Required vs optional env vars |

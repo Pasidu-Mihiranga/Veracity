@@ -10,13 +10,17 @@ import { retryBackoffMs } from '@/lib/research-job-policy';
 import {
   appendJobLog,
   claimResearchJob,
+  completeResearchJobExecution,
+  failResearchJobExecution,
   getResearchJob,
   isCancelRequested,
   newExecutionId,
+  ownsResearchJobExecution,
   patchResearchJob,
+  transitionResearchJobRetry,
 } from '@/lib/research-jobs';
-import { query } from '@/lib/db';
 import { processMonitoringJobResult } from '@/lib/monitoring/process-result';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 
 export type SweepRequestedData = {
   jobId: string;
@@ -33,10 +37,12 @@ export type SweepRequestedData = {
   forceExecution?: boolean;
   includeMirofish?: boolean;
   includeMirofishLive?: boolean;
+  turnMode?: ResearchTurnMode;
   kind?: string;
   watchlistId?: string;
   product?: string;
   competitor?: string;
+  competitorUrl?: string;
 };
 
 function isTransientError(err: unknown): boolean {
@@ -153,6 +159,9 @@ export const researchSweepFn = inngest.createFunction(
       }
 
       const result = await step.run('orchestrate', async () => runOnce());
+      if (!(await ownsResearchJobExecution(jobId, executionId))) {
+        return { skipped: true, reason: 'superseded-execution' };
+      }
 
       if (await isCancelRequested(jobId)) {
         await patchResearchJob(jobId, {
@@ -164,11 +173,12 @@ export const researchSweepFn = inngest.createFunction(
         return { cancelled: true };
       }
 
-      await patchResearchJob(jobId, {
-        status: 'completed',
+      const completed = await completeResearchJobExecution({
+        jobId,
+        executionId,
         result,
-        finished: true,
       });
+      if (!completed) return { skipped: true, reason: 'superseded-execution' };
       await appendJobLog(jobId, 'Async sweep completed.');
 
       if (data.kind === 'monitoring') {
@@ -179,6 +189,7 @@ export const researchSweepFn = inngest.createFunction(
             watchlistId: data.watchlistId,
             product: data.product || result.product || 'Product',
             competitor: data.competitor || result.competitor || 'Competitor',
+            competitorUrl: data.competitorUrl,
             output: result,
             succeeded: true,
           });
@@ -189,24 +200,26 @@ export const researchSweepFn = inngest.createFunction(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const job = await getResearchJob(jobId);
+      if (job && job.execution_id !== executionId) {
+        return { skipped: true, reason: 'superseded-execution' };
+      }
       const attempt = (job?.attempt ?? 0) + 1;
       const maxAttempts = job?.max_attempts ?? 2;
 
       if (isTransientError(err) && attempt < maxAttempts) {
-        await patchResearchJob(jobId, {
-          status: 'retrying',
+        const nextExecutionId = newExecutionId(jobId);
+        const transitioned = await transitionResearchJobRetry({
+          jobId,
+          executionId,
+          nextExecutionId,
           attempt,
           error: message,
           metrics: { queueWaitMs, retries: attempt },
         });
+        if (!transitioned) return { skipped: true, reason: 'superseded-execution' };
         await appendJobLog(jobId, `Transient failure — retrying (attempt ${attempt})…`);
         const backoffMs = retryBackoffMs(attempt);
         await sleep(backoffMs);
-        const nextExecutionId = newExecutionId(jobId);
-        await query(
-          `UPDATE research_jobs SET execution_id = $1, status = 'retrying', updated_at = now() WHERE id = $2`,
-          [nextExecutionId, jobId],
-        );
         await inngest.send({
           name: 'research/sweep.requested',
           data: {
@@ -217,18 +230,14 @@ export const researchSweepFn = inngest.createFunction(
         return { retrying: true, attempt };
       }
 
-      await patchResearchJob(jobId, {
-        status: 'dead_letter',
+      const failed = await failResearchJobExecution({
+        jobId,
+        executionId,
         attempt,
         error: message,
-        finished: false,
       });
+      if (!failed) return { skipped: true, reason: 'superseded-execution' };
       await appendJobLog(jobId, `Dead-letter: ${message}`);
-      await patchResearchJob(jobId, {
-        status: 'failed',
-        finished: true,
-        error: message,
-      });
       if (data.kind === 'monitoring' && data.watchlistId) {
         await processMonitoringJobResult({
           userId: data.userId,
@@ -236,6 +245,7 @@ export const researchSweepFn = inngest.createFunction(
           watchlistId: data.watchlistId,
           product: data.product || 'Product',
           competitor: data.competitor || 'Competitor',
+          competitorUrl: data.competitorUrl,
           output: {
             query: data.query,
             product: data.product || 'Product',

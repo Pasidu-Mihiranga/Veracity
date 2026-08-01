@@ -5,7 +5,13 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith('/auth');
   const isAuthApi = pathname.startsWith('/api/auth');
+  const isInngestRoute = pathname.startsWith('/api/inngest');
   const isApiRoute = pathname.startsWith('/api/');
+
+  // Allow Inngest serve transport endpoint through without auth or CSRF restriction
+  if (isInngestRoute) {
+    return NextResponse.next();
+  }
 
   // CSRF Protection: Validate Origin/Referer header for unsafe methods on API endpoints
   if (isApiRoute && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {

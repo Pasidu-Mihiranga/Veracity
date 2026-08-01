@@ -30,13 +30,15 @@ import {
   applyAgentUpdate,
   applyOrchestrationLog,
   applyResultToAssistant,
-  isMirofishLiveFailed,
+  historyItemFromMessage,
   mergeAgentOutputIntoFinal,
   recommendationsFromOutput,
   sourcesFromOutput,
   type ChatRequestBody,
 } from '@/lib/chat-stream';
 import { extractAndUpdateMemory, buildMemoryContext, type UserMemory } from '@/lib/memory';
+import { buildMarketProjectContext, type MarketProject } from '@/lib/projects';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import type { ProductViewMode } from '@/types/chat-ui';
 import {
   buildChatErrorFromStreamChunk,
@@ -65,8 +67,9 @@ type UseChatOrchestrationArgs = {
   refreshUserMemory: () => Promise<void>;
   refreshSessions: () => Promise<unknown>;
   resetDraftInput: () => void;
-  targetFolder?: string | null;
+  targetProject?: MarketProject | null;
   viewMode?: ProductViewMode;
+  turnMode?: ResearchTurnMode;
 };
 
 const EMPTY_USAGE: SessionUsage = {
@@ -92,8 +95,9 @@ export function useChatOrchestration({
   refreshUserMemory,
   refreshSessions,
   resetDraftInput,
-  targetFolder,
+  targetProject,
   viewMode = 'executive',
+  turnMode = 'verify',
 }: UseChatOrchestrationArgs) {
   const showDevErrorDetail = viewMode === 'developer';
 
@@ -210,11 +214,52 @@ export function useChatOrchestration({
     };
     const history = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      .map(historyItemFromMessage);
 
     setMessages((prev) => [...prev, userMsg]);
     resetDraftInput();
     setIsLoading(true);
+
+    // Persistence is the source of truth. Create the session and save the user
+    // turn before starting an expensive research stream so a failed request or
+    // closed browser cannot erase the question.
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      const title = effectiveText.slice(0, 60) + (effectiveText.length > 60 ? '...' : '');
+      const session = await createSession(title, null, targetProject?.id ?? null);
+      if (!session) {
+        setMessages((prev) => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          type: 'text',
+          content: 'I could not create this research conversation. Check the database connection and try again.',
+        }]);
+        setIsLoading(false);
+        return;
+      }
+      sessionId = session.id;
+      setCurrentSessionId(session.id);
+      await refreshSessions();
+    }
+
+    const persistedUserId = await saveMessage(sessionId, 'user', effectiveText, {
+      images: images.length > 0 ? images : undefined,
+      turnMode,
+    });
+    if (!persistedUserId) {
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1,
+        role: 'assistant',
+        type: 'text',
+        content: 'I could not save your question, so I did not start the research run. Please try again.',
+      }]);
+      setIsLoading(false);
+      return;
+    }
+    setMessages((prev) => prev.map((m) =>
+      m.id === userMsg.id ? { ...m, persistedId: persistedUserId } : m,
+    ));
+    indexMessageInBackground(sessionId, 'user', effectiveText);
 
     const assistantId = Date.now() + 1;
     setMessages((prev) => [
@@ -225,12 +270,12 @@ export function useChatOrchestration({
     const streamState: {
       finalOutput: OrchestratorOutput | null;
       orchestrationLog: string[];
-    } = { finalOutput: null, orchestrationLog: [] };
-    const recalledContext = currentSessionId
-      ? await recallContextForSession(currentSessionId, effectiveText)
-      : '';
+      failureText: string;
+    } = { finalOutput: null, orchestrationLog: [], failureText: '' };
+    const recalledContext = await recallContextForSession(sessionId, effectiveText);
     const userMemoryContext = buildMemoryContext(userMemory);
-    const memoryContext = [userMemoryContext, recalledContext].filter(Boolean).join('\n\n');
+    const projectContext = targetProject ? buildMarketProjectContext(targetProject) : '';
+    const memoryContext = [projectContext, userMemoryContext, recalledContext].filter(Boolean).join('\n\n');
 
     try {
       await streamChat(
@@ -239,12 +284,14 @@ export function useChatOrchestration({
           history,
           images: toImageAttachments(images),
           memoryContext,
-          includeMirofish: selectedAgents.mirofish,
+          includeMirofish: turnMode === 'swarm' || selectedAgents.mirofish,
           includeMirofishLive: selectedAgents['mirofish-live'],
           selectedAgents: selectedAgentIds,
-          forceFullSweep: sweepFull,
-          sessionId: currentSessionId ?? undefined,
-          conversationId: currentSessionId ?? undefined,
+          followUpMode: turnMode === 'refresh' ? 'full' : 'targeted',
+          forceFullSweep: turnMode === 'refresh' || sweepFull,
+          turnMode,
+          sessionId,
+          conversationId: sessionId,
         } as ChatRequestBody & { sessionId?: string; conversationId?: string },
         (chunk) => {
           if (chunk.type === 'job_started') {
@@ -285,6 +332,7 @@ export function useChatOrchestration({
           }
           if (chunk.type === 'cancelled') {
             setActiveJobId(null);
+            streamState.failureText = 'Sweep cancelled.';
             setMessages((prev) => prev.map((m) =>
               m.id === assistantId
                 ? { ...m, content: m.content || 'Sweep cancelled.', type: 'text' as const, activeJobId: null }
@@ -315,7 +363,7 @@ export function useChatOrchestration({
             const mirofishOut: AgentOutput = chunk.output;
             const run = {
               agentId: 'mirofish',
-              name: 'MiroFish (Forecast)',
+              name: 'Swarm Decision Lab',
               status: 'completed',
               confidence: mirofishOut.confidence,
             } as AgentRun;
@@ -335,11 +383,10 @@ export function useChatOrchestration({
           }
           if (chunk.type === 'mirofish_live_result') {
             const liveOut: AgentOutput = chunk.output;
-            const liveFailed = isMirofishLiveFailed(liveOut);
             const run = {
               agentId: 'mirofish-live',
-              name: 'MiroFish Live (Real VPS)',
-              status: liveFailed ? 'failed' : 'completed',
+              name: 'Swarm Decision Lab (Live)',
+              status: 'completed',
               confidence: liveOut.confidence,
             } as AgentRun;
             if (streamState.finalOutput) {
@@ -358,6 +405,7 @@ export function useChatOrchestration({
           if (chunk.type === 'error') {
             setActiveJobId(null);
             const payload = buildChatErrorFromStreamChunk(chunk);
+            streamState.failureText = formatChatErrorForDisplay(payload, showDevErrorDetail);
             applyChatFailure(assistantId, payload);
           }
         },
@@ -365,6 +413,7 @@ export function useChatOrchestration({
     } catch (err) {
       const withPayload = err as { chatError?: ReturnType<typeof buildChatErrorPayload> };
       const payload = withPayload.chatError ?? buildChatErrorPayload(err);
+      streamState.failureText = formatChatErrorForDisplay(payload, showDevErrorDetail);
       applyChatFailure(assistantId, payload);
     } finally {
       setActiveJobId(null);
@@ -373,62 +422,62 @@ export function useChatOrchestration({
     }
 
     const finalOutput = streamState.finalOutput;
-    let sessionId = currentSessionId;
-
-    if (!sessionId) {
-      const title = effectiveText.slice(0, 60) + (effectiveText.length > 60 ? '...' : '');
-      const session = await createSession(title, targetFolder);
-      if (session) {
-        sessionId = session.id;
-        setCurrentSessionId(session.id);
-        await refreshSessions();
-      }
+    if (!finalOutput && !streamState.failureText) {
+      streamState.failureText = 'The research run ended without producing an answer. Please retry this question.';
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantId ? { ...m, type: 'text', content: streamState.failureText } : m,
+      ));
     }
-
-    if (sessionId) {
-      await saveMessage(sessionId, 'user', effectiveText, {
-        images: images.length > 0 ? images : undefined,
+    if (finalOutput) {
+      const sources = sourcesFromOutput(finalOutput, 12);
+      const persistedAssistantId = await saveMessage(sessionId, 'assistant', finalOutput.synthesizedAnswer, {
+        type: 'intelligence',
+        orchestratorOutput: finalOutput,
+        recommendations: recommendationsFromOutput(finalOutput),
+        sources,
+        suggestions: finalOutput.suggestedFollowUps?.slice(0, 3),
+        agentRuns: finalOutput.agentRuns,
+        orchestrationLog: streamState.orchestrationLog,
+        missionPlan: finalOutput.missionPlan,
+        missionSummary: {
+          steps: finalOutput.missionPlan?.steps ?? [],
+          agentCount: finalOutput.missionPlan?.steps?.length ?? finalOutput.agentRuns?.length ?? 0,
+        },
+        quality: finalOutput.quality,
+        evidenceCoverage: finalOutput.evidenceCoverage,
+        selectionMeta: finalOutput.selectionMeta,
+        turnMode,
       });
-      indexMessageInBackground(sessionId, 'user', effectiveText);
 
-      if (finalOutput) {
-        const sources = sourcesFromOutput(finalOutput, 12);
-        const persistedAssistantId = await saveMessage(sessionId, 'assistant', finalOutput.synthesizedAnswer, {
-          type: 'intelligence',
-          orchestratorOutput: finalOutput,
-          recommendations: recommendationsFromOutput(finalOutput),
-          sources,
-          suggestions: finalOutput.suggestedFollowUps?.slice(0, 3),
-          agentRuns: finalOutput.agentRuns,
-          orchestrationLog: streamState.orchestrationLog,
-          missionPlan: finalOutput.missionPlan,
-          missionSummary: {
-            steps: finalOutput.missionPlan?.steps ?? [],
-            agentCount: finalOutput.missionPlan?.steps?.length ?? finalOutput.agentRuns?.length ?? 0,
-          },
-          quality: finalOutput.quality,
-          evidenceCoverage: finalOutput.evidenceCoverage,
-          selectionMeta: finalOutput.selectionMeta,
-        });
+      if (persistedAssistantId) {
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantId
+            ? {
+              ...m,
+              persistedId: persistedAssistantId,
+              orchestrationLog: streamState.orchestrationLog,
+            }
+            : m,
+        ));
+      }
 
-        if (persistedAssistantId) {
-          setMessages((prev) => prev.map((m) =>
-            m.id === assistantId
-              ? {
-                ...m,
-                persistedId: persistedAssistantId,
-                orchestrationLog: streamState.orchestrationLog,
-              }
-              : m,
-          ));
-        }
-
-        indexMessageInBackground(sessionId, 'assistant', finalOutput.synthesizedAnswer);
-        if (userMemory) {
-          extractAndUpdateMemory(sessionId, effectiveText, finalOutput.synthesizedAnswer, userMemory)
-            .then(() => refreshUserMemory())
-            .catch(() => {});
-        }
+      indexMessageInBackground(sessionId, 'assistant', finalOutput.synthesizedAnswer);
+      if (userMemory) {
+        extractAndUpdateMemory(sessionId, effectiveText, finalOutput.synthesizedAnswer, userMemory)
+          .then(() => refreshUserMemory())
+          .catch(() => {});
+      }
+    } else if (streamState.failureText) {
+      const persistedAssistantId = await saveMessage(sessionId, 'assistant', streamState.failureText, {
+        type: 'text',
+        failed: true,
+        orchestrationLog: streamState.orchestrationLog,
+        turnMode,
+      });
+      if (persistedAssistantId) {
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantId ? { ...m, persistedId: persistedAssistantId } : m,
+        ));
       }
     }
   }, [
@@ -445,33 +494,68 @@ export function useChatOrchestration({
     setFollowUps,
     setMessages,
     streamChat,
+    targetProject,
+    turnMode,
     userMemory,
     applyChatFailure,
+    showDevErrorDetail,
   ]);
 
   const handleFollowUp = useCallback(async (text: string) => {
     if (!text.trim() || isFollowingUp || isLoading) return;
-    const fuId = Date.now();
-    setFollowUps((prev) => [...prev, { id: fuId, question: text, answer: '', loading: true }]);
+    if (!currentSessionId) {
+      await handleSend(text);
+      return;
+    }
+
+    const userId = Date.now();
+    const assistantId = userId + 1;
+    const userMessage: ChatMessage = { id: userId, role: 'user', content: text.trim() };
+    setFollowUps([]);
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      { id: assistantId, role: 'assistant', type: 'intelligence', content: '', agentRuns: [], orchestrationLog: [] },
+    ]);
     resetDraftInput();
     setIsFollowingUp(true);
 
     const history = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-    for (const fu of followUps) {
-      if (fu.question) history.push({ role: 'user', content: fu.question });
-      if (fu.answer && !fu.loading) history.push({ role: 'assistant', content: fu.answer });
+      .map(historyItemFromMessage);
+
+    const persistedUserId = await saveMessage(currentSessionId, 'user', text.trim(), {
+      isFollowUp: true,
+      turnMode,
+    });
+    if (!persistedUserId) {
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantId
+          ? { ...m, type: 'text', content: 'I could not save this follow-up, so I did not start another research run.' }
+          : m,
+      ));
+      setIsFollowingUp(false);
+      return;
     }
+    setMessages((prev) => prev.map((m) =>
+      m.id === userId ? { ...m, persistedId: persistedUserId } : m,
+    ));
+    indexMessageInBackground(currentSessionId, 'user', text.trim());
 
     const recalledContext = currentSessionId ? await recallContextForSession(currentSessionId, text) : '';
     const userMemoryContext = userMemory ? buildMemoryContext(userMemory) : '';
-    const memoryContext = [userMemoryContext, recalledContext].filter(Boolean).join('\n\n');
+    const projectContext = targetProject ? buildMarketProjectContext(targetProject) : '';
+    const memoryContext = [projectContext, userMemoryContext, recalledContext].filter(Boolean).join('\n\n');
     const lowerFollowUp = text.toLowerCase();
     const followUpMode: 'full' | 'targeted' =
-      lowerFollowUp.includes('full rerun') || lowerFollowUp.includes('full refresh')
+      turnMode === 'refresh' || lowerFollowUp.includes('full rerun') || lowerFollowUp.includes('full refresh')
         ? 'full'
         : 'targeted';
+    const streamState: {
+      finalOutput: OrchestratorOutput | null;
+      orchestrationLog: string[];
+      failureText: string;
+    } = { finalOutput: null, orchestrationLog: [], failureText: '' };
 
     try {
       await streamChat(
@@ -480,54 +564,144 @@ export function useChatOrchestration({
           history,
           memoryContext,
           followUpMode,
-          includeMirofish: selectedAgents.mirofish,
+          includeMirofish: turnMode === 'swarm' || selectedAgents.mirofish,
           selectedAgents: selectedAgentIds,
           sessionId: currentSessionId ?? undefined,
           conversationId: currentSessionId ?? undefined,
+          turnMode,
         } as ChatRequestBody & { sessionId?: string; conversationId?: string },
-        async (chunk) => {
+        (chunk) => {
+          if (chunk.type === 'job_started') {
+            setActiveJobId(chunk.jobId);
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId ? { ...m, activeJobId: chunk.jobId } : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'agent_update') {
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId ? applyAgentUpdate(m, chunk.run, chunk.metrics) : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'orchestration_log') {
+            streamState.orchestrationLog = [...streamState.orchestrationLog, chunk.line].slice(-48);
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId ? applyOrchestrationLog(m, chunk.line) : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'progress') {
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId ? { ...m, progressPct: chunk.pct } : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'mission_summary') {
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId ? { ...m, missionSummary: chunk.summary } : m,
+            ));
+            return;
+          }
+          if (chunk.type === 'cancelled') {
+            streamState.failureText = 'Research cancelled.';
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, type: 'text', content: 'Research cancelled.', activeJobId: null }
+                : m,
+            ));
+            return;
+          }
           if (chunk.type === 'error') {
             const payload = buildChatErrorFromStreamChunk(chunk);
-            const display = formatChatErrorForDisplay(payload, showDevErrorDetail);
-            setFollowUps((prev) => prev.map((f) =>
-              f.id === fuId ? { ...f, answer: display, loading: false } : f,
-            ));
+            streamState.failureText = formatChatErrorForDisplay(payload, showDevErrorDetail);
+            applyChatFailure(assistantId, payload);
             return;
           }
           if (chunk.type !== 'result') return;
           const out = chunk.output;
+          streamState.finalOutput = out;
           setSessionUsage((prev) => accumulateSessionUsage(prev, out.metrics));
-          const sources = sourcesFromOutput(out, 6);
-          setFollowUps((prev) => prev.map((f) =>
-            f.id === fuId ? { ...f, answer: out.synthesizedAnswer, sources, loading: false } : f,
+          setMessages((prev) => prev.map((m) =>
+            m.id === assistantId
+              ? { ...applyResultToAssistant(m, out, { includeMirofish: false, includeMirofishLive: false }), progressPct: 100 }
+              : m,
           ));
-
-          if (currentSessionId) {
-            await saveMessage(currentSessionId, 'user', text, { isFollowUp: true });
-            await saveMessage(currentSessionId, 'assistant', out.synthesizedAnswer, { isFollowUp: true, sources });
-            indexMessageInBackground(currentSessionId, 'user', text);
-            indexMessageInBackground(currentSessionId, 'assistant', out.synthesizedAnswer);
-            if (userMemory) {
-              extractAndUpdateMemory(currentSessionId, text, out.synthesizedAnswer, userMemory)
-                .then(() => refreshUserMemory())
-                .catch(() => {});
-            }
-          }
         },
       );
+
+      const out = streamState.finalOutput;
+      if (!out && !streamState.failureText) {
+        streamState.failureText = 'The follow-up research ended without producing an answer. Please retry.';
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantId ? { ...m, type: 'text', content: streamState.failureText } : m,
+        ));
+      }
+      if (out) {
+        const sources = sourcesFromOutput(out, 12);
+        const persistedAssistantId = await saveMessage(currentSessionId, 'assistant', out.synthesizedAnswer, {
+          isFollowUp: true,
+          type: 'intelligence',
+          orchestratorOutput: out,
+          recommendations: recommendationsFromOutput(out),
+          sources,
+          suggestions: out?.suggestedFollowUps?.slice(0, 3),
+          agentRuns: out.agentRuns,
+          orchestrationLog: streamState.orchestrationLog,
+          missionPlan: out?.missionPlan,
+          quality: out?.quality,
+          evidenceCoverage: out?.evidenceCoverage,
+          selectionMeta: out?.selectionMeta,
+          turnMode,
+        });
+        if (persistedAssistantId) {
+          setMessages((prev) => prev.map((m) =>
+            m.id === assistantId ? { ...m, persistedId: persistedAssistantId } : m,
+          ));
+        }
+        indexMessageInBackground(currentSessionId, 'assistant', out.synthesizedAnswer);
+        if (userMemory) {
+          extractAndUpdateMemory(currentSessionId, text, out.synthesizedAnswer, userMemory)
+            .then(() => refreshUserMemory())
+            .catch(() => {});
+        }
+      } else if (streamState.failureText) {
+        const persistedAssistantId = await saveMessage(currentSessionId, 'assistant', streamState.failureText, {
+          isFollowUp: true,
+          type: 'text',
+          failed: true,
+          orchestrationLog: streamState.orchestrationLog,
+          turnMode,
+        });
+        if (persistedAssistantId) {
+          setMessages((prev) => prev.map((m) =>
+            m.id === assistantId ? { ...m, persistedId: persistedAssistantId } : m,
+          ));
+        }
+      }
     } catch (err) {
       const withPayload = err as { chatError?: ReturnType<typeof buildChatErrorPayload> };
       const payload = withPayload.chatError ?? buildChatErrorPayload(err);
+      applyChatFailure(assistantId, payload);
       const display = formatChatErrorForDisplay(payload, showDevErrorDetail);
-      setFollowUps((prev) => prev.map((f) =>
-        f.id === fuId ? { ...f, answer: display, loading: false } : f,
-      ));
+      const persistedAssistantId = await saveMessage(currentSessionId, 'assistant', display, {
+        isFollowUp: true,
+        type: 'text',
+        failed: true,
+        turnMode,
+      });
+      if (persistedAssistantId) {
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantId ? { ...m, persistedId: persistedAssistantId } : m,
+        ));
+      }
     } finally {
+      setActiveJobId(null);
       setIsFollowingUp(false);
     }
   }, [
     currentSessionId,
-    followUps,
+    handleSend,
     isFollowingUp,
     isLoading,
     messages,
@@ -536,9 +710,13 @@ export function useChatOrchestration({
     selectedAgentIds,
     selectedAgents,
     setFollowUps,
+    setMessages,
     streamChat,
+    targetProject,
+    turnMode,
     userMemory,
     showDevErrorDetail,
+    applyChatFailure,
   ]);
 
   const handleComposerSend = useCallback((text: string, hasResult: boolean, images: AttachedImage[]) => {

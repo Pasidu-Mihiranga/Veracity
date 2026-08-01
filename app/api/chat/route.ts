@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
+import { isResearchTurnMode, RESEARCH_TURN_MODE_COPY, type ResearchTurnMode } from '@/lib/research-turn-mode';
 import { orchestrate, runMirofishAgent, runMirofishLiveAgent } from '../../../lib/agents/orchestrator';
 import { createClient } from '@/lib/supabase-server';
 import { enforceSweepRateLimit, rateLimitExceededResponse } from '@/lib/rate-limit';
 import { captureException, getRequestContext, getGeminiUsageSafe, logger, withCorrelation, withSpan } from '@/lib/observability';
 import type { ConversationMessage, AgentRun, OrchestratorOutput, ImageAttachment, AgentOutput } from '../../../lib/agents/types';
 import { featureFlags } from '@/lib/feature-flags';
-import { inngest, inngestConfigured } from '@/lib/inngest/client';
+import { inngest } from '@/lib/inngest/client';
 import { createResearchJob, newExecutionId } from '@/lib/research-jobs';
 import { getConfig } from '@/lib/config';
 import { EST_COST_PER_MODEL_CALL } from '@/lib/agents/cost-estimates';
@@ -13,6 +14,7 @@ import {
   buildChatErrorPayload,
   orchestrationLogLineForError,
 } from '@/lib/errors/chat-error';
+import { assessAsyncSweepReadiness } from '@/lib/async-sweep-readiness';
 
 export const runtime = 'nodejs';
 // Vercel Pro: up to 120s (config). Hobby plan still enforces ~60s wall clock — keep Apify wait (APIFY_MAX_WAIT_SECS) low enough to finish.
@@ -58,16 +60,18 @@ function jsonError(message: string, status: number): Response {
 }
 
 function isAsyncSweepEnabled(): boolean {
-  if (!featureFlags.asyncSweep) return false;
   try {
     const cfg = getConfig();
-    if (cfg.INNGEST_EVENT_KEY || process.env.INNGEST_DEV === '1' || process.env.NODE_ENV === 'development') {
-      return inngestConfigured();
-    }
+    return assessAsyncSweepReadiness({
+      featureEnabled: featureFlags.asyncSweep,
+      eventKey: cfg.INNGEST_EVENT_KEY,
+      signingKey: cfg.INNGEST_SIGNING_KEY,
+      inngestDev: process.env.INNGEST_DEV === '1',
+      production: process.env.NODE_ENV === 'production',
+    }).ready;
   } catch {
     return false;
   }
-  return false;
 }
 
 export async function POST(req: NextRequest) {
@@ -129,6 +133,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
     forceFullSweep?: boolean;
     sessionId?: string;
     conversationId?: string;
+    turnMode?: ResearchTurnMode;
   };
 
   try {
@@ -139,7 +144,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
 
   const {
     query, history = [], images = [], memoryContext, includeMirofish = false, includeMirofishLive = false,
-    followUpMode = 'full', selectedAgents = [], forceFullSweep = false, sessionId, conversationId,
+    followUpMode = 'full', selectedAgents = [], forceFullSweep = false, sessionId, conversationId, turnMode,
   } = body;
 
   if (!query?.trim()) {
@@ -153,7 +158,8 @@ async function handleChatPost(req: NextRequest, userId: string) {
   } catch {
     learningContext = '';
   }
-  const mergedMemoryContext = [memoryContext, learningContext].filter(Boolean).join('\n\n') || undefined;
+  const modeInstruction = isResearchTurnMode(turnMode) ? RESEARCH_TURN_MODE_COPY[turnMode].instruction : '';
+  const mergedMemoryContext = [modeInstruction, memoryContext, learningContext].filter(Boolean).join('\n\n') || undefined;
 
   const requestCtx = getRequestContext();
   logger.info('chat.started', {
@@ -162,6 +168,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
     includeMirofish,
     includeMirofishLive,
     followUpMode,
+    turnMode: isResearchTurnMode(turnMode) ? turnMode : undefined,
     sessionId,
     conversationId,
     asyncSweep: isAsyncSweepEnabled(),
@@ -185,6 +192,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
           forceFullSweep,
           includeMirofish,
           includeMirofishLive,
+          turnMode: isResearchTurnMode(turnMode) ? turnMode : undefined,
         },
       });
       await inngest.send({
@@ -203,6 +211,7 @@ async function handleChatPost(req: NextRequest, userId: string) {
           forceFullSweep,
           includeMirofish,
           includeMirofishLive,
+          turnMode: isResearchTurnMode(turnMode) ? turnMode : undefined,
         },
       });
       return new Response(
