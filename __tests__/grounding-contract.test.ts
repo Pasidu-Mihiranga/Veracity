@@ -18,7 +18,7 @@ const researchOutputs: AgentOutput[] = [
 ];
 
 describe('execution grounding contract', () => {
-  it('fills missing grounding fields on existing variants', () => {
+  it('rejects incomplete variants instead of inventing campaign claims and metrics', () => {
     const variants: CampaignVariant[] = [
       {
         id: '',
@@ -33,19 +33,27 @@ describe('execution grounding contract', () => {
 
     const safe = enforceExecutionGrounding(variants, researchOutputs, 'Vector Agents');
 
-    expect(safe).toHaveLength(1);
-    expect(safe[0].id).toBe('V1-SIGNAL');
-    expect(safe[0].hypothesis.length).toBeGreaterThan(10);
-    expect(safe[0].groundedSignals.length).toBeGreaterThan(0);
-    expect(safe[0].successMetric).toContain('reply rate');
+    expect(safe).toEqual([]);
   });
 
-  it('creates a safe fallback variant when no variants exist', () => {
+  it('does not fabricate a fallback variant when generation returns none', () => {
     const safe = enforceExecutionGrounding([], researchOutputs, 'Vector Agents');
 
+    expect(safe).toEqual([]);
+  });
+
+  it('adds real research grounding to an otherwise complete generated variant', () => {
+    const safe = enforceExecutionGrounding([{
+      id: 'V1',
+      angle: 'Measured ROI',
+      hypothesis: 'A quantified proof point increases qualified replies.',
+      successMetric: 'Qualified reply rate',
+      variable: 'opening proof point',
+      channels: {},
+      groundedSignals: [],
+    }], researchOutputs, 'Vector Agents');
+
     expect(safe).toHaveLength(1);
-    expect(safe[0].id).toBe('V1-SIGNAL-LED');
-    expect(safe[0].channels.email?.subject).toContain('Vector Agents');
     expect(safe[0].groundedSignals[0]).toContain('[competitive]');
   });
 });
