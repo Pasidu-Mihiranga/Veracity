@@ -39,8 +39,8 @@ Entries completed by a wave below have been folded into that wave rather than
 being listed twice.
 
 - [x] Methodology and safe CSV on every decision artifact.
-- [ ] Build on project editing with entity-match correction and enforced source allow/block controls.
-- [ ] Add normalized verified pricing/release market events; do not infer these from URL changes alone.
+- [x] Entity-match correction (`EntityCorrectionPanel` + `/entities` route; a mismatch also downgrades the claims that leaned on the span) and enforced source allow/block in collection.
+- [x] Typed pricing/release events emitted directly by the extractors — price moves, new tiers, sunset plans, currency changes, releases with `effectiveAt`. No longer inferred from diffs.
 - [x] Evidence/claim artifact references on chat turns.
 - [x] Fix `canonical_entities` cross-user uniqueness (migration `0011`, verified behaviourally).
 
@@ -102,4 +102,4 @@ being listed twice.
 - [x] TypeScript, full Vitest suite, ESLint (zero errors), and production build.
 - [x] Authenticated database/API project → snapshot → decision → outcome journey.
 - [x] Rendered dashboard, project setup, project overview, and research-mode selector browser check.
-- [ ] Run `npm run test:e2e:live-research` when external execution allowance is available; this is a real, billable provider check and never falls back to a fabricated result.
+- [x] `npm run test:e2e:live-research` run 2026-08-02 — PASS. Found a `proxy-agent` bundling bug (fixed) and an exhausted SerpAPI quota (needs a top-up; not a code defect).
