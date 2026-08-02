@@ -119,6 +119,12 @@ Each gap has an ID used by the build waves in §5.
 | **G-E5** | Image-analysis claim without multimodal implementation | Fake-claims ledger item; user believes images were inspected |
 | **G-E6** | Remaining fabricated fallbacks not fully swept | Slice 2 exit criterion unmet |
 
+### G — Found during implementation
+
+| ID | Gap | Impact |
+|---|---|---|
+| **G-G1** | `canonical_entities` is unique on `(scope_key, entity_type, entity_key)` with no owner column | Two users tracking the same competitor under one scope collide; the second user's insert fails with a unique violation. Found 2026-08-02 while writing the dashboard end-to-end test |
+
 ### F — Release credibility
 
 | ID | Gap | Impact |
@@ -242,7 +248,7 @@ Where the honest charts get real data and the product starts answering "what cha
 
 Turns the accumulated state into the surface users return to.
 
-- [~] **F-8** Project dashboard becomes the default screen; chat becomes "Ask this market" beside it
+- [x] **F-8** Project dashboard becomes the default screen; chat becomes "Ask this market" beside it
 - [x] "Since your last visit" material-change strip
 - [ ] **F-6** Competitor activity timeline
 - [ ] Pricing history + release cadence charts (from Wave 2 observations)

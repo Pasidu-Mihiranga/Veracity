@@ -31,19 +31,16 @@ Last updated: 2026-08-02
 - [ ] Wire the brief review and run into an API route and the chat surface.
 - [ ] Segment and persona follow-up UI (the data model supports it already).
 
-## Next
+## Next — still open
 
-- [x] Remove remaining fake numeric and provider fallbacks identified in the audit. (2026-08-02, locked by `__tests__/no-fabrication-on-failure.test.ts`.)
-- [x] Reclassify rendered artifacts as observed, derived, or synthetic.
-- [ ] Extend the completed trend/scenario methodology and safe CSV download pattern to every remaining decision chart.
-- [x] Implement reusable Market Project context for initial and follow-up research.
-- [ ] Build on completed project editing with entity-match correction and enforced source allow/block controls.
-- [x] Add project evidence snapshots and source-coverage events.
+Entries completed by a wave below have been folded into that wave rather than
+being listed twice.
+
+- [ ] Extend the trend/scenario methodology and safe CSV pattern to every remaining decision chart (`ChartSpecView` exists; the artifacts still need migrating).
+- [ ] Build on project editing with entity-match correction and enforced source allow/block controls.
 - [ ] Add normalized verified pricing/release market events; do not infer these from URL changes alone.
-- [ ] Add evidence/claim artifact references to chat turns.
-- [ ] Implement honest Swarm Decision Lab schema and persistence.
-- [ ] Add a reviewable ScenarioBrief and continuing panel/persona/assumption branches.
-- [ ] Add rolling structured research summary and direct claim/chart references in follow-up turns.
+- [ ] Add evidence/claim artifact references to chat turns (the context builder supports them; the UI does not attach them yet).
+- [ ] Fix `canonical_entities` cross-user uniqueness — see gap G-G1 in the plan.
 
 ## Wave 1 — evidence ledger (2026-08-02)
 
@@ -73,7 +70,8 @@ Last updated: 2026-08-02
 - [x] `SinceLastVisit` returning-user surface.
 - [x] Dashboard and evidence API routes with server-side gating.
 - [x] `useProjectDashboard` hook and `ProjectDashboard` composition.
-- [ ] Mount `ProjectDashboard` as the project's default screen in the app shell.
+- [x] Mount `ProjectDashboard` as the project's leading surface in the app shell.
+- [x] Authenticated end-to-end proof (`npm run test:e2e:dashboard`, 11 checks).
 - [ ] Activity timeline, pricing history, and release cadence on the dashboard.
 - [ ] Feature verification matrix with per-cell evidence.
 - [ ] Rolling conversation summary and artifact references on turns.
