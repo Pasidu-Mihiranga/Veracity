@@ -88,6 +88,33 @@ being listed twice.
 - [x] Send real image bytes to the model instead of image metadata.
 - [x] Rewrite README claims to the product promise, with a claim-by-claim reality table.
 
+## Documentation (2026-08-02)
+
+- [x] `README.md` — guided setup for macOS/Linux/WSL2, three database options, every
+      migration, API-key table with cost and source, troubleshooting.
+- [x] `TOUR.md` — full client demo script, login through every feature, plain-language
+      explanations, how to read the charts, and honest answers to the hard questions.
+- [x] `AGENTS.md` — context for AI coding agents, written lean; captures the four
+      failure modes that actually occurred in this repo.
+- [x] `plans/PLAIN_LANGUAGE_PLAN.md` — vocabulary decisions with research sources.
+- [x] De-staled `plans/GAP_CLOSURE_AND_FEATURE_PLAN.md` — §2 listed the evidence
+      ledger as "not started" long after it shipped.
+
+## Known gaps — verified, not forgotten
+
+These are real and none of them are blocked on code.
+
+- [ ] **SerpAPI quota exhausted.** Live run returned HTTP 429 on every search.
+      Web and news search are dark until it is topped up. Not a defect.
+- [ ] **MiroFish never run live.** Adapter, routes, and UI are complete and
+      tested against a mock; the real service has never been configured.
+- [ ] **No real user has used the product.** Everything verified so far is
+      machine-verified. The research sets the bar at five design partners
+      returning weekly.
+- [ ] **Rolling conversation summary** — `partitionTurns` exists and is tested,
+      but nothing generates or stores the summary text yet, so very long
+      projects still rely on the recent-turns window alone.
+
 ## Later, after MVP value is demonstrated
 
 - [ ] Team collaboration improvements.

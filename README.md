@@ -241,6 +241,11 @@ command here that costs money.
 | [`docs/adr/`](./docs/adr/) | Architecture Decision Records |
 | [`CLAUDE.md`](./CLAUDE.md) | Agent/domain notes for contributors |
 | [`.env.example`](./.env.example) | Required vs optional environment variables |
+| **[`TOUR.md`](./TOUR.md)** | **Guided demo script** — how to show this to a customer, screen by screen, in plain language |
+| **[`AGENTS.md`](./AGENTS.md)** | **Start here if you are an AI coding agent** — commands, conventions, and the failure modes that have actually happened in this repo |
+| [`plans/TODO.md`](./plans/TODO.md) | What is built and what is not |
+| [`plans/PLAIN_LANGUAGE_PLAN.md`](./plans/PLAIN_LANGUAGE_PLAN.md) | UI wording rules and the vocabulary decisions behind them |
+| [`log.md`](./log.md) | Chronological engineering journal — why each change was made |
 
 > **Rule of thumb:** setup → this README · **what product to build now** → product-first roadmap · technical findings → full audit · detailed historical engineering tasks → phase plan · ADRs → `docs/adr/`.
 

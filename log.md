@@ -2124,3 +2124,86 @@ warning genuinely would be noise.
 - ESLint: zero errors.
 - Jargon re-audit: remaining hits are type fields and code comments only; no
   user-visible string contains an internal term.
+
+## 2026-08-02 — Documentation: AGENTS.md, TOUR.md, and a stale-claim sweep
+
+### Built — `AGENTS.md`
+
+Context for AI coding agents. Written deliberately lean: every line costs the
+next agent tokens on every task, so it carries only what changes behaviour.
+
+Followed the published convention — the strongest guidance being that **one code
+example per rule beats three paragraphs describing it**. Each rule therefore
+ships a wrong/right pair rather than prose.
+
+Its most valuable content is the four failure modes that actually happened in
+this repo, because each one shipped and had to be caught later:
+
+1. **Building something nothing calls.** Nine modules and four components were
+   fully tested and unreachable. Passing tests and a clean build are both true
+   of dead code — includes the grep to check.
+2. **Unrealistic fixtures hiding real behaviour.** A seed missing a
+   `metric_observation` made a correct rejection look like a bug.
+3. **Constraints that do not constrain.** `UNIQUE` over a nullable column does
+   nothing for NULL rows.
+4. **Reading state after writing it.** The collection run compared against
+   values it had just saved, so nothing was ever detected.
+
+### Built — `TOUR.md`
+
+A full client demo script, 509 lines, login through every feature.
+
+Written for someone non-technical to present from. Each section gives the words
+to say, what to point at, and *why that thing exists* — because a demo that
+lists features does not sell a product whose value is trustworthiness.
+
+Choices worth recording:
+
+- **Part 0 arms the seller against "just use ChatGPT"** before the buyer raises
+  it, because they will.
+- **The empty state is sold, not apologised for.** "Nothing changed" is thirty
+  seconds replacing forty minutes of tab-opening, and that is what justifies a
+  subscription.
+- **A refused chart is presented as a feature.** "It just declined to draw you a
+  chart because the numbers were in two currencies."
+- **The Swarm Lab section opens with its limitation**, not its capability.
+  Overselling the one non-evidence feature would undermine credibility on
+  everything else demonstrated.
+- **A hard-questions table with honest answers**, including what the product
+  cannot do. A buyer who catches an overclaim stops believing the rest.
+- **A pre-demo checklist**, because a demo with an empty dashboard is a demo
+  with no product — two collections must already have run.
+
+### Fixed — genuinely stale documentation
+
+Audited rather than assumed, and found the gap plan still asserting things that
+had been false for most of the session:
+
+- §2 listed `evidence_spans`, `ChartSpec`, and change events as "Not started",
+  long after all three shipped.
+- V-003 was recorded as open, after the MiroFish service was hardened and
+  covered by 17 tests.
+- The header framed open gaps in the present tense with the build complete.
+
+All corrected to reflect what is actually in the tree, with the register kept as
+the historical record of what was wrong and why.
+
+### `plans/TODO.md` — known gaps, verified
+
+Added a section for what is genuinely outstanding, each checked rather than
+recalled:
+
+- SerpAPI quota exhausted — a top-up, not a defect.
+- MiroFish never run live.
+- No real user has used the product; everything so far is machine-verified.
+- **Rolling conversation summary** — `partitionTurns` exists and is tested, but
+  a grep confirmed nothing generates or stores the summary text, so long
+  projects still rely on the recent-turns window alone. Found by checking, not
+  from memory.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest: PASS — 811 passed, 1 skipped.
+- Production `next build`: PASS.
+- Every internal documentation link resolves to a file that exists.

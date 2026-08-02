@@ -14,10 +14,15 @@ Source documents consolidated here:
 
 ## 1. Why this plan exists
 
-The MVP release gate passed on 2026-08-01, but "release gate passed" measured **regression safety** (typecheck, 324 tests, production build, one authenticated journey), not **product completeness**. Three separate gaps remain:
+> **Status as of 2026-08-02 (end of build):** Waves 0–5 are complete. The gap
+> register below is kept as the historical record of what was wrong and why —
+> §2 shows what has since been verified closed. For current outstanding work see
+> [`TODO.md`](./TODO.md).
+
+The MVP release gate passed on 2026-08-01, but "release gate passed" measured **regression safety** (typecheck, 324 tests, production build, one authenticated journey), not **product completeness**. Three separate gaps were open at that point:
 
 1. **Slice gaps** — Slices 2–7 are all marked IN PROGRESS with real unchecked work.
-2. **Roadmap gaps** — Milestone 1 (evidence and chart foundation) of the product-first roadmap is 0% started, and it is the load-bearing milestone for the entire thesis.
+2. **Roadmap gaps** — Milestone 1 (evidence and chart foundation) of the product-first roadmap was 0% started, and it is the load-bearing milestone for the entire thesis. **Closed 2026-08-02.**
 3. **Audit gaps** — four P0 findings and several P1s from the technical audit remain open in the working tree.
 
 Additionally, the research identified **features not yet in any plan** — mainly free structured-data connectors and the change/materiality engine — that convert Veracity from "research tool with memory" into the "living market model" the research says is the only defensible position.
@@ -43,15 +48,15 @@ Checked directly against the working tree on 2026-08-02, not inferred from check
 | Entity + snapshot primitives | `db/migrations/0005` — `canonical_entities`, `source_snapshots` (has `content_hash`) |
 | Isolated local Postgres + pgvector | port 5435, migrations through 0008 applied |
 
-### Confirmed still open (spot-checked in code)
+### Findings as of 2026-08-02 (re-verified against the working tree)
 
 | Finding | Location | State |
 |---|---|---|
 | V-001 SAML unverified identity | `app/api/auth/saml/login/route.ts`, `acs/route.ts` | Routes present, default-off. Rebuild deferred to the enterprise phase (§5.6) |
-| V-003 MiroFish unauthenticated + public bind | `mirofish-service/server.py:60` `CORS(app)`, `:695` `host="0.0.0.0"` | Open — fixed as part of Wave 4 when the service is implemented properly |
-| No evidence spans | no `evidence_spans` table, no `lib/intelligence/` | Not started — Wave 1 |
-| No `ChartSpec` | no chart-spec module; charts render ad-hoc props | Not started — Wave 1 |
-| No change events / materiality | `source_snapshots` stores hashes but no normalized diff events | Not started — Wave 2 |
+| V-003 MiroFish unauthenticated + public bind | `mirofish-service/server.py` | **CLOSED** — shared-secret auth, restricted CORS, loopback bind, path-traversal guard; 17 guard tests |
+| No evidence spans | no `evidence_spans` table, no `lib/intelligence/` | **CLOSED** — migration `0009`, `lib/intelligence/` |
+| No `ChartSpec` | no chart-spec module; charts render ad-hoc props | **CLOSED** — `chart-spec.ts`, `ChartSpecView`, `ArtifactMethodology` |
+| No change events / materiality | `source_snapshots` stores hashes but no normalized diff events | **CLOSED** — `change-detector.ts`, `typed-events.ts` |
 
 ### Closed in Wave 0 (2026-08-02)
 
