@@ -437,3 +437,67 @@ build: `snapshot-store`, `evidence-extractor`, `metric-normalizer`,
 `chart-planner`, `claim-verifier`, the shared evidence pack in the orchestrator,
 rewiring `bind-evidence` from lexical URL matching to span ids, the evidence
 drawer, and the migration of each artifact to render a validated `ChartSpec`.
+
+## 2026-08-02 — Wave 1 (part 2): ledger modules and database proof
+
+### Built — `lib/intelligence/`
+
+- `snapshot-store.ts` — URL canonicalisation (drops `www.`, fragments, default
+  ports, and tracking parameters; sorts the rest so parameter order cannot fork
+  one page into two identities), content normalisation that masks volatile
+  fragments, and versioned SHA-256 hashing. Masking matters more than it looks:
+  without it a rendered timestamp or a cache-busting asset hash makes every
+  scheduled run report a change, and the digest becomes noise. `locateSpan`
+  returns null rather than fuzzy-matching, because an excerpt that is not
+  present is a quote the extractor invented and the caller must be able to see
+  that.
+- `evidence-extractor.ts` — schema-constrained extraction at temperature 0.
+  Every returned excerpt is located in the actual snapshot content before it
+  becomes a span; unlocatable ones are collected in `hallucinatedExcerpts` and
+  dropped. A metric is kept only when its value literally appears in the excerpt
+  it claims to come from, which catches the subtler failure of attaching a real
+  number to unrelated text.
+- `claim-verifier.ts` — rejects a numeric claim with no backing observation, and
+  also rejects one whose asserted number does not match the observation it
+  cites. A "has a source" check would wave the latter through. Contradiction is
+  deliberately *not* a rejection: disagreement is information the user needs.
+  `deriveConfidence` is deterministic, so a single-source claim can never be
+  labelled high.
+- `chart-planner.ts` — builds specs from stored observations only. Refuses mixed
+  units on one axis, refuses observations with no evidence span, downgrades a
+  line to bars below three points and says why, and leaves a missing period as
+  `null` rather than zero-filling it.
+- `ledger-repo.ts` — ownership-scoped persistence. Spans and their observations
+  are written in one transaction, and chart specs are validated inside the save
+  function so an invalid chart cannot be persisted whatever path produced it.
+
+### Tests added
+
+- `__tests__/intelligence-modules.test.ts` — 41 tests. Covers the six URL forms
+  that name one page collapsing to one identity, hash stability across volatile
+  fragments, span location including the null case, every claim-verifier
+  rejection, and every chart-planner refusal including the null-gap and
+  determinism cases.
+- `scripts/smoke-evidence-ledger.mjs` (`npm run test:e2e:evidence-ledger`) —
+  18 checks against the real local PostgreSQL database, walking snapshot → span
+  → observation → change event → chart spec and then attempting the writes that
+  must be rejected. It confirms in the database, not just in TypeScript, that a
+  number with no evidence span cannot be inserted, that an empty excerpt and
+  reversed offsets are refused, that an unknown event type and out-of-range
+  materiality are refused, and that a re-run does not duplicate a change. All
+  work happens in one transaction and is rolled back; a post-check confirms no
+  rows remain.
+
+### Verification
+
+- `npm run test:e2e:evidence-ledger`: PASS — 18 passed, 0 failed.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 49 files passed, 1 skipped; 472 tests passed,
+  1 skipped (up from 431).
+- ESLint over the new modules and tests: PASS, zero errors.
+
+### Remaining in Wave 1
+
+Shared evidence pack in the orchestrator, rewiring `lib/agents/bind-evidence.ts`
+from lexical URL matching to span ids, the evidence drawer, and migrating each
+artifact to render a validated `ChartSpec`.
