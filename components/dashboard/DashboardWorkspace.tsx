@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useLayoutEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
@@ -16,6 +16,10 @@ import type { MarketProject } from '@/lib/projects';
 import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
 import { ProjectDashboard } from '@/components/dashboard/ProjectDashboard';
+import { ScenarioPanel } from '@/components/dashboard/ScenarioPanel';
+import { EntityCorrectionPanel } from '@/components/projects/EntityCorrectionPanel';
+import { ArtifactAttachPicker } from '@/components/dashboard/ArtifactAttachPicker';
+import type { AttachedArtifact } from '@/lib/intelligence/conversation-context';
 
 const ApiUsagePanel = dynamic(() => import('@/components/ApiUsagePanel').then((m) => m.ApiUsagePanel), {
   loading: () => <PanelSkeleton label="Loading usage" height={280} />,
@@ -177,6 +181,32 @@ export function DashboardWorkspace({
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
+
+  // Artifacts attached to the next turn. Held here rather than in the composer
+  // so they survive the composer remounting between result states.
+  const [attachedArtifacts, setAttachedArtifacts] = useState<AttachedArtifact[]>([]);
+
+  /**
+   * Send with any attached artifacts appended as explicit references.
+   *
+   * The reference travels in the message text so it reaches the research path
+   * without a new transport: the turn then carries what the user pointed at
+   * instead of the model guessing which chart or change was meant.
+   */
+  const sendWithArtifacts = useCallback(
+    (text: string) => {
+      if (attachedArtifacts.length === 0) {
+        onComposerSend(text);
+        return;
+      }
+      const context = attachedArtifacts
+        .map((a) => `[${a.kind}] ${a.label}: ${a.detail}`)
+        .join('\n');
+      onComposerSend(`${text}\n\nReferring to:\n${context}`);
+      setAttachedArtifacts([]);
+    },
+    [attachedArtifacts, onComposerSend],
+  );
   const handleAgentProgressHidden = useCallback(() => {
     onResetHeader?.();
   }, [onResetHeader]);
@@ -251,6 +281,15 @@ export function DashboardWorkspace({
                   onAskAbout={onComposerSend}
                 />
               ) : null}
+              {/*
+                Stress-testing and evidence review sit alongside the research
+                itself. Both are things a user does *about* the project, so
+                putting them behind a separate screen would mean the review
+                nobody navigates to is the review nobody does.
+              */}
+              {selectedProject ? <ScenarioPanel project={selectedProject} /> : null}
+              {selectedProject ? <EntityCorrectionPanel projectId={selectedProject.id} /> : null}
+
               {selectedProject ? (
                 <MarketProjectOverview
                   projectId={selectedProject.id}
@@ -265,10 +304,18 @@ export function DashboardWorkspace({
                   isFollowingUp={false}
                   isLoading={isLoading}
                   showComposer={false}
-                  onSend={onComposerSend}
+                  onSend={sendWithArtifacts}
                   {...composerProps}
                 />
               )}
+              {selectedProject ? (
+                <ArtifactAttachPicker
+                  projectId={selectedProject.id}
+                  attached={attachedArtifacts}
+                  onChange={setAttachedArtifacts}
+                />
+              ) : null}
+
               {messages.length > 0 && (
                 <ConversationTimeline
                   messages={messages}
@@ -361,7 +408,7 @@ export function DashboardWorkspace({
                   isLoading={isLoading}
                   followUpEndRef={followUpEndRef}
                   showComposer={false}
-                  onSend={onComposerSend}
+                  onSend={sendWithArtifacts}
                   {...composerProps}
                 />
               </AppErrorBoundary>
@@ -380,7 +427,7 @@ export function DashboardWorkspace({
             isFollowingUp={isFollowingUp}
             isLoading={isLoading}
             showComposer
-            onSend={onComposerSend}
+            onSend={sendWithArtifacts}
             composerPlaceholder={hasResult ? 'Ask a follow-up about this analysis…' : 'Ask a growth intelligence question…'}
             viewMode={viewMode}
             onViewModeChange={onViewModeChange}

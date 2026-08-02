@@ -1955,3 +1955,55 @@ independently confirm it end to end.
 
 Top up SerpAPI, or accept that web and news search are dark. It is the single
 largest gap in live coverage right now, and no amount of code fixes it.
+
+## 2026-08-02 — Orphan re-audit: four UI components were unreachable
+
+### The check that caught it
+
+Asked whether the product was finished, I re-ran the mounted-component audit
+rather than answering from memory. Four components built earlier in the session
+were not rendered anywhere:
+
+| Component | State |
+|---|---|
+| `ScenarioView` | orphan |
+| `ScenarioBriefReview` | orphan |
+| `ArtifactAttachPicker` | orphan |
+| `EntityCorrectionPanel` | orphan |
+
+Each was tested, typechecked, and included in a passing build. None was
+reachable by a user. This is the third time the same failure has appeared this
+session — a module can be correct, covered, and completely inert.
+
+The lesson is that "the tests pass" and "the build compiles" are both true of
+dead code. Only reachability answers the question.
+
+### Fixed
+
+- `components/dashboard/ScenarioPanel.tsx` owns the Swarm Decision Lab
+  lifecycle: draft → review → run → read, and back to review for a branch.
+  Splitting those across screens would break what makes the lab worth having —
+  a scenario is one object you return to, not a series of disposable runs. The
+  brief is seeded from the project rather than typed into a blank form, because
+  a blank form produces a generic brief and a generic brief produces a generic
+  panel.
+- `EntityCorrectionPanel` and `ScenarioPanel` mounted in the workspace beside
+  the research itself. Behind a separate screen, the review nobody navigates to
+  is the review nobody does.
+- `ArtifactAttachPicker` mounted above the conversation, with attachments held
+  in workspace state so they survive the composer remounting between result
+  states. Attached artifacts are appended to the outgoing message as explicit
+  references, so the turn carries what the user pointed at instead of the model
+  guessing which chart was meant.
+
+### Verification
+
+- Mounted-component audit: **zero orphans**.
+- `npm run test:e2e:dashboard`: PASS — 42/42.
+- Rendered check against a live server with a real session: signup 200, project
+  created 201, root page 200 with the app shell present, zero errors in the
+  server log. Test data removed.
+- `npm run typecheck`: PASS.
+- Full Vitest: PASS — 784 passed, 1 skipped.
+- Production `next build`: PASS.
+- ESLint: zero errors.
