@@ -30,7 +30,7 @@ Last updated: 2026-08-02
 - [x] Database-level proof (`npm run test:e2e:swarm-scenarios`, 15 checks).
 - [x] MiroFish adapter implementing the runner's ports with no fabrication on failure.
 - [x] `POST /api/scenarios`, `GET /api/scenarios/[id]`, `POST /api/scenarios/[id]/run`.
-- [ ] Brief-review and run UI in the chat surface (routes exist; nothing calls them yet).
+- [x] `ScenarioBriefReview` — premise shown before the panel sees it, assumptions editable, edits run as a new version.
 - [ ] Segment and persona follow-up UI (the data model supports it already).
 
 ## Next — still open
@@ -38,7 +38,7 @@ Last updated: 2026-08-02
 Entries completed by a wave below have been folded into that wave rather than
 being listed twice.
 
-- [ ] Extend the trend/scenario methodology and safe CSV pattern to every remaining decision chart (`ChartSpecView` exists; the artifacts still need migrating).
+- [x] Methodology and safe CSV on every decision artifact.
 - [ ] Build on project editing with entity-match correction and enforced source allow/block controls.
 - [ ] Add normalized verified pricing/release market events; do not infer these from URL changes alone.
 - [ ] Add evidence/claim artifact references to chat turns (the context builder supports them; the UI does not attach them yet).
@@ -52,8 +52,8 @@ being listed twice.
 - [x] Database-level proof (`npm run test:e2e:evidence-ledger`, 18 checks).
 - [x] Evidence drawer and the shared `ChartSpecView` renderer.
 - [x] Claim binding distinguishes a real span from lexical overlap.
-- [ ] Shared evidence pack in the orchestrator (collect once, all agents read it).
-- [ ] Migrate existing artifacts to render `ChartSpecView`.
+- [x] Shared evidence pack — agents receive span ids and cite them; citations validated against the pack they were given, heuristic retained as fallback.
+- [x] Methodology contract on all artifacts — `ChartSpecView` for series, `ArtifactMethodology` for matrices and scorecards (a matrix is not a series; forcing one would invent a period and unit it lacks).
 
 ## Wave 2 — connectors and change detection (2026-08-02)
 

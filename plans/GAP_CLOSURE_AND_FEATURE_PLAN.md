@@ -205,7 +205,7 @@ This is Milestone 1 of the roadmap and the highest-leverage wave in the plan. It
 
 **Agent layer**
 
-- [ ] **G-A5** Shared evidence pack: collect once per run, all six agents read from it
+- [x] **G-A5** Shared evidence pack: collect once per run, all six agents read from it
 - [ ] Agents return claim + evidence ids instead of independent source lists
 - [x] Rework `lib/agents/bind-evidence.ts` from lexical URL/title matching to span ids
 - [ ] `lib/agents/output-quality.ts` rejects unsupported numerics and incomparable series
@@ -214,8 +214,8 @@ This is Milestone 1 of the roadmap and the highest-leverage wave in the plan. It
 **UI layer**
 
 - [x] **F-5** Evidence drawer: exact excerpt, URL, retrieval timestamp, snapshot hash, entity match, freshness, supporting + contradicting items
-- [ ] **G-A3** Migrate every artifact in `components/artifacts/` to render a validated `ChartSpec` — carries the trend/scenario methodology + CSV contract to competitive, pricing, win/loss, positioning, threat
-- [ ] Data-class badge, unit, period, sample size, formula, source links, CSV/JSON download on all charts
+- [x] **G-A3** Migrate every artifact in `components/artifacts/` to render a validated `ChartSpec` — carries the trend/scenario methodology + CSV contract to competitive, pricing, win/loss, positioning, threat
+- [x] Data-class badge, unit, period, sample size, formula, source links, CSV/JSON download on all charts
 - [ ] Insufficient-data empty states replace every remaining decorative default
 
 **Exit:** pick any rendered chart row; reproduce its value from stored observations using only the displayed formula and sources. A forced model output containing an unsourced number is rejected before persistence.
