@@ -1289,3 +1289,74 @@ Added `.nvmrc` (22) and `engines.node >= 20.12` to `package.json`.
 - Full Vitest regression: PASS — 62 files passed, 1 skipped; 662 tests passed,
   1 skipped (up from 651).
 - ESLint over the changed clients, config, and test: zero errors.
+
+## 2026-08-02 — Wave 4 (part 4): the Swarm Lab is reachable
+
+### Built — `lib/intelligence/mirofish-adapter.ts`
+
+Bridges the worker's whole-panel interview to the runner's per-persona,
+per-round model. One worker call per round, demultiplexed back to the personas
+that produced each response — calling per persona would multiply cost by the
+panel size for identical work.
+
+Decisions worth recording:
+
+- **Personas come from the brief, not the worker.** The worker supplies voices;
+  the brief supplies who they are meant to be. Without that the runner's segment
+  breakdown would be meaningless.
+- **Short response lists fail the uncovered personas.** If the panel is three
+  and the worker returns two, the third is counted as failed rather than the
+  panel being quietly shrunk to two. Extra responses are ignored rather than
+  invented into personas that do not exist.
+- **`checkPanelAvailable` refuses at the door.** Discovering the worker is down
+  after two rounds have been billed is worse than refusing before starting, and
+  the user gets a specific reason — including naming `MIROFISH_SERVICE_TOKEN`
+  when it is missing, since without it every call returns 503 and the failure
+  otherwise looks like an outage rather than a setting.
+- **`parseDecision` is conservative.** An unparseable answer yields no choice
+  rather than a guessed one. The runner then fails to reconcile the distribution
+  and withholds it, which is correct: better than attributing a position to a
+  persona that never clearly took it.
+
+A regex subtlety worth noting: the keyword match had to become case-insensitive
+("Option" opens a sentence as often as "option" sits inside one), but applying
+the `i` flag wholesale would let "go with the cheaper plan" capture "the". The
+uppercase requirement is therefore re-applied to the captured id after the
+match rather than being dropped.
+
+### Built — API routes
+
+- `POST /api/scenarios` — validate and store a brief for review. Creating and
+  running are separate calls on purpose: a synthetic panel is expensive and its
+  output is easy to misread, so the user inspects alternatives, segments, facts,
+  and assumptions before anything is spent. Validation warnings are returned but
+  never block.
+- `GET /api/scenarios/[id]` — the scenario with every persona response in full
+  and its version lineage. Responses are not summarised, because a user must be
+  able to read what a persona actually said instead of trusting a chart.
+- `POST /api/scenarios/[id]/run` — runs the panel. Availability is re-checked
+  even though create already checked it, since minutes may have passed. An
+  already-complete scenario returns 409 pointing at branching, because
+  re-running would append a second set of rounds and make the thread ambiguous.
+  A failed run is still persisted — a scenario that ran and produced nothing is
+  a fact about the panel, and discarding it would leave the user unable to
+  distinguish it from one never started. If persistence itself fails the outcome
+  is still returned, since the model calls were already spent.
+
+All three are ownership-scoped and return 404 rather than 403 for another
+user's scenario, so a response never confirms an id exists.
+
+### Tests added
+
+- `__tests__/mirofish-adapter.test.ts` — 19 tests. Availability refusals with
+  specific reasons, panel derivation from the brief, one worker call per round,
+  correct demultiplexing, and four no-fabrication cases: unreachable worker,
+  short response list, extra responses, and blank responses.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 63 files passed, 1 skipped; 681 tests passed,
+  1 skipped (up from 662).
+- Production `next build`: PASS. All three routes register.
+- ESLint: zero errors.
