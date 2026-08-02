@@ -28,7 +28,9 @@ Last updated: 2026-08-02
 - [x] Scenario/round/response repository with transactional writes.
 - [x] Dissent, objection, distribution, and round-transition surfaces.
 - [x] Database-level proof (`npm run test:e2e:swarm-scenarios`, 15 checks).
-- [ ] Wire the brief review and run into an API route and the chat surface.
+- [x] MiroFish adapter implementing the runner's ports with no fabrication on failure.
+- [x] `POST /api/scenarios`, `GET /api/scenarios/[id]`, `POST /api/scenarios/[id]/run`.
+- [ ] Brief-review and run UI in the chat surface (routes exist; nothing calls them yet).
 - [ ] Segment and persona follow-up UI (the data model supports it already).
 
 ## Next — still open
