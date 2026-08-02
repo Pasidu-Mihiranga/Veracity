@@ -335,6 +335,58 @@ check('the refusal explains there is no panel to question',
   String(followUpBody?.error?.message).includes('no panel'),
   String(followUpBody?.error?.message).slice(0, 90));
 
+// ── Rolling summary: the one-per-session rule and cascade ───────────────────
+await client.query(
+  `INSERT INTO conversation_summaries (session_id, user_id, turns_covered, summary, cited_ids)
+   VALUES ($1, $2, 10, 'They repriced upward [claim-7].', ARRAY['claim-7'])`,
+  [sessionId, userId],
+);
+
+// The upsert path depends on exactly one summary per session.
+const upserted = await client.query(
+  `INSERT INTO conversation_summaries (session_id, user_id, turns_covered, summary, cited_ids)
+   VALUES ($1, $2, 16, 'Updated summary [claim-7].', ARRAY['claim-7'])
+   ON CONFLICT (session_id) DO UPDATE SET
+     summary = EXCLUDED.summary, turns_covered = EXCLUDED.turns_covered
+   RETURNING turns_covered`,
+  [sessionId, userId],
+);
+check('a session keeps exactly one summary, replaced in place',
+  upserted.rows[0].turns_covered === 16, JSON.stringify(upserted.rows[0]));
+
+const summaryRows = await client.query(
+  `SELECT count(*)::int AS n FROM conversation_summaries WHERE session_id = $1`,
+  [sessionId],
+);
+check('no duplicate summary rows accumulate', summaryRows.rows[0].n === 1);
+
+// No savepoint here: this script runs outside a transaction, so a failed
+// insert poisons nothing and a savepoint would itself error.
+let blankRejected = false;
+try {
+  await client.query(
+    `INSERT INTO conversation_summaries (session_id, user_id, summary)
+     VALUES ($1, $2, '   ')`,
+    [sessionId, userId],
+  );
+} catch {
+  blankRejected = true;
+}
+check('a blank summary is rejected', blankRejected);
+
+const withIds = await client.query(
+  `SELECT cited_ids FROM conversation_summaries WHERE session_id = $1`,
+  [sessionId],
+);
+check('claim ids survive storage', withIds.rows[0].cited_ids.includes('claim-7'));
+
+await client.query(`DELETE FROM chat_sessions WHERE id = $1`, [sessionId]);
+const orphaned = await client.query(
+  `SELECT count(*)::int AS n FROM conversation_summaries WHERE session_id = $1`,
+  [sessionId],
+);
+check('deleting a session removes its summary', orphaned.rows[0].n === 0);
+
 await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
 await client.end();
 console.log(`\n${pass} passed, ${fail} failed`);

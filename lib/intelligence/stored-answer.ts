@@ -18,6 +18,7 @@
 
 import { query } from '@/lib/db';
 import { generateHuggingFaceText } from '@/lib/agents/gemini';
+import { refreshSummary } from './conversation-summary';
 import {
   buildTurnContext,
   canAnswerFromStored,
@@ -33,6 +34,8 @@ export interface StoredAnswerRequest {
   projectId: string;
   question: string;
   mode: string;
+  /** When present, the rolling summary is refreshed and included. */
+  sessionId?: string | null;
   recentTurns?: ConversationTurn[];
   attachedArtifacts?: AttachedArtifact[];
   /** Evidence older than this makes the answer stale. */
@@ -179,10 +182,23 @@ export async function answerFromStored(
 
   if (!viable.ok) return { ok: false, reason: viable.reason, needsCollection: true };
 
+  // Fold in anything that has aged out of the recent-turns window. Without
+  // this, a long conversation silently forgets its own earlier decisions: the
+  // context builder accepted a summary but nothing ever supplied one.
+  const rollingSummary =
+    request.sessionId && request.recentTurns?.length
+      ? await refreshSummary({
+          userId: request.userId,
+          sessionId: request.sessionId,
+          turns: request.recentTurns,
+        })
+      : null;
+
   const context = buildTurnContext({
     question: request.question,
     attachedArtifacts: request.attachedArtifacts,
     projectState,
+    rollingSummary,
     recentTurns: request.recentTurns,
     retrievedEvidence: evidence,
   });

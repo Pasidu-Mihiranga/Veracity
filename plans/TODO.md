@@ -111,9 +111,11 @@ These are real and none of them are blocked on code.
 - [ ] **No real user has used the product.** Everything verified so far is
       machine-verified. The research sets the bar at five design partners
       returning weekly.
-- [ ] **Rolling conversation summary** — `partitionTurns` exists and is tested,
-      but nothing generates or stores the summary text yet, so very long
-      projects still rely on the recent-turns window alone.
+- [x] **Rolling conversation summary** — FIXED 2026-08-02. Migration `0012`,
+      `lib/intelligence/conversation-summary.ts`, wired into the Explain path.
+      Regenerates every 6 aged-out turns rather than per message; claim ids
+      survive; a failed regeneration keeps the previous summary rather than
+      clearing it.
 
 ## Later, after MVP value is demonstrated
 

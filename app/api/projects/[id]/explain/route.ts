@@ -35,6 +35,7 @@ export async function POST(req: NextRequest, context: Context) {
   let body: {
     question?: string;
     mode?: string;
+    sessionId?: string;
     recentTurns?: Array<{ role: 'user' | 'assistant'; content: string; createdAt: string }>;
     attachedArtifacts?: Array<{
       kind: 'claim' | 'chart' | 'source' | 'event' | 'recommendation';
@@ -57,6 +58,9 @@ export async function POST(req: NextRequest, context: Context) {
     projectId: id,
     question,
     mode: body.mode ?? 'explain',
+    // Enables the rolling summary, so a long conversation keeps its earlier
+    // decisions in view rather than only its last ten turns.
+    sessionId: body.sessionId ?? null,
     recentTurns: body.recentTurns,
     attachedArtifacts: body.attachedArtifacts,
   });

@@ -2207,3 +2207,71 @@ recalled:
 - Full Vitest: PASS — 811 passed, 1 skipped.
 - Production `next build`: PASS.
 - Every internal documentation link resolves to a file that exists.
+
+## 2026-08-02 — Rolling conversation summary: the gap I found by grepping
+
+### The gap
+
+`partitionTurns` decided which turns aged out of the verbatim window, and
+`buildTurnContext` accepted a `rollingSummary`. Nothing produced one. So the
+older half of a long conversation was simply discarded — a project with sixty
+turns behaved as though it had ten, and a decision taken at turn twelve was
+invisible by turn forty.
+
+Both halves of the contract existed and were tested. Neither was wrong. They
+were never connected, which is the same failure mode as the orphaned modules
+earlier in the session, in a subtler form: here the caller existed, it just
+always passed `undefined`.
+
+### Built
+
+- **Migration `0012`** — `conversation_summaries`, one row per session, replaced
+  in place. The summary's own history is not versioned: the transcript is the
+  history, and keeping many near-identical paragraphs would answer a question
+  nobody asks.
+- **`lib/intelligence/conversation-summary.ts`** — generation, storage, and a
+  single `refreshSummary` entry point.
+- Wired into `stored-answer.ts` and the Explain route, where the context builder
+  had been waiting for it.
+
+### Decisions worth recording
+
+- **Regenerate every 6 aged-out turns, not per message.** Summarising on every
+  message means a model call per message for a paragraph that barely changes.
+  Six is roughly three exchanges.
+- **Claim ids survive verbatim**, and an id the summary text does not actually
+  use is dropped. A summarised finding that loses its ids reads as established
+  fact with nothing behind it; a listed id that appears nowhere is a citation
+  trail to nothing.
+- **The previous summary is fed back in** so the model extends rather than
+  restarts. Without it, each regeneration re-reads the transcript and quietly
+  drops whatever it happened not to mention that time.
+- **A failed regeneration keeps the old summary.** Stale but true beats absent,
+  and clearing a conversation's memory because of a transient model error would
+  be the worse outcome. Empty and schema-invalid responses are treated as
+  failures.
+- **`context_version` is stored**, so text produced under an older assembly
+  contract can be identified and regenerated rather than silently mixed in.
+
+### Tests added
+
+- `__tests__/conversation-summary.test.ts` — 19 tests covering the regeneration
+  threshold, that only aged-out turns are summarised, id preservation and
+  dropping, extension over restart, and four failure paths.
+- `scripts/smoke-dashboard-e2e.mjs` grew to 47 checks: one summary per session
+  replaced in place, no duplicate rows, blank summaries rejected, claim ids
+  surviving storage, and cascade deletion with the session.
+
+A savepoint in the new smoke assertions failed initially — that script runs
+outside a transaction, unlike the ledger smoke, so the savepoint itself errored.
+Removed it; outside a transaction a failed insert poisons nothing.
+
+### Verification
+
+- Migration applied against local PostgreSQL and verified idempotent.
+- `npm run test:e2e:dashboard`: PASS — 47/47 (was 42).
+- `npm run test:e2e:evidence-ledger`: PASS — 18/18.
+- `npm run typecheck`: PASS.
+- Full Vitest: PASS — 830 passed, 1 skipped.
+- Production `next build`: PASS.
+- ESLint: zero errors.
