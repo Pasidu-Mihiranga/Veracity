@@ -565,3 +565,75 @@ place. Remaining before Wave 1 closes: the shared evidence pack in the
 orchestrator (so the six agents collect once and read from one pack), and
 migrating the existing artifacts to render `ChartSpecView` rather than their own
 ad-hoc chart markup.
+
+## 2026-08-02 — Wave 2 (part 1): measured connectors and change detection
+
+### Built — connectors that produce genuinely measured data
+
+Both were chosen because they need no paid key and no model reads them, so the
+resulting numbers cannot be hallucinated.
+
+- `lib/intelligence/connectors/github-releases.ts` — published release history
+  for any public repository. `releasesToMonthlyCounts` emits *every* month
+  between the first and last release, including months with zero releases: a
+  quiet month is a real finding about a competitor's cadence, and skipping it
+  would let a chart imply steady shipping. Rate limiting is reported distinctly
+  from "no releases", because in a chart those look identical and mean opposite
+  things.
+- `lib/intelligence/connectors/sec-edgar.ts` — standardised XBRL company facts.
+  `dedupeRestatements` keeps only the most recently filed value per period;
+  counting an amended quarter twice looks exactly like a real business swing.
+  Coverage limits (US registrants only, periodic figures) travel with the chart
+  as `limitations` rather than living in a document nobody reads.
+
+### Built — change detection and materiality
+
+`lib/intelligence/change-detector.ts`:
+
+- `detectMetricChange` refuses to compare across units, does not treat a first
+  observation as a change (which would fire a burst of false events the day a
+  project is created), and handles a zero baseline without dividing by it.
+- `buildDedupeKey` hashes entity, event type, and normalized before/after —
+  deliberately excluding run id, timestamp, and snapshot ids. Including any of
+  those is what makes a weekly digest re-report the same news every week.
+- `scoreMateriality` is deterministic and returns a sentence explaining the
+  score. It combines event-type weight, magnitude, source trust, whether the
+  entity is tracked, relevance to the project's stated decision, and novelty.
+  It is explicitly not model confidence: a model's certainty that it noticed
+  something says nothing about whether the something matters, and using it as a
+  proxy is how alert fatigue starts.
+
+### Tests added
+
+- `__tests__/connectors.test.ts` — 17 tests. Repository-form parsing, draft and
+  prerelease handling, throttling reported distinctly from absence, zero-month
+  emission across a year boundary, restatement deduplication, and annual-only
+  filtering.
+- `__tests__/measured-chart-pipeline.test.ts` — 7 tests proving the vertical
+  slice: connector output → evidence spans → metric observations → a validated
+  `measured` ChartSpec in which every row has an evidence span to trace back to,
+  a quiet month stays a real zero, and a mixed-unit concept is refused.
+- `__tests__/change-detection.test.ts` — 21 tests covering detection edge cases,
+  dedupe-key stability across runs, and every materiality factor including that
+  a routine low-trust edit stays below the alert threshold while a significant
+  official pricing move clears it.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 53 files passed, 1 skipped; 522 tests passed,
+  1 skipped (up from 477).
+- ESLint over the new modules and tests: PASS, zero errors.
+
+### What this means
+
+The product can now produce a chart where every point traces to a dated,
+published record rather than to model output — which is the claim the whole
+product thesis rests on. Two small connectors deliver more trustworthy chart
+rows than another specialist agent would.
+
+### Remaining in Wave 2
+
+Changelog/RSS, pricing-page extraction, GDELT and FRED connectors; wiring
+detection into a per-project scheduled collection with the no-change short
+circuit; and the shared evidence pack in the orchestrator.
