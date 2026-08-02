@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { X, ExternalLink, AlertTriangle, Check, HelpCircle } from 'lucide-react';
+import { ENTITY_MATCH, DATA_CLASS, TONE_CLASS } from '@/lib/ux/vocabulary';
 
 /**
  * The "prove it" surface.
@@ -39,36 +40,13 @@ export interface EvidenceDrawerProps {
   dataClass?: 'measured' | 'derived' | 'synthetic';
 }
 
-const ENTITY_MATCH_STYLE: Record<
-  EvidenceSpanView['entityMatch'],
-  { label: string; className: string; Icon: typeof Check }
-> = {
-  confirmed: {
-    label: 'Entity confirmed',
-    className: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    Icon: Check,
-  },
-  probable: {
-    label: 'Entity probable',
-    className: 'bg-amber-50 text-amber-700 border-amber-200',
-    Icon: HelpCircle,
-  },
-  unverified: {
-    label: 'Entity unverified',
-    className: 'bg-muted text-muted-foreground border-border',
-    Icon: HelpCircle,
-  },
-  mismatch: {
-    label: 'Entity mismatch',
-    className: 'bg-red-50 text-red-600 border-red-200',
-    Icon: AlertTriangle,
-  },
-};
-
-const DATA_CLASS_NOTE: Record<NonNullable<EvidenceDrawerProps['dataClass']>, string> = {
-  measured: 'Read directly from the cited sources.',
-  derived: 'Computed from stored records. See the formula below — this is not an outside measurement.',
-  synthetic: 'Model-generated scenario output. Not observed evidence and not survey data.',
+// "Definitely them" / "Probably them" rather than `entity_match: probable`.
+// The icon carries the same meaning for anyone who reads shape before text.
+const MATCH_ICON: Record<EvidenceSpanView['entityMatch'], typeof Check> = {
+  confirmed: Check,
+  probable: HelpCircle,
+  unverified: HelpCircle,
+  mismatch: AlertTriangle,
 };
 
 function formatTimestamp(iso: string): string {
@@ -81,8 +59,8 @@ function formatTimestamp(iso: string): string {
 }
 
 function SpanCard({ span, tone }: { span: EvidenceSpanView; tone: 'support' | 'contradict' }) {
-  const match = ENTITY_MATCH_STYLE[span.entityMatch];
-  const { Icon } = match;
+  const match = ENTITY_MATCH[span.entityMatch];
+  const Icon = MATCH_ICON[span.entityMatch];
 
   return (
     <li
@@ -97,7 +75,8 @@ function SpanCard({ span, tone }: { span: EvidenceSpanView; tone: 'support' | 'c
 
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border inline-flex items-center gap-1 ${match.className}`}
+          className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border inline-flex items-center gap-1 ${TONE_CLASS[match.tone]}`}
+          title={match.meaning}
         >
           <Icon size={10} /> {match.label}
         </span>
@@ -107,7 +86,7 @@ function SpanCard({ span, tone }: { span: EvidenceSpanView; tone: 'support' | 'c
           </span>
         ) : null}
         <span className="text-[10px] font-mono text-muted-foreground">
-          Retrieved {formatTimestamp(span.retrievedAt)}
+          We read this {formatTimestamp(span.retrievedAt)}
         </span>
       </div>
 
@@ -124,7 +103,7 @@ function SpanCard({ span, tone }: { span: EvidenceSpanView; tone: 'support' | 'c
         {/* The hash lets a reviewer confirm the excerpt came from the exact
             snapshot we stored, not from a page that has since changed. */}
         <span className="text-[10px] font-mono text-muted-foreground break-all">
-          snapshot {span.contentHash.slice(0, 12)}
+          page version {span.contentHash.slice(0, 8)}
         </span>
       </div>
     </li>
@@ -195,9 +174,9 @@ export function EvidenceDrawer({
           {dataClass ? (
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                {dataClass}
+                {DATA_CLASS[dataClass].label}
               </span>
-              <p className="text-xs text-muted-foreground">{DATA_CLASS_NOTE[dataClass]}</p>
+              <p className="text-xs text-muted-foreground">{DATA_CLASS[dataClass].meaning}</p>
             </div>
           ) : null}
 
@@ -206,11 +185,11 @@ export function EvidenceDrawer({
             // panel that looks like a loading state.
             <div className="veracity-card p-5 flex flex-col gap-2">
               <span className="text-xs font-mono uppercase tracking-wider text-amber-700">
-                No stored evidence
+                We have no quote for this
               </span>
               <p className="text-sm text-muted-foreground">
-                No excerpt was captured for this claim. It has not been verified against a
-                source and should not be treated as established.
+                We did not save any wording that backs this up, so treat it as our reading rather
+                than something a source stated.
               </p>
             </div>
           ) : null}
@@ -218,7 +197,7 @@ export function EvidenceDrawer({
           {supporting.length > 0 ? (
             <section className="flex flex-col gap-3">
               <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                Supporting — {supporting.length}
+                What backs this up — {supporting.length} quote{supporting.length === 1 ? '' : 's'}
               </div>
               <ul className="flex flex-col gap-3 list-none p-0 m-0">
                 {supporting.map((span) => (
@@ -231,11 +210,10 @@ export function EvidenceDrawer({
           {contradicting.length > 0 ? (
             <section className="flex flex-col gap-3">
               <div className="text-xs font-mono uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
-                <AlertTriangle size={12} /> Contradicting — {contradicting.length}
+                <AlertTriangle size={12} /> What disagrees — {contradicting.length}
               </div>
               <p className="text-xs text-muted-foreground">
-                These sources disagree with the claim. Certainty is reduced rather than one
-                side being chosen.
+                These sources say something different. We show both rather than picking a winner.
               </p>
               <ul className="flex flex-col gap-3 list-none p-0 m-0">
                 {contradicting.map((span) => (
@@ -248,7 +226,7 @@ export function EvidenceDrawer({
           {methodology ? (
             <section className="flex flex-col gap-2">
               <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                Methodology
+                How we worked this out
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">{methodology}</p>
             </section>

@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { History, Check, Minus, AlertTriangle } from 'lucide-react';
+import { importanceOf, TONE_CLASS, freshnessOf } from '@/lib/ux/vocabulary';
+import { summariseChange } from '@/lib/intelligence/plain-language';
 
 /**
  * The competitor activity timeline and source coverage matrix.
@@ -45,27 +47,17 @@ interface CoverageRow {
   span_count: number;
 }
 
-/** How stale a source is before its evidence should be treated cautiously. */
-const STALE_DAYS = 30;
-
-function daysSince(iso: string | null): number | null {
-  if (!iso) return null;
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return null;
-  return Math.floor((Date.now() - then) / 86_400_000);
-}
-
-function freshnessLabel(days: number | null): { text: string; className: string } {
-  if (days === null) {
-    // Never collected. Stated as an absence rather than shown as a blank cell,
-    // which reads as a rendering failure.
-    return { text: 'never collected', className: 'text-amber-700' };
-  }
-  if (days > STALE_DAYS) {
-    return { text: `${days}d ago — stale`, className: 'text-amber-700' };
-  }
-  if (days === 0) return { text: 'today', className: 'text-muted-foreground' };
-  return { text: `${days}d ago`, className: 'text-muted-foreground' };
+/**
+ * Freshness through the shared vocabulary, so "Never checked" reads the same
+ * here as everywhere else. A user should learn each phrase once.
+ */
+function freshnessLabel(iso: string | null): { text: string; className: string; title: string } {
+  const term = freshnessOf(iso);
+  return {
+    text: term.label,
+    title: term.meaning,
+    className: term.tone === 'good' ? 'text-muted-foreground' : 'text-amber-700',
+  };
 }
 
 export function ActivityTimeline({ projectId, onOpenEvidence }: ActivityTimelineProps) {
@@ -129,49 +121,55 @@ export function ActivityTimeline({ projectId, onOpenEvidence }: ActivityTimeline
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1.5">
-          <History size={12} /> Activity — everything observed, not only what cleared the threshold
+          <History size={12} /> Everything we have seen — including the small things
         </div>
 
         {events.length === 0 ? (
           <div className="veracity-card p-5 flex flex-col gap-2">
             <p className="text-sm text-foreground">No changes recorded yet.</p>
             <p className="text-xs text-muted-foreground">
-              Changes appear once a collection run has compared a source against a previous
-              snapshot. A first run establishes the baseline and records nothing.
+              Changes appear once we have read a source twice and can compare. The first read
+              just establishes what things look like now.
             </p>
           </div>
         ) : (
           <ol className="flex flex-col gap-2 list-none p-0 m-0">
             {events.map((event) => {
-              const movement =
-                event.before_value && event.after_value
-                  ? `${event.before_value} → ${event.after_value}`
-                  : (event.after_value ?? event.before_value ?? '');
+              const plain = summariseChange({
+                entityLabel: event.entity_label ?? 'Untracked',
+                eventType: event.event_type,
+                beforeValue: event.before_value,
+                afterValue: event.after_value,
+                materiality: event.materiality,
+                observedAt: event.observed_at,
+              });
+              const importance = importanceOf(event.materiality);
               const belowThreshold = event.materiality < 0.5;
 
               return (
                 <li key={event.id} className="veracity-card p-4 flex flex-col gap-2">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">
-                      {event.entity_label ?? 'Untracked'} · {event.event_type.replace(/_/g, ' ')}
+                    <span
+                      className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${TONE_CLASS[importance.tone]}`}
+                      title={importance.meaning}
+                    >
+                      {importance.label}
                     </span>
                     <span className="text-[10px] font-mono text-muted-foreground">
                       {new Date(event.observed_at).toLocaleDateString()}
                     </span>
                   </div>
 
-                  {movement ? (
-                    <div className="text-sm text-foreground break-words">{movement}</div>
-                  ) : null}
+                  <div className="text-sm text-foreground break-words">{plain.sentence}</div>
 
-                  <p className="text-xs text-muted-foreground">{event.materiality_reason}</p>
+                  <p className="text-xs text-muted-foreground">{plain.importance}</p>
 
                   <div className="flex items-center gap-3 flex-wrap">
                     {belowThreshold ? (
                       // Shown, but marked. A user browsing history should be able
                       // to tell which items were deliberately kept out of alerts.
                       <span className="text-[10px] font-mono text-muted-foreground">
-                        below alert threshold
+                        we did not interrupt you for this
                       </span>
                     ) : null}
                     {event.evidence_span_id && onOpenEvidence ? (
@@ -180,11 +178,11 @@ export function ActivityTimeline({ projectId, onOpenEvidence }: ActivityTimeline
                         onClick={() => onOpenEvidence([event.evidence_span_id!])}
                         className="text-[10px] font-mono text-accent hover:underline"
                       >
-                        Show the evidence
+                        See the quote
                       </button>
                     ) : (
                       <span className="text-[10px] font-mono text-amber-700">
-                        no stored excerpt
+                        no quote saved
                       </span>
                     )}
                   </div>
@@ -198,7 +196,7 @@ export function ActivityTimeline({ projectId, onOpenEvidence }: ActivityTimeline
       {byEntity.size > 0 ? (
         <div className="flex flex-col gap-3">
           <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-            Source coverage — what has actually been read, and how recently
+            What we have read, and when
           </div>
 
           <div className="veracity-card p-4 overflow-x-auto">
@@ -212,25 +210,27 @@ export function ActivityTimeline({ projectId, onOpenEvidence }: ActivityTimeline
                     Source
                   </th>
                   <th className="pb-2 pr-4 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Last read
+                    Last checked
                   </th>
                   <th className="pb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Excerpts
+                    Quotes saved
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {[...byEntity.entries()].map(([entity, rows]) =>
                   rows.map((row, i) => {
-                    const days = daysSince(row.last_seen);
-                    const freshness = freshnessLabel(days);
+                    const freshness = freshnessLabel(row.last_seen);
                     return (
                       <tr key={`${entity}-${row.source_type ?? 'none'}-${i}`} className="border-t border-border">
                         <td className="py-2 pr-4 text-foreground">{i === 0 ? entity : ''}</td>
                         <td className="py-2 pr-4 font-mono text-[11px] text-muted-foreground">
                           {row.source_type ?? '—'}
                         </td>
-                        <td className={`py-2 pr-4 font-mono text-[11px] ${freshness.className}`}>
+                        <td
+                          className={`py-2 pr-4 font-mono text-[11px] ${freshness.className}`}
+                          title={freshness.title}
+                        >
                           {freshness.text}
                         </td>
                         <td className="py-2 text-muted-foreground inline-flex items-center gap-1">
@@ -256,8 +256,9 @@ export function ActivityTimeline({ projectId, onOpenEvidence }: ActivityTimeline
 
           <p className="text-xs text-muted-foreground inline-flex items-start gap-1.5">
             <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-600" />
-            This is coverage, not a feature comparison. A source never read means any claim
-            about it is unverified — not that the competitor lacks that feature.
+            This shows what we have read, not a feature comparison. A source we have never
+            opened means we cannot say what is on it — not that the competitor lacks
+            something.
           </p>
         </div>
       ) : null}

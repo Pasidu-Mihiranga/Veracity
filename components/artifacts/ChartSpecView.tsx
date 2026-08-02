@@ -9,6 +9,8 @@ import { Download, Info } from 'lucide-react';
 import type { ChartSpec } from '@/lib/intelligence/types';
 import { downloadCsv, rowsToCsv } from '@/lib/csv-download';
 import { useTheme } from '@/lib/theme-provider';
+import { DATA_CLASS, TONE_CLASS } from '@/lib/ux/vocabulary';
+import { summariseChart } from '@/lib/intelligence/plain-language';
 
 /**
  * Renders a validated ChartSpec.
@@ -31,17 +33,9 @@ export interface ChartSpecViewProps {
 
 const SERIES_COLORS = ['#0052FF', '#4D7CFF', '#7C3AED', '#0891B2', '#DB2777'];
 
-const DATA_CLASS_STYLE: Record<ChartSpec['dataClass'], string> = {
-  measured: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  derived: 'bg-accent/5 text-accent border-accent/20',
-  synthetic: 'bg-amber-50 text-amber-700 border-amber-200',
-};
-
-const DATA_CLASS_LABEL: Record<ChartSpec['dataClass'], string> = {
-  measured: 'Measured',
-  derived: 'Derived',
-  synthetic: 'Synthetic scenario',
-};
+// Wording and colour both come from the shared vocabulary, so "Read from the
+// source" reads and looks identical here, in the digest, and in the drawer.
+// A user should learn each cue once.
 
 function formatPeriod(period: ChartSpec['period']): string {
   const fmt = (iso: string) => {
@@ -66,7 +60,7 @@ function UnavailableChart({ title, reasons }: { title: string; reasons: string[]
       <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
         {title}
       </div>
-      <div className="text-sm text-foreground">Not enough evidence to chart this.</div>
+      <div className="text-sm text-foreground">We cannot draw this yet.</div>
       <ul className="flex flex-col gap-1 list-none p-0 m-0">
         {reasons.map((reason, i) => (
           <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
@@ -87,6 +81,7 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
   const gridStroke = isDark ? 'rgba(197,214,232,0.15)' : 'rgba(51,65,85,0.12)';
 
   const dimensionKey = spec.dimensions[0] ?? 'period';
+  const plain = summariseChart(spec);
 
   const chartRows = useMemo(
     () =>
@@ -128,33 +123,34 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="flex flex-col gap-1 min-w-0">
-          <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-            {spec.title}
-          </div>
-          {/* The question makes a chart accountable: if it answers nothing, it
-              should not be on screen. */}
-          <p className="text-xs text-muted-foreground">{spec.questionAnswered}</p>
+        <div className="flex flex-col gap-1.5 min-w-0">
+          {/*
+            The sentence leads, not the label. "Lilian's entry tier went from
+            $49 to $59, a 20% rise" needs no translation; a `measured` chip and
+            a title do.
+          */}
+          <p className="text-sm text-foreground font-medium">{plain.headline}</p>
+          <p className="text-xs text-muted-foreground">{plain.provenance}</p>
+          {plain.caveat ? (
+            // One caveat maximum. Stacking them teaches users to ignore all.
+            <p className="text-xs text-amber-700">{plain.caveat}</p>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${DATA_CLASS_STYLE[spec.dataClass]}`}
+            className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${TONE_CLASS[DATA_CLASS[spec.dataClass].tone]}`}
+            title={DATA_CLASS[spec.dataClass].meaning}
           >
-            {DATA_CLASS_LABEL[spec.dataClass]}
+            {DATA_CLASS[spec.dataClass].label}
           </span>
-          {spec.isEstimated ? (
-            <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-              Contains estimates
-            </span>
-          ) : null}
           <button
             type="button"
             onClick={() => setShowMethod((v) => !v)}
             className="inline-flex items-center gap-1 text-[10px] font-mono text-accent hover:opacity-80"
             aria-expanded={showMethod}
           >
-            <Info size={11} /> Method
+            <Info size={11} /> How do we know this?
           </button>
           <button
             type="button"
@@ -233,15 +229,15 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
       {showMethod ? (
         <div className="veracity-card p-4 flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Metric">{spec.metricDefinition}</Field>
+            <Field label="What we counted">{spec.metricDefinition}</Field>
             <Field label="Unit">{spec.unit}</Field>
             <Field label="Period">{formatPeriod(spec.period)}</Field>
-            <Field label="Sample size">
-              {spec.sampleSize == null ? 'Not recorded' : `${spec.sampleSize} observation(s)`}
+            <Field label="Based on">
+              {spec.sampleSize == null ? 'Not recorded' : `${spec.sampleSize} reading${spec.sampleSize === 1 ? '' : 's'}`}
             </Field>
           </div>
 
-          {spec.formula ? <Field label="Formula">{spec.formula}</Field> : null}
+          {spec.formula ? <Field label="How we worked it out">{spec.formula}</Field> : null}
 
           {spec.limitations.length > 0 ? (
             <div className="flex flex-col gap-1">
@@ -269,7 +265,7 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
                 onClick={() => onOpenEvidence(spec.evidenceSpanIds)}
                 className="text-[10px] font-mono text-accent hover:underline"
               >
-                Show the {spec.evidenceSpanIds.length} excerpt(s) behind this
+                Show the {spec.evidenceSpanIds.length} quote{spec.evidenceSpanIds.length === 1 ? '' : 's'} behind this
               </button>
             ) : null}
           </div>

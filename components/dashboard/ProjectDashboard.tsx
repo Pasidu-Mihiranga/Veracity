@@ -5,6 +5,7 @@ import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { SinceLastVisit } from './SinceLastVisit';
 import { ProjectCharts } from './ProjectCharts';
 import { ActivityTimeline } from './ActivityTimeline';
+import { Glossary } from '@/components/ui/Glossary';
 import { EvidenceDrawer } from '@/components/artifacts/EvidenceDrawer';
 import { useProjectDashboard } from '@/hooks/useProjectDashboard';
 import type { DigestCandidate } from '@/lib/intelligence/digest';
@@ -128,6 +129,10 @@ export function ProjectDashboard({ projectId, onAskAbout }: ProjectDashboardProp
             void dashboard.openEvidence(spanIds, 'Evidence for this change')
           }
         />
+
+        {/* Last, collapsed. Present for anyone who wants it, invisible to
+            anyone who does not. */}
+        <Glossary />
       </div>
 
       <EvidenceDrawer

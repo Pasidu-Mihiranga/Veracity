@@ -5,6 +5,8 @@ import {
   ArrowRight, ChevronDown, ChevronRight, Clock, AlertTriangle, Check,
 } from 'lucide-react';
 import type { Digest, DigestCandidate } from '@/lib/intelligence/digest';
+import { importanceOf, TONE_CLASS } from '@/lib/ux/vocabulary';
+import { summariseChange } from '@/lib/intelligence/plain-language';
 
 /**
  * The surface a returning user lands on.
@@ -68,30 +70,42 @@ function ChangeRow({
   onOpenEvidence?: (spanId: string) => void;
   onAskAbout?: (item: DigestCandidate) => void;
 }) {
-  const movement =
-    item.beforeValue && item.afterValue
-      ? `${item.beforeValue} → ${item.afterValue}`
-      : (item.afterValue ?? item.beforeValue ?? '');
+  // A full sentence, not a label plus a raw diff. "Lilian changed their pricing:
+  // $49/month → $59/month — spotted today" needs no decoding.
+  const plain = summariseChange({
+    entityLabel: item.entityLabel,
+    eventType: item.eventType,
+    beforeValue: item.beforeValue,
+    afterValue: item.afterValue,
+    materiality: item.materiality,
+    observedAt: item.observedAt,
+  });
+  const importance = importanceOf(item.materiality);
 
   return (
     <li className="veracity-card p-4 flex flex-col gap-2.5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <span
-          className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${toneFor(item.eventType)}`}
+          className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${TONE_CLASS[importance.tone]}`}
+          title={importance.meaning}
         >
-          {item.eventType.replace(/_/g, ' ')}
+          {importance.label}
         </span>
         <span className="text-[10px] font-mono text-muted-foreground inline-flex items-center gap-1">
           <Clock size={10} /> {relativeTime(item.observedAt)}
         </span>
       </div>
 
-      {movement ? (
-        <div className="text-sm text-foreground font-medium break-words">{movement}</div>
-      ) : null}
+      <div className="text-sm text-foreground break-words">{plain.sentence}</div>
 
-      {/* The user must be able to argue with the judgment, not just receive it. */}
-      <p className="text-xs text-muted-foreground leading-relaxed">{item.materialityReason}</p>
+      {/* Why it matters, phrased for the reader rather than as a score. */}
+      <p className="text-xs text-muted-foreground leading-relaxed">{plain.importance}</p>
+
+      {plain.suggestion ? (
+        // A question, not an instruction. We do not know enough about their
+        // situation to tell them what to do.
+        <p className="text-xs text-accent">{plain.suggestion}</p>
+      ) : null}
 
       <div className="flex items-center gap-3 flex-wrap">
         {item.evidenceSpanId && onOpenEvidence ? (
@@ -100,7 +114,7 @@ function ChangeRow({
             onClick={() => onOpenEvidence(item.evidenceSpanId!)}
             className="text-[10px] font-mono text-accent hover:underline"
           >
-            Show the evidence
+            See the quote
           </button>
         ) : null}
         {onAskAbout ? (
@@ -134,7 +148,7 @@ export function SinceLastVisit({
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-            Since your last visit
+            What changed while you were away
           </span>
           <h2 className="text-lg font-serif text-foreground">{digest.headline}</h2>
           <span className="text-[10px] font-mono text-muted-foreground">
@@ -145,14 +159,14 @@ export function SinceLastVisit({
         {typeof sourcesChecked === 'number' ? (
           <div className="flex flex-col items-end gap-1">
             <span className="text-[10px] font-mono text-muted-foreground">
-              {sourcesChecked} source{sourcesChecked === 1 ? '' : 's'} checked
+              We checked {sourcesChecked} source{sourcesChecked === 1 ? '' : 's'}
             </span>
             {typeof unchangedCount === 'number' && unchangedCount > 0 ? (
               // Framed as freshness rather than as a cost metric: the user cares
               // that we looked, not that we saved a model call.
               <span className="text-[10px] font-mono text-muted-foreground inline-flex items-center gap-1">
                 <Check size={10} className="text-emerald-500" />
-                {unchangedCount} unchanged
+                {unchangedCount} unchanged since last time
               </span>
             ) : null}
           </div>
@@ -164,12 +178,11 @@ export function SinceLastVisit({
         // users that silence means broken.
         <div className="veracity-card p-5 flex flex-col gap-2">
           <div className="text-sm text-foreground">
-            Nothing material changed across the sources you track.
+            Nothing worth your attention changed.
           </div>
           <p className="text-xs text-muted-foreground">
-            The sources were checked and compared against what was stored last time. No
-            pricing, packaging, release, or positioning change cleared your materiality
-            threshold.
+            We checked every source and compared it against last time. Prices, packaging,
+            releases and positioning are all where you left them.
           </p>
         </div>
       ) : (
@@ -198,7 +211,7 @@ export function SinceLastVisit({
         <div className="veracity-card p-4 flex flex-col gap-2 border-l-2 border-l-amber-400">
           <div className="text-xs font-mono uppercase tracking-wider text-amber-700 inline-flex items-center gap-1.5">
             <AlertTriangle size={12} /> {staleSources.length} source
-            {staleSources.length === 1 ? '' : 's'} could not be checked
+            {staleSources.length === 1 ? '' : 's'} we could not reach
           </div>
           <ul className="flex flex-col gap-1 list-none p-0 m-0">
             {staleSources.map((source) => (
@@ -209,8 +222,7 @@ export function SinceLastVisit({
             ))}
           </ul>
           <p className="text-xs text-muted-foreground">
-            These were not compared this run, so a change on them would not have been
-            detected.
+            We could not open these, so if something changed there we would not have seen it.
           </p>
         </div>
       ) : null}
@@ -224,7 +236,7 @@ export function SinceLastVisit({
             className="text-[10px] font-mono text-muted-foreground hover:text-foreground inline-flex items-center gap-1 self-start"
           >
             {showSuppressed ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-            {digest.suppressed.length} change{digest.suppressed.length === 1 ? '' : 's'} not shown
+            {digest.suppressed.length} smaller change{digest.suppressed.length === 1 ? '' : 's'} we did not interrupt you for
           </button>
 
           {showSuppressed ? (

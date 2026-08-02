@@ -2007,3 +2007,120 @@ dead code. Only reachability answers the question.
 - Full Vitest: PASS — 784 passed, 1 skipped.
 - Production `next build`: PASS.
 - ESLint: zero errors.
+
+## 2026-08-02 — Plain language: the product stops speaking in implementation
+
+### The problem
+
+The UI was surfacing its own internals as the user's vocabulary. An audit found
+**281 occurrences** of terms like `derived`, `materiality`, `entity match`,
+`evidence span`, `snapshot hash`, and `claim type` across the components
+directory.
+
+None of it was wrong. All of it required the reader to already understand our
+data model — and the target user is a founder or product marketer, not a data
+engineer. A user asked to interpret `materiality 0.85` is doing work the system
+should have done for them.
+
+### What the research said
+
+Searched 2026-08-02, consistent across sources:
+
+- **One good confidence cue beats several.** Overloaded trust UI backfires; a
+  single well-designed indicator outperforms multiple complex ones.
+- **Jargon measurably raises error rates**, impairs processing fluency, and
+  undermines the reader's self-efficacy.
+- **Only ~16% of analytics platforms ship a glossary**, despite a measurable
+  confidence gain.
+- **Layer provenance by audience** — plain statements for non-experts, technical
+  detail on demand, not both competing at once.
+
+Recorded with sources in `plans/PLAIN_LANGUAGE_PLAN.md`.
+
+### Built — `lib/ux/vocabulary.ts`
+
+One source of truth for how the product speaks. Every user-facing term routes
+through it, so a concept cannot read one way on a chart and another in the
+drawer — otherwise the user learns three vocabularies instead of none.
+
+- `measured` → **Read from the source**
+- `derived` → **Worked out by us**
+- `synthetic` → **Simulated opinion**
+- `materiality 0.85` → **Worth acting on**
+- `entity_match: probable` → **Probably them**
+- `claim_type: interpretation` → **Our read**
+- `snapshot hash` → **Page version**
+- Freshness as words: **Checked 3 days ago**, **Never checked**
+
+The underlying distinctions are untouched. Nothing collapses measured into
+derived or softens a synthetic label; only the wording changed.
+
+### Built — `lib/intelligence/plain-language.ts`
+
+Generates the sentence a chart or change deserves:
+
+> *"Entry-tier price went from $49/month to $59/month between 2026-01 and
+> 2026-03, a 20% rise."*
+
+Deterministic, not model-generated, for three reasons: a sentence per chart per
+page load would be a model call per chart per page load; the same data must
+produce the same wording every time or users distrust text that shifts; and a
+model asked to summarise a chart will occasionally editorialise — "a dramatic
+move", "signalling aggression" — which is the unfounded interpretation this
+product exists to avoid.
+
+Change summaries end with a **question, not an instruction**: "Worth checking
+whether your own pricing still sits where you want it to." The product does not
+know enough about the user's situation to give orders, and a confident
+recommendation reads as noise the second time it is wrong.
+
+### Built — glossary
+
+`components/ui/Glossary.tsx`, collapsed by default and mounted on the dashboard.
+The thing five in six platforms skip. Someone who understands the product should
+not scroll past an explanation every visit; someone who does not should never
+have to go looking.
+
+### Applied
+
+`ChartSpecView`, `SinceLastVisit`, `EvidenceDrawer`, and `ActivityTimeline` all
+now lead with a sentence and keep the mechanics behind "How do we know this?".
+Removed dead `daysSince`/`STALE_DAYS` left behind by the refactor.
+
+### Built — README setup guide
+
+A complete guided install for macOS, Linux, and Windows/WSL2: prerequisites with
+version checks, three database options (repo-managed, Docker, hosted), every
+migration command, and an API-key table separating the **three required** keys
+from recommended and optional ones — each with where to get it and what it
+costs. Plus a first-five-minutes walkthrough, the optional panel setup, and a
+troubleshooting table covering the Node 18 failure, the SerpAPI 429, and missing
+migrations.
+
+Notably: SEC filings, GDELT, Hacker News, Reddit, and RSS feeds need **no key at
+all**, which the table says outright.
+
+### Tests added
+
+- `__tests__/plain-language.test.ts` — 27 tests. Asserts no internal term leaks
+  into any user-facing string, that importance never renders as a raw score,
+  that an unchecked source states its absence rather than rendering blank, and
+  that generated sentences are arithmetically correct — a readable lie being
+  worse than an unreadable truth.
+
+One test failure was mine, not the code's: I expected a single monthly reading
+to carry no caveat, but warning "too few to call a trend" is the honest
+behaviour. Corrected the expectation and added the snapshot case where the
+warning genuinely would be noise.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest: PASS — 811 passed, 1 skipped (up from 784).
+- `npm run test:e2e:dashboard`: PASS — 42/42.
+- `npm run test:e2e:evidence-ledger`: PASS — 18/18.
+- `npm run test:e2e:swarm-scenarios`: PASS — 15/15.
+- Production `next build`: PASS.
+- ESLint: zero errors.
+- Jargon re-audit: remaining hits are type fields and code comments only; no
+  user-visible string contains an internal term.
