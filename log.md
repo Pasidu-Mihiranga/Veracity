@@ -1604,3 +1604,105 @@ test.
   1 skipped (up from 714).
 - Production `next build`: PASS.
 - ESLint: zero errors.
+
+## 2026-08-02 — Fixing the remaining gaps: ownership, connectors, scheduling
+
+### Fixed — G-G1, the cross-user entity collision
+
+`canonical_entities` was unique on `(scope_key, entity_type, entity_key)` with
+no owner column. Two users tracking the same competitor under the same scope
+collided: the second user's insert failed with a 23505, even though neither can
+see the other's rows. In production that means one user's entity keys can deny
+another user the ability to create theirs, presenting as an unexplained error
+during project setup.
+
+Migration `0011` replaces it with a unique index over
+`(user_id, scope_key, entity_type, entity_key)`, bringing entities in line with
+every other table in the schema. Written drop-then-create so re-running repairs
+an already-broken database.
+
+The apply script **proves** the fix rather than trusting the DDL: it creates two
+users, has both insert the same entity key, and confirms a single user still
+cannot duplicate one. A migration that claims success without testing the
+behaviour it changed is how a constraint like this got shipped wrong originally.
+
+### Built — GDELT connector
+
+Free and keyless, answering one narrow question: how often is this entity
+written about, in a fixed query, over time.
+
+The caveats are the point and travel with the data:
+
+- It measures **media attention**, not market share or sentiment. A spike may be
+  one wire story syndicated fifty times.
+- The corpus denominator is unknown and changes as GDELT adds and drops outlets,
+  so counts compare only within one series. That is why this is `derived` and
+  `isEstimated`, never `measured`.
+- A name that is also a common word is refused **up front**. "Apple" and "Block"
+  return everything, and no downstream care fixes that. A user told the name is
+  too generic can supply a domain; a user shown a meaningless line cannot
+  un-see it.
+
+GDELT answers a bad query with an HTML error page and a 200 status, so the parse
+is defensive rather than trusting the content type.
+
+### Built — FRED connector
+
+Official statistical series: measured, dated, with units read from the series
+metadata rather than assumed — FRED units differ per series and change on
+revision, and a chart labelled with the wrong unit is worse than an unlabelled
+one.
+
+The design constraint is that a macro series says nothing about a specific
+competitor. It is context for a decision. So spans are marked
+`entityMatch: 'unverified'`, the metric key is namespaced `fred:<id>` so it
+cannot collide with a company metric, and the first limitation states plainly
+that this is not evidence about any competitor. That misuse — reading a macro
+trend as a finding about one company — is the likely one.
+
+FRED marks unpublished periods with `"."`. Those are dropped rather than parsed
+as zero, which would be a real rate.
+
+### Built — scheduled project refresh
+
+`lib/inngest/functions/project-refresh.ts`, registered and running weekly.
+
+This is what makes the workspace living rather than something a user must
+remember to poke. The economics work only because of the no-change short
+circuit: a project whose five tracked pages are untouched costs five HTTP
+requests and zero model calls, so a weekly sweep across every project is
+affordable in a way that re-researching each would not be.
+
+- One step per project, so Inngest retries the one that failed rather than
+  re-collecting everything because the last project timed out.
+- Concurrency keyed per user, so one user's ten projects cannot saturate the
+  collector.
+- Ordered by least-recently-collected, so a backlog drains fairly.
+- A project with nothing to collect is excluded from the query rather than
+  burning a step to discover that every week.
+
+### A test artifact worth noting
+
+The FRED tests initially failed with "ReadableStream is locked". Not a product
+bug: `fetchSeries` issues two requests in parallel and `safeFetch` reads each
+body to enforce its size cap, so a stub returning one shared `Response` instance
+left the second read on a consumed stream. Fixed the stub to return a fresh
+response per call.
+
+### Tests added
+
+- `__tests__/connectors-gdelt-fred.test.ts` — 22 tests, weighted toward refusal
+  and labelling: ambiguous names refused without an API call, HTML-error-with-200
+  handled, macro series never attributed to an entity, missing periods never
+  becoming zeros.
+
+### Verification
+
+- Entity ownership migration applied, verified behaviourally, and idempotent.
+- `npm run test:e2e:evidence-ledger`: PASS — 18/18.
+- `npm run test:e2e:swarm-scenarios`: PASS — 15/15.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 67 files passed, 1 skipped; 752 tests passed,
+  1 skipped (up from 730).
+- Production `next build`: PASS.
+- ESLint: zero errors.
