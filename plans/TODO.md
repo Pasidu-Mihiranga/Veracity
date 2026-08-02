@@ -31,7 +31,7 @@ Last updated: 2026-08-02
 - [x] MiroFish adapter implementing the runner's ports with no fabrication on failure.
 - [x] `POST /api/scenarios`, `GET /api/scenarios/[id]`, `POST /api/scenarios/[id]/run`.
 - [x] `ScenarioBriefReview` — premise shown before the panel sees it, assumptions editable, edits run as a new version.
-- [ ] Segment and persona follow-up UI (the data model supports it already).
+- [x] Segment and persona follow-up — `POST /api/scenarios/[id]/follow-up` + `ScenarioFollowUp`, recorded as further rounds so the thread stays intact.
 
 ## Next — still open
 
@@ -41,7 +41,7 @@ being listed twice.
 - [x] Methodology and safe CSV on every decision artifact.
 - [ ] Build on project editing with entity-match correction and enforced source allow/block controls.
 - [ ] Add normalized verified pricing/release market events; do not infer these from URL changes alone.
-- [ ] Add evidence/claim artifact references to chat turns (the context builder supports them; the UI does not attach them yet).
+- [x] Evidence/claim artifact references on chat turns.
 - [x] Fix `canonical_entities` cross-user uniqueness (migration `0011`, verified behaviourally).
 
 ## Wave 1 — evidence ledger (2026-08-02)
@@ -74,9 +74,9 @@ being listed twice.
 - [x] `useProjectDashboard` hook and `ProjectDashboard` composition.
 - [x] Mount `ProjectDashboard` as the project's leading surface in the app shell.
 - [x] Authenticated end-to-end proof (`npm run test:e2e:dashboard`, 11 checks).
-- [ ] Activity timeline, pricing history, and release cadence on the dashboard.
-- [ ] Feature verification matrix with per-cell evidence.
-- [~] Rolling conversation summary and artifact references — the context builder and Explain route accept both; the chat UI does not attach artifacts yet.
+- [x] Activity timeline and source coverage on the dashboard — includes sub-threshold changes, marked; pricing and release series render through `ProjectCharts`.
+- [x] Source coverage matrix with per-cell freshness and excerpt counts. Deliberately coverage, not a feature comparison — the ledger cannot support the latter honestly.
+- [x] Artifact references — `ArtifactAttachPicker` attaches charts and change events to a turn, carrying their content so the model does not guess which was meant.
 - [x] Make Explain genuinely cheap — `stored-answer` + `POST /api/projects/[id]/explain`, one model call over the ledger, 409 with a reason instead of silent escalation.
 
 ## Wave 0 — product-level honesty sweep (2026-08-02) — COMPLETE

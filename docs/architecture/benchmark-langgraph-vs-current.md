@@ -1,6 +1,6 @@
 # Benchmark: LangGraphExecutor vs CurrentExecutor
 
-**Date:** 2026-08-02T21:23:12.929Z  
+**Date:** 2026-08-02T21:31:08.367Z  
 **Mode:** Deterministic stub agents (wave-executor parity)  
 **Corpus:** 109 queries (`scripts/benchmarks/queries.json`)  
 **Verdict:** **PASS** (parity + stub latency gates)
@@ -10,16 +10,16 @@
 | Gate | Result | Detail |
 |------|--------|--------|
 | Outcome parity | PASS | 0 mismatches / 97 ran |
-| Stub absolute overhead (p50 ≤20ms, p95 ≤30ms) | PASS | overhead p50 5.275ms, p95 7.443ms (ratios 1.0639 / 1.0898) |
+| Stub absolute overhead (p50 ≤20ms, p95 ≤30ms) | PASS | overhead p50 5.071ms, p95 6.65ms (ratios 1.0615 / 1.0802) |
 | Live accuracy / evidence / cost / latency ≤+5% | **Deferred** | Required before `NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR` default-on (ADR-0007) |
 
 ## Latency
 
 | Executor | p50 (ms) | p95 (ms) |
 |----------|----------|----------|
-| Current | 82.543 | 82.878 |
-| LangGraph | 87.818 | 90.32 |
-| Absolute overhead | 5.275 | 7.443 |
+| Current | 82.438 | 82.945 |
+| LangGraph | 87.509 | 89.595 |
+| Absolute overhead | 5.071 | 6.65 |
 
 ## Corpus mix
 

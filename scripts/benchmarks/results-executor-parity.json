@@ -1,18 +1,18 @@
 {
   "summary": {
-    "generatedAt": "2026-08-02T21:23:12.929Z",
+    "generatedAt": "2026-08-02T21:31:08.367Z",
     "corpusCount": 109,
     "ranCount": 97,
     "skippedCount": 12,
     "parityFailures": 0,
-    "p50CurrentMs": 82.543,
-    "p95CurrentMs": 82.878,
-    "p50LanggraphMs": 87.818,
-    "p95LanggraphMs": 90.32,
-    "p50Ratio": 1.0639,
-    "p95Ratio": 1.0898,
-    "overheadP50Ms": 5.275,
-    "overheadP95Ms": 7.443,
+    "p50CurrentMs": 82.438,
+    "p95CurrentMs": 82.945,
+    "p50LanggraphMs": 87.509,
+    "p95LanggraphMs": 89.595,
+    "p50Ratio": 1.0615,
+    "p95Ratio": 1.0802,
+    "overheadP50Ms": 5.071,
+    "overheadP95Ms": 6.65,
     "gates": {
       "parity": true,
       "latencyStubAbsolute": true,
@@ -172,9 +172,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 40.727333000000044,
-      "langgraphMs": 48.22616699999992,
-      "latencyRatio": 1.1841228837645683
+      "currentMs": 43.06454100000008,
+      "langgraphMs": 49.61233299999981,
+      "latencyRatio": 1.152046018556188
     },
     {
       "id": "q014",
@@ -183,9 +183,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.05479100000002,
-      "langgraphMs": 51.31066699999997,
-      "latencyRatio": 1.2498094802138913
+      "currentMs": 41.58495800000014,
+      "langgraphMs": 49.654166999999916,
+      "latencyRatio": 1.1940415329985363
     },
     {
       "id": "q015",
@@ -194,9 +194,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.43341699999996,
-      "langgraphMs": 48.46329199999991,
-      "latencyRatio": 1.169666793351848
+      "currentMs": 41.95741699999985,
+      "langgraphMs": 47.49666699999989,
+      "latencyRatio": 1.1320207580938564
     },
     {
       "id": "q016",
@@ -205,9 +205,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.5255830000001,
-      "langgraphMs": 44.85725000000002,
-      "latencyRatio": 1.0802316730869237
+      "currentMs": 40.69433300000014,
+      "langgraphMs": 45.90183400000001,
+      "latencyRatio": 1.1279662453246218
     },
     {
       "id": "q017",
@@ -216,9 +216,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 40.91650000000004,
-      "langgraphMs": 45.636792000000014,
-      "latencyRatio": 1.1153640218493754
+      "currentMs": 40.55320799999981,
+      "langgraphMs": 44.50199999999995,
+      "latencyRatio": 1.0973731104084332
     },
     {
       "id": "q018",
@@ -227,9 +227,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.59870799999999,
-      "langgraphMs": 44.18599999999992,
-      "latencyRatio": 1.0621964509090027
+      "currentMs": 41.26949999999988,
+      "langgraphMs": 44.49487500000009,
+      "latencyRatio": 1.0781539635808581
     },
     {
       "id": "q019",
@@ -238,9 +238,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 45.104499999999916,
-      "langgraphMs": 44.13999999999987,
-      "latencyRatio": 0.9786163243135375
+      "currentMs": 40.81229200000007,
+      "langgraphMs": 44.198833999999806,
+      "latencyRatio": 1.0829784810909353
     },
     {
       "id": "q020",
@@ -249,9 +249,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.2186670000001,
-      "langgraphMs": 87.64545799999996,
-      "latencyRatio": 1.0660043661374352
+      "currentMs": 82.4442919999999,
+      "langgraphMs": 88.35454200000004,
+      "latencyRatio": 1.0716878010184154
     },
     {
       "id": "q021",
@@ -260,9 +260,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.45062499999995,
-      "langgraphMs": 89.71783300000016,
-      "latencyRatio": 1.0881401202234697
+      "currentMs": 83.99387499999989,
+      "langgraphMs": 87.51529200000004,
+      "latencyRatio": 1.0419246879608801
     },
     {
       "id": "q022",
@@ -271,9 +271,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 40.40520800000013,
-      "langgraphMs": 44.35854099999983,
-      "latencyRatio": 1.097842164307128
+      "currentMs": 41.0914580000001,
+      "langgraphMs": 45.86066700000015,
+      "latencyRatio": 1.1160632703760482
     },
     {
       "id": "q023",
@@ -282,9 +282,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.26712499999985,
-      "langgraphMs": 43.41683400000011,
-      "latencyRatio": 1.052092531282474
+      "currentMs": 41.13041699999985,
+      "langgraphMs": 43.31516699999975,
+      "latencyRatio": 1.053117623388061
     },
     {
       "id": "q024",
@@ -293,9 +293,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 40.901332999999795,
-      "langgraphMs": 43.56120800000008,
-      "latencyRatio": 1.065031499095648
+      "currentMs": 41.2052920000001,
+      "langgraphMs": 41.84912499999973,
+      "latencyRatio": 1.0156250075839683
     },
     {
       "id": "q025",
@@ -304,9 +304,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 40.261625000000095,
-      "langgraphMs": 42.931375000000116,
-      "latencyRatio": 1.066310040888812
+      "currentMs": 40.16616699999986,
+      "langgraphMs": 45.006124999999884,
+      "latencyRatio": 1.1204983786478815
     },
     {
       "id": "q026",
@@ -315,9 +315,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.733374999999796,
-      "langgraphMs": 44.915500000000065,
-      "latencyRatio": 1.076248925470329
+      "currentMs": 40.965791999999965,
+      "langgraphMs": 42.924417000000176,
+      "latencyRatio": 1.0478112323569921
     },
     {
       "id": "q027",
@@ -326,9 +326,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.551750000000084,
-      "langgraphMs": 42.66175000000021,
-      "latencyRatio": 1.0267136763192917
+      "currentMs": 41.22383300000001,
+      "langgraphMs": 43.632458999999926,
+      "latencyRatio": 1.0584279972218962
     },
     {
       "id": "q028",
@@ -337,9 +337,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.166541999999936,
-      "langgraphMs": 44.76879199999985,
-      "latencyRatio": 1.087504313575814
+      "currentMs": 41.24191599999995,
+      "langgraphMs": 42.280207999999675,
+      "latencyRatio": 1.0251756489683876
     },
     {
       "id": "q029",
@@ -348,9 +348,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.336249999999836,
-      "langgraphMs": 43.39516700000013,
-      "latencyRatio": 1.0498089933170112
+      "currentMs": 41.25004200000012,
+      "langgraphMs": 42.97058300000026,
+      "latencyRatio": 1.0417100423800814
     },
     {
       "id": "q030",
@@ -359,9 +359,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 81.66374999999971,
-      "langgraphMs": 84.98316699999987,
-      "latencyRatio": 1.0406473741409152
+      "currentMs": 82.43816700000025,
+      "langgraphMs": 86.6687079999997,
+      "latencyRatio": 1.0513177470333546
     },
     {
       "id": "q031",
@@ -370,9 +370,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.24704100000008,
-      "langgraphMs": 44.01204200000029,
-      "latencyRatio": 1.0670351359264827
+      "currentMs": 41.30433299999959,
+      "langgraphMs": 45.88808300000028,
+      "latencyRatio": 1.1109750398342164
     },
     {
       "id": "q032",
@@ -381,9 +381,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.22708399999965,
-      "langgraphMs": 44.85699999999997,
-      "latencyRatio": 1.0880468771451397
+      "currentMs": 41.29158300000017,
+      "langgraphMs": 44.35054200000013,
+      "latencyRatio": 1.0740819018733174
     },
     {
       "id": "q033",
@@ -392,9 +392,9 @@
       "agentCount": 1,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.44945800000005,
-      "langgraphMs": 45.28825000000006,
-      "latencyRatio": 1.092613804503789
+      "currentMs": 41.28941699999996,
+      "langgraphMs": 45.47479199999998,
+      "latencyRatio": 1.1013667739605049
     },
     {
       "id": "q034",
@@ -403,9 +403,9 @@
       "agentCount": 2,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.47966700000006,
-      "langgraphMs": 89.54283299999997,
-      "latencyRatio": 1.0856352390462476
+      "currentMs": 83.03475000000026,
+      "langgraphMs": 86.89716599999974,
+      "latencyRatio": 1.0465156576011787
     },
     {
       "id": "q035",
@@ -414,9 +414,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.93783399999984,
-      "langgraphMs": 87.08033299999988,
-      "latencyRatio": 1.0499470362343928
+      "currentMs": 82.94525000000021,
+      "langgraphMs": 89.57008300000007,
+      "latencyRatio": 1.0798699503588192
     },
     {
       "id": "q036",
@@ -425,9 +425,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.83808399999998,
-      "langgraphMs": 88.0894159999998,
-      "latencyRatio": 1.0633927264662448
+      "currentMs": 82.84945799999969,
+      "langgraphMs": 89.78924999999981,
+      "latencyRatio": 1.083763879300214
     },
     {
       "id": "q037",
@@ -436,9 +436,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.54291699999976,
-      "langgraphMs": 86.97383300000001,
-      "latencyRatio": 1.053680147988958
+      "currentMs": 82.89295799999991,
+      "langgraphMs": 89.72312499999998,
+      "latencyRatio": 1.082397433567277
     },
     {
       "id": "q038",
@@ -447,9 +447,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.80783299999985,
-      "langgraphMs": 88.59850000000006,
-      "latencyRatio": 1.069928976404928
+      "currentMs": 82.59762499999988,
+      "langgraphMs": 87.67279099999996,
+      "latencyRatio": 1.0614444543653656
     },
     {
       "id": "q039",
@@ -458,9 +458,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.55787499999997,
-      "langgraphMs": 86.81795800000009,
-      "latencyRatio": 1.0516011706938935
+      "currentMs": 81.74125000000004,
+      "langgraphMs": 88.79391700000042,
+      "latencyRatio": 1.0862803908675287
     },
     {
       "id": "q040",
@@ -469,9 +469,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.87300000000005,
-      "langgraphMs": 88.77987500000017,
-      "latencyRatio": 1.0712762298939356
+      "currentMs": 82.78804200000013,
+      "langgraphMs": 88.90429200000017,
+      "latencyRatio": 1.0738784231664764
     },
     {
       "id": "q041",
@@ -480,9 +480,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.62787500000013,
-      "langgraphMs": 89.17262500000015,
-      "latencyRatio": 1.0792075313567002
+      "currentMs": 82.69541700000082,
+      "langgraphMs": 88.01608300000044,
+      "latencyRatio": 1.0643405184110695
     },
     {
       "id": "q042",
@@ -491,9 +491,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.0524579999992,
-      "langgraphMs": 90.34470799999963,
-      "latencyRatio": 1.1010603484907242
+      "currentMs": 81.67104199999994,
+      "langgraphMs": 89.05866700000024,
+      "latencyRatio": 1.0904558680664354
     },
     {
       "id": "q043",
@@ -502,9 +502,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.82608299999993,
-      "langgraphMs": 90.65258300000005,
-      "latencyRatio": 1.0944931803668674
+      "currentMs": 82.24699999999939,
+      "langgraphMs": 87.88633300000038,
+      "latencyRatio": 1.0685658200299224
     },
     {
       "id": "q044",
@@ -513,9 +513,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.88249999999971,
-      "langgraphMs": 89.75641700000051,
-      "latencyRatio": 1.0829356860616033
+      "currentMs": 82.90816600000016,
+      "langgraphMs": 88.12116700000024,
+      "latencyRatio": 1.0628768099875718
     },
     {
       "id": "q045",
@@ -524,9 +524,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.35412499999984,
-      "langgraphMs": 88.28520799999933,
-      "latencyRatio": 1.0720192582945844
+      "currentMs": 82.73266699999931,
+      "langgraphMs": 85.7899580000003,
+      "latencyRatio": 1.0369538552407722
     },
     {
       "id": "q046",
@@ -535,9 +535,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.60620800000015,
-      "langgraphMs": 87.76841699999932,
-      "latencyRatio": 1.0624917802787794
+      "currentMs": 82.77620899999965,
+      "langgraphMs": 87.11004199999934,
+      "latencyRatio": 1.052356021764656
     },
     {
       "id": "q047",
@@ -546,9 +546,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.93862500000068,
-      "langgraphMs": 88.36437500000011,
-      "latencyRatio": 1.0654188564133946
+      "currentMs": 82.93295800000033,
+      "langgraphMs": 88.296875,
+      "latencyRatio": 1.0646777485013816
     },
     {
       "id": "q048",
@@ -557,9 +557,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.75662499999999,
-      "langgraphMs": 88.34229200000027,
-      "latencyRatio": 1.0674951038663103
+      "currentMs": 82.64616699999988,
+      "langgraphMs": 88.4917919999998,
+      "latencyRatio": 1.0707307454440076
     },
     {
       "id": "q049",
@@ -568,9 +568,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.82800000000043,
-      "langgraphMs": 86.93379199999981,
-      "latencyRatio": 1.0495700970686164
+      "currentMs": 81.7402090000005,
+      "langgraphMs": 87.71337499999936,
+      "latencyRatio": 1.0730750027810525
     },
     {
       "id": "q050",
@@ -579,9 +579,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.62937500000044,
-      "langgraphMs": 88.54358400000001,
-      "latencyRatio": 1.0715751389865837
+      "currentMs": 82.87458400000014,
+      "langgraphMs": 87.29958299999998,
+      "latencyRatio": 1.0533939211085492
     },
     {
       "id": "q051",
@@ -590,9 +590,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.64941700000054,
-      "langgraphMs": 87.3227909999996,
-      "latencyRatio": 1.0565445488865217
+      "currentMs": 83.0977499999999,
+      "langgraphMs": 88.70379200000025,
+      "latencyRatio": 1.0674632225300968
     },
     {
       "id": "q052",
@@ -601,9 +601,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.79733400000077,
-      "langgraphMs": 89.19762499999979,
-      "latencyRatio": 1.077300689415905
+      "currentMs": 81.70666700000038,
+      "langgraphMs": 88.01525000000038,
+      "latencyRatio": 1.0772101375766554
     },
     {
       "id": "q053",
@@ -612,9 +612,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.64866699999948,
-      "langgraphMs": 88.30937500000073,
-      "latencyRatio": 1.0684912195861704
+      "currentMs": 82.69087499999932,
+      "langgraphMs": 88.52874999999949,
+      "latencyRatio": 1.0705987813044693
     },
     {
       "id": "q054",
@@ -623,9 +623,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.80745800000022,
-      "langgraphMs": 88.23770799999966,
-      "latencyRatio": 1.0655768228025961
+      "currentMs": 82.87862500000028,
+      "langgraphMs": 88.74291699999958,
+      "latencyRatio": 1.0707575928051325
     },
     {
       "id": "q055",
@@ -634,9 +634,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.06779200000074,
-      "langgraphMs": 87.51891599999999,
-      "latencyRatio": 1.0664222086052857
+      "currentMs": 82.73045900000034,
+      "langgraphMs": 86.55308400000013,
+      "latencyRatio": 1.0462057753118446
     },
     {
       "id": "q056",
@@ -645,9 +645,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.79433299999982,
-      "langgraphMs": 89.75745899999947,
-      "latencyRatio": 1.0841014807136578
+      "currentMs": 82.54041600000073,
+      "langgraphMs": 87.91283299999941,
+      "latencyRatio": 1.0650883198843901
     },
     {
       "id": "q057",
@@ -656,9 +656,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 81.97016600000006,
-      "langgraphMs": 88.42491600000085,
-      "latencyRatio": 1.0787451131915577
+      "currentMs": 82.85962500000005,
+      "langgraphMs": 87.09212500000012,
+      "latencyRatio": 1.0510803663424746
     },
     {
       "id": "q058",
@@ -667,9 +667,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.87754199999927,
-      "langgraphMs": 91.68133300000045,
-      "latencyRatio": 1.106226497402653
+      "currentMs": 82.20483400000012,
+      "langgraphMs": 86.63004199999978,
+      "latencyRatio": 1.0538314814917047
     },
     {
       "id": "q059",
@@ -678,9 +678,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.00962499999969,
-      "langgraphMs": 86.18504099999973,
-      "latencyRatio": 1.050913731162654
+      "currentMs": 82.67320800000016,
+      "langgraphMs": 86.92399999999998,
+      "latencyRatio": 1.0514168024059234
     },
     {
       "id": "q060",
@@ -689,9 +689,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.69562500000029,
-      "langgraphMs": 88.32037500000024,
-      "latencyRatio": 1.0680175039489685
+      "currentMs": 81.76054199999999,
+      "langgraphMs": 88.79299999999967,
+      "latencyRatio": 1.0860128593570195
     },
     {
       "id": "q061",
@@ -700,9 +700,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.65866600000027,
-      "langgraphMs": 88.13075000000026,
-      "latencyRatio": 1.0662009715956458
+      "currentMs": 81.7690419999999,
+      "langgraphMs": 85.45420800000011,
+      "latencyRatio": 1.0450679855097265
     },
     {
       "id": "q062",
@@ -711,9 +711,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.63275000000067,
-      "langgraphMs": 88.93212500000027,
-      "latencyRatio": 1.0762333941445679
+      "currentMs": 82.73991699999988,
+      "langgraphMs": 88.5507090000001,
+      "latencyRatio": 1.0702296087630863
     },
     {
       "id": "q063",
@@ -722,9 +722,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.62283300000036,
-      "langgraphMs": 89.56520799999998,
-      "latencyRatio": 1.0840248966045452
+      "currentMs": 82.78754200000003,
+      "langgraphMs": 87.88833299999897,
+      "latencyRatio": 1.0616130262690844
     },
     {
       "id": "q064",
@@ -733,9 +733,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.65541600000051,
-      "langgraphMs": 85.58891599999879,
-      "latencyRatio": 1.0354907172688872
+      "currentMs": 82.51058399999965,
+      "langgraphMs": 87.59237500000017,
+      "latencyRatio": 1.0615895652853522
     },
     {
       "id": "q065",
@@ -744,9 +744,9 @@
       "agentCount": 6,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.67233400000077,
-      "langgraphMs": 90.43158399999993,
-      "latencyRatio": 1.0938554607639248
+      "currentMs": 82.78600000000006,
+      "langgraphMs": 86.1869170000009,
+      "latencyRatio": 1.0410808228444526
     },
     {
       "id": "q066",
@@ -755,9 +755,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.77224999999999,
-      "langgraphMs": 86.72666700000082,
-      "latencyRatio": 1.047774670858903
+      "currentMs": 82.52320900000086,
+      "langgraphMs": 88.08520800000042,
+      "latencyRatio": 1.0673992088698283
     },
     {
       "id": "q067",
@@ -766,9 +766,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.08466600000065,
-      "langgraphMs": 89.07758399999875,
-      "latencyRatio": 1.0851915265148067
+      "currentMs": 81.82766699999956,
+      "langgraphMs": 88.67862500000047,
+      "latencyRatio": 1.0837242249617227
     },
     {
       "id": "q068",
@@ -777,9 +777,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 83.03887500000019,
-      "langgraphMs": 88.23929099999987,
-      "latencyRatio": 1.0626262819673276
+      "currentMs": 82.10495900000024,
+      "langgraphMs": 88.01029200000085,
+      "latencyRatio": 1.0719241940063644
     },
     {
       "id": "q069",
@@ -788,9 +788,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.65891700000066,
-      "langgraphMs": 90.1076669999984,
-      "latencyRatio": 1.0901142946259226
+      "currentMs": 82.50787499999933,
+      "langgraphMs": 87.29904199999874,
+      "latencyRatio": 1.0580692085452381
     },
     {
       "id": "q070",
@@ -799,9 +799,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.72162500000013,
-      "langgraphMs": 88.96516700000029,
-      "latencyRatio": 1.075476539538484
+      "currentMs": 82.31012499999997,
+      "langgraphMs": 85.59187500000007,
+      "latencyRatio": 1.0398705505549908
     },
     {
       "id": "q071",
@@ -810,9 +810,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.69508300000052,
-      "langgraphMs": 89.37008400000013,
-      "latencyRatio": 1.0807182332714942
+      "currentMs": 83.1597499999989,
+      "langgraphMs": 87.13729199999943,
+      "latencyRatio": 1.0478301341694822
     },
     {
       "id": "q072",
@@ -821,9 +821,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.56450000000041,
-      "langgraphMs": 89.56570800000009,
-      "latencyRatio": 1.0847968315680425
+      "currentMs": 81.76391700000022,
+      "langgraphMs": 88.86525000000074,
+      "latencyRatio": 1.0868516732142433
     },
     {
       "id": "q073",
@@ -832,9 +832,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.80508299999929,
-      "langgraphMs": 90.32020799999918,
-      "latencyRatio": 1.0907568077674648
+      "currentMs": 82.62183299999924,
+      "langgraphMs": 87.04374999999891,
+      "latencyRatio": 1.053519957612169
     },
     {
       "id": "q074",
@@ -843,9 +843,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.74791699999878,
-      "langgraphMs": 87.29383299999972,
-      "latencyRatio": 1.0549369236690394
+      "currentMs": 82.60854199999994,
+      "langgraphMs": 88.73433299999851,
+      "latencyRatio": 1.074154450032523
     },
     {
       "id": "q075",
@@ -854,9 +854,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.61549999999988,
-      "langgraphMs": 86.32033299999966,
-      "latencyRatio": 1.0448442846681287
+      "currentMs": 81.61275000000023,
+      "langgraphMs": 87.87362500000017,
+      "latencyRatio": 1.07671442268518
     },
     {
       "id": "q076",
@@ -865,9 +865,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.00804100000096,
-      "langgraphMs": 88.98216599999978,
-      "latencyRatio": 1.0850419655799208
+      "currentMs": 82.60145900000134,
+      "langgraphMs": 88.22233299999971,
+      "latencyRatio": 1.0680481200701102
     },
     {
       "id": "q077",
@@ -876,9 +876,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.76987499999996,
-      "langgraphMs": 86.86804099999972,
-      "latencyRatio": 1.0495127726120133
+      "currentMs": 82.7176670000008,
+      "langgraphMs": 89.67229199999929,
+      "latencyRatio": 1.084076658013075
     },
     {
       "id": "q078",
@@ -887,9 +887,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 81.69533299999966,
-      "langgraphMs": 89.09158399999978,
-      "latencyRatio": 1.0905345596669538
+      "currentMs": 82.69454199999927,
+      "langgraphMs": 88.64708299999984,
+      "latencyRatio": 1.0719822718166891
     },
     {
       "id": "q079",
@@ -898,9 +898,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.6767920000002,
-      "langgraphMs": 88.78974999999991,
-      "latencyRatio": 1.0739380163661851
+      "currentMs": 81.77579100000003,
+      "langgraphMs": 88.42829100000017,
+      "latencyRatio": 1.0813504818314768
     },
     {
       "id": "q080",
@@ -909,9 +909,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.61433300000135,
-      "langgraphMs": 87.61070800000016,
-      "latencyRatio": 1.060478307075344
+      "currentMs": 82.75212499999907,
+      "langgraphMs": 89.59545799999978,
+      "latencyRatio": 1.0826967645846048
     },
     {
       "id": "q081",
@@ -920,9 +920,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 81.79458300000078,
-      "langgraphMs": 87.44662499999868,
-      "latencyRatio": 1.0691004439743623
+      "currentMs": 81.61070800000016,
+      "langgraphMs": 88.60166700000082,
+      "latencyRatio": 1.0856622760827004
     },
     {
       "id": "q082",
@@ -931,9 +931,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.60470800000076,
-      "langgraphMs": 88.35733299999993,
-      "latencyRatio": 1.0696404011257945
+      "currentMs": 81.06641599999966,
+      "langgraphMs": 87.97204199999942,
+      "latencyRatio": 1.0851847946503492
     },
     {
       "id": "q083",
@@ -942,9 +942,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.8314590000009,
-      "langgraphMs": 89.61891699999978,
-      "latencyRatio": 1.08194299704414
+      "currentMs": 82.15037500000108,
+      "langgraphMs": 89.85250000000087,
+      "latencyRatio": 1.093756419249452
     },
     {
       "id": "q084",
@@ -953,9 +953,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 81.66716599999927,
-      "langgraphMs": 88.02033400000073,
-      "latencyRatio": 1.077793418226384
+      "currentMs": 82.78291600000011,
+      "langgraphMs": 88.75654199999917,
+      "latencyRatio": 1.0721601302374884
     },
     {
       "id": "q085",
@@ -964,9 +964,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.37483400000019,
-      "langgraphMs": 89.49604200000067,
-      "latencyRatio": 1.0864488297481785
+      "currentMs": 82.70837500000016,
+      "langgraphMs": 88.01433400000133,
+      "latencyRatio": 1.064152620578039
     },
     {
       "id": "q086",
@@ -975,9 +975,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.4750839999997,
-      "langgraphMs": 87.79691699999967,
-      "latencyRatio": 1.064526554468256
+      "currentMs": 82.72041699999863,
+      "langgraphMs": 87.23704199999884,
+      "latencyRatio": 1.0546010908044658
     },
     {
       "id": "q087",
@@ -986,9 +986,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.5649169999997,
-      "langgraphMs": 89.85425000000032,
-      "latencyRatio": 1.0882860816053463
+      "currentMs": 79.83470800000032,
+      "langgraphMs": 88.27341699999852,
+      "latencyRatio": 1.1057022592228705
     },
     {
       "id": "q088",
@@ -997,9 +997,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.76391599999988,
-      "langgraphMs": 88.40595899999971,
-      "latencyRatio": 1.068170324371793
+      "currentMs": 81.71716600000036,
+      "langgraphMs": 85.57200000000012,
+      "latencyRatio": 1.0471728791965171
     },
     {
       "id": "q089",
@@ -1008,9 +1008,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.65412500000093,
-      "langgraphMs": 89.8647920000003,
-      "latencyRatio": 1.087239045843136
+      "currentMs": 82.5853330000009,
+      "langgraphMs": 87.99954099999923,
+      "latencyRatio": 1.0655589534281864
     },
     {
       "id": "q090",
@@ -1019,9 +1019,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.54095799999959,
-      "langgraphMs": 88.87983399999939,
-      "latencyRatio": 1.0767967340529272
+      "currentMs": 82.64249999999993,
+      "langgraphMs": 89.35629199999858,
+      "latencyRatio": 1.0812389751035927
     },
     {
       "id": "q091",
@@ -1030,9 +1030,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.71179200000006,
-      "langgraphMs": 87.8179170000003,
-      "latencyRatio": 1.0617339423621754
+      "currentMs": 82.57799999999952,
+      "langgraphMs": 86.88612499999908,
+      "latencyRatio": 1.0521703722541063
     },
     {
       "id": "q092",
@@ -1041,9 +1041,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.49366700000064,
-      "langgraphMs": 88.92812500000036,
-      "latencyRatio": 1.0779994178219725
+      "currentMs": 82.59495900000002,
+      "langgraphMs": 87.37866699999904,
+      "latencyRatio": 1.0579176750968424
     },
     {
       "id": "q093",
@@ -1052,9 +1052,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.42529099999956,
-      "langgraphMs": 45.03137500000048,
-      "latencyRatio": 1.0870502997794502
+      "currentMs": 41.356416999999055,
+      "langgraphMs": 44.9907089999997,
+      "latencyRatio": 1.0878773419854222
     },
     {
       "id": "q094",
@@ -1063,9 +1063,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.4270000000015,
-      "langgraphMs": 45.16908400000102,
-      "latencyRatio": 1.0903295918120883
+      "currentMs": 41.43845800000054,
+      "langgraphMs": 44.56291699999929,
+      "latencyRatio": 1.0753999823062603
     },
     {
       "id": "q095",
@@ -1074,9 +1074,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.73029200000019,
-      "langgraphMs": 46.81658299999981,
-      "latencyRatio": 1.1218848648363065
+      "currentMs": 41.40387499999997,
+      "langgraphMs": 45.20916700000089,
+      "latencyRatio": 1.0919066633256167
     },
     {
       "id": "q096",
@@ -1085,9 +1085,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.35604200000125,
-      "langgraphMs": 46.04908299999988,
-      "latencyRatio": 1.11347896880457
+      "currentMs": 41.44783300000017,
+      "langgraphMs": 44.03912499999933,
+      "latencyRatio": 1.0625193601797986
     },
     {
       "id": "q097",
@@ -1096,9 +1096,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.402000000000044,
-      "langgraphMs": 44.62162499999977,
-      "latencyRatio": 1.0777649630452568
+      "currentMs": 41.25733299999956,
+      "langgraphMs": 44.40033299999959,
+      "latencyRatio": 1.0761803968278818
     },
     {
       "id": "q098",
@@ -1107,9 +1107,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.477624999999534,
-      "langgraphMs": 44.8796250000014,
-      "latencyRatio": 1.0820201253085706
+      "currentMs": 41.36283300000105,
+      "langgraphMs": 45.62566700000025,
+      "latencyRatio": 1.1030595268945698
     },
     {
       "id": "q099",
@@ -1118,9 +1118,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.28270800000064,
-      "langgraphMs": 44.88774999999987,
-      "latencyRatio": 1.0873257151638205
+      "currentMs": 40.426792000000205,
+      "langgraphMs": 44.780541999998604,
+      "latencyRatio": 1.1076946694162222
     },
     {
       "id": "q100",
@@ -1129,9 +1129,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 39.503875000000335,
-      "langgraphMs": 46.422875000000204,
-      "latencyRatio": 1.1751473747828487
+      "currentMs": 41.36916700000074,
+      "langgraphMs": 45.441249999999854,
+      "latencyRatio": 1.0984328014146147
     },
     {
       "id": "q101",
@@ -1140,9 +1140,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.445958000000246,
-      "langgraphMs": 44.66599999999926,
-      "latencyRatio": 1.0776925460378788
+      "currentMs": 41.48491699999977,
+      "langgraphMs": 44.90770899999916,
+      "latencyRatio": 1.0825069024484106
     },
     {
       "id": "q102",
@@ -1151,9 +1151,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.322541000001365,
-      "langgraphMs": 45.85950000000048,
-      "latencyRatio": 1.1097938047904403
+      "currentMs": 41.369416999999885,
+      "langgraphMs": 45.529333000000406,
+      "latencyRatio": 1.1005553450269927
     },
     {
       "id": "q103",
@@ -1162,9 +1162,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 41.35766599999988,
-      "langgraphMs": 44.843291999999565,
-      "latencyRatio": 1.0842800461708766
+      "currentMs": 41.52020799999991,
+      "langgraphMs": 44.72362499999872,
+      "latencyRatio": 1.0771532021226584
     },
     {
       "id": "q104",
@@ -1173,9 +1173,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.74675000000025,
-      "langgraphMs": 87.93224999999984,
-      "latencyRatio": 1.0626671138141326
+      "currentMs": 82.78641600000083,
+      "langgraphMs": 89.29029099999934,
+      "latencyRatio": 1.078562103715161
     },
     {
       "id": "q105",
@@ -1184,9 +1184,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.86954199999855,
-      "langgraphMs": 88.7807499999999,
-      "latencyRatio": 1.0713314911285676
+      "currentMs": 82.624917000001,
+      "langgraphMs": 88.26920900000005,
+      "latencyRatio": 1.0683122259596216
     },
     {
       "id": "q106",
@@ -1195,9 +1195,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.69829200000095,
-      "langgraphMs": 88.80841699999837,
-      "latencyRatio": 1.0738845368172458
+      "currentMs": 82.7402089999996,
+      "langgraphMs": 87.99404200000026,
+      "latencyRatio": 1.0634979420948851
     },
     {
       "id": "q107",
@@ -1206,9 +1206,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.77245799999946,
-      "langgraphMs": 88.59449999999924,
-      "latencyRatio": 1.0703379136088942
+      "currentMs": 82.82400000000052,
+      "langgraphMs": 88.76508300000023,
+      "latencyRatio": 1.0717314184294369
     },
     {
       "id": "q108",
@@ -1217,9 +1217,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 81.89950000000135,
-      "langgraphMs": 87.66187499999978,
-      "latencyRatio": 1.0703590986513756
+      "currentMs": 82.61337500000081,
+      "langgraphMs": 87.50945799999863,
+      "latencyRatio": 1.0592650161066264
     },
     {
       "id": "q109",
@@ -1228,9 +1228,9 @@
       "agentCount": 3,
       "skipped": false,
       "parityOk": true,
-      "currentMs": 82.63629100000071,
-      "langgraphMs": 88.10187500000029,
-      "latencyRatio": 1.0661402385545056
+      "currentMs": 82.86812499999905,
+      "langgraphMs": 88.20850000000064,
+      "latencyRatio": 1.064444260081927
     }
   ]
 }
