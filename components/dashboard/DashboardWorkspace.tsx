@@ -15,6 +15,7 @@ import { ConversationTimeline } from '@/components/ui/ConversationTimeline';
 import type { MarketProject } from '@/lib/projects';
 import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
+import { ProjectDashboard } from '@/components/dashboard/ProjectDashboard';
 
 const ApiUsagePanel = dynamic(() => import('@/components/ApiUsagePanel').then((m) => m.ApiUsagePanel), {
   loading: () => <PanelSkeleton label="Loading usage" height={280} />,
@@ -237,6 +238,19 @@ export function DashboardWorkspace({
                   ) : null}
                 </div>
               )}
+              {/*
+                Lead with change, not a blank prompt.
+                A returning user should see what happened while they were away
+                before they are asked to remember what they were tracking and
+                re-type it. This is what makes a second visit worth more than
+                the first, so it sits above the static project overview.
+              */}
+              {selectedProject ? (
+                <ProjectDashboard
+                  projectId={selectedProject.id}
+                  onAskAbout={onComposerSend}
+                />
+              ) : null}
               {selectedProject ? (
                 <MarketProjectOverview
                   projectId={selectedProject.id}

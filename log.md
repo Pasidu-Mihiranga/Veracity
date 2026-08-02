@@ -1190,3 +1190,59 @@ so it would have run on every render rather than when data arrived.
   `/api/projects/[id]/dashboard`.
 - ESLint over the new routes, hook, and components: zero errors and zero
   warnings. The 23 repo-wide warnings are pre-existing.
+
+## 2026-08-02 — Wave 3 complete: dashboard mounted and proven end to end
+
+### Built — the dashboard is now the first thing a project shows
+
+`ProjectDashboard` is mounted in `DashboardWorkspace`'s intelligence tab, above
+the static project overview. Research §14.1: lead with change, not a blank
+prompt. A chat box asks a returning user to remember what they were tracking and
+re-type it; a change list tells them what happened while they were away, which
+is what makes a second visit worth more than the first.
+
+"Ask about this" on any change routes into the existing composer, carrying the
+observed before/after values so the research turn does not have to re-derive
+them.
+
+### Verified against a running server, not just in unit tests
+
+`scripts/smoke-dashboard-e2e.mjs` (`npm run test:e2e:dashboard`) drives the real
+Next.js server with a real session: signup → create project → seed a change
+event with a genuine evidence span → call the dashboard API → call the evidence
+API. 11 checks, all passing:
+
+- The digest returns the seeded change and the headline names it.
+- Before/after values survive the round trip intact.
+- The materiality *reason* reaches the client, so a user can disagree with the
+  judgment rather than only receiving it.
+- The evidence route returns the exact excerpt with its snapshot hash.
+- A sub-threshold change is withheld, and the withholding is explained.
+
+That last pair is the one worth having an integration test for: it proves the
+gates run server-side and that suppression is visible rather than silent.
+
+Route probes also confirmed the unauthenticated paths redirect rather than
+leaking: `/`, `/api/projects/[id]/dashboard`, and `/api/evidence` all return 307
+to the auth page, and `/auth` returns 200.
+
+### A pre-existing multi-tenant bug found while doing this
+
+`canonical_entities` has a unique constraint on
+`(scope_key, entity_type, entity_key)` with no owner column. Two different users
+tracking the same competitor under the same scope key collide, and the second
+user's insert fails with a unique violation. It surfaced when a smoke run
+collided with a leftover row belonging to a different user.
+
+Not fixed here — it is outside this change and wants its own migration
+following the drop-then-recreate pattern from `0010`. Flagged as follow-up work.
+
+### Verification
+
+- `npm run test:e2e:dashboard`: PASS — 11 passed, 0 failed. All test data
+  removed afterwards; a post-check confirms zero leftover users.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 61 files passed, 1 skipped; 651 tests passed,
+  1 skipped.
+- Production `next build`: PASS.
+- ESLint over the changed components: zero errors, zero warnings.
