@@ -42,7 +42,7 @@ being listed twice.
 - [ ] Build on project editing with entity-match correction and enforced source allow/block controls.
 - [ ] Add normalized verified pricing/release market events; do not infer these from URL changes alone.
 - [ ] Add evidence/claim artifact references to chat turns (the context builder supports them; the UI does not attach them yet).
-- [ ] Fix `canonical_entities` cross-user uniqueness — see gap G-G1 in the plan.
+- [x] Fix `canonical_entities` cross-user uniqueness (migration `0011`, verified behaviourally).
 
 ## Wave 1 — evidence ledger (2026-08-02)
 
@@ -63,8 +63,8 @@ being listed twice.
 - [x] End-to-end proof: connector → spans → observations → measured chart.
 - [x] Changelog/RSS connector and pricing-page extractor.
 - [x] Collection run with the no-change short circuit and graceful degradation.
-- [ ] GDELT and FRED connectors.
-- [ ] Schedule the collection run per project through Inngest.
+- [x] GDELT and FRED connectors, with their misreadings refused in code.
+- [x] Weekly per-project refresh through Inngest, one retryable step per project.
 
 ## Wave 3 — living dashboard (2026-08-02)
 

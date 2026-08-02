@@ -123,7 +123,7 @@ Each gap has an ID used by the build waves in §5.
 
 | ID | Gap | Impact |
 |---|---|---|
-| **G-G1** | `canonical_entities` is unique on `(scope_key, entity_type, entity_key)` with no owner column | Two users tracking the same competitor under one scope collide; the second user's insert fails with a unique violation. Found 2026-08-02 while writing the dashboard end-to-end test |
+| **G-G1** ✅ | FIXED 2026-08-02 in migration `0011` — `canonical_entities` was unique on `(scope_key, entity_type, entity_key)` with no owner column | Two users tracking the same competitor under one scope collide; the second user's insert fails with a unique violation. Found 2026-08-02 while writing the dashboard end-to-end test |
 
 ### F — Release credibility
 
@@ -230,13 +230,13 @@ Where the honest charts get real data and the product starts answering "what cha
 - [x] **F-1** SEC EDGAR connector → XBRL company facts → `metric_observations`
 - [x] **F-4** Changelog/RSS collector → `change_events`
 - [x] **F-3** Pricing-page snapshot extractor → dated plan/price/currency/interval records
-- [ ] **F-9** GDELT connector with a *fixed, disclosed* query set → signal-volume trend with sample denominator
-- [ ] **F-10** FRED connector for adjacent-market context
+- [x] **F-9** GDELT connector with a *fixed, disclosed* query set → signal-volume trend with sample denominator
+- [x] **F-10** FRED connector for adjacent-market context
 - [x] **G-B2** Content diffing over `source_snapshots.content_hash` → normalized before/after
 - [x] **G-B1** `change-detector.ts` — the ten normalized event types from research §10.4
 - [x] **G-B4** `dedupe` — deterministic dedupe key; target <2% duplicates across adjacent runs
 - [x] **G-B3** `materiality.ts` — deterministic score from event type, source trust, magnitude, novelty, and the project's current decision. **Not** model confidence
-- [ ] **G-B5** Per-project scheduled collection in Inngest, split into idempotent steps
+- [x] **G-B5** Per-project scheduled collection in Inngest, split into idempotent steps
 - [x] **G-B6** No-change short circuit: identical hash → heartbeat only, skip extraction and synthesis
 - [ ] Track collection success, freshness, and stale/broken monitored sources
 
