@@ -1360,3 +1360,77 @@ user's scenario, so a response never confirms an id exists.
   1 skipped (up from 662).
 - Production `next build`: PASS. All three routes register.
 - ESLint: zero errors.
+
+## 2026-08-02 — The pipeline is connected: project collection
+
+### The gap this closes
+
+A grep for callers of `saveExtractedEvidence`, `runCollection`, `saveChangeEvent`
+and the connectors found **nothing outside `lib/intelligence/`**. Every piece of
+the evidence pipeline was built and tested, and none of it ran in the actual
+application. A real project's dashboard would have stayed empty indefinitely,
+and the failure would have looked like "the market is quiet" rather than "the
+collector was never called".
+
+This is the difference between a library and a product, and it is worth
+recording as its own entry because passing tests were actively hiding it.
+
+### Built — `lib/intelligence/project-collection.ts`
+
+Turns a Market Project into source definitions, collects them, and writes to the
+ledger.
+
+- **Source discovery is conservative.** Only URLs the user supplied, or the
+  high-value paths derived from those (`/pricing`, `/changelog`, `/blog`), are
+  fetched. A guessed URL that 404s costs a request and teaches nothing; a
+  guessed URL that resolves to the *wrong* company produces evidence attributed
+  to an entity it does not describe, which is worse than no evidence.
+- **An explicit approval outranks the blocklist.** A user who approved a
+  specific URL means it, even if a pattern would otherwise exclude it.
+- **Structured extraction runs before the model.** A pricing page yields prices
+  by regex against its own text; a GitHub URL yields release counts from the
+  API. Those are measured — no model reads them — so the model-backed extractor
+  covers only what they cannot.
+- **Entities are scoped per project.** Two projects tracking the same competitor
+  keep separate entities, or their snapshots and change history interleave.
+- A blocked URL is logged as a policy outcome and the run continues; the source
+  is reported unreachable rather than escalating as an error.
+
+### Built — `POST /api/projects/[id]/collect`
+
+Runs inline rather than queued. A first collection is the moment a user is most
+likely to be watching, and a job id they have to poll is worse than a wait they
+can see. Scheduled refreshes are the case that belongs in a queue and remain
+tracked separately.
+
+A project with no product URL and no approved sources is **refused with a
+specific instruction** rather than returning an empty run, because an empty run
+reads as "we looked and found nothing".
+
+### Tests added
+
+- `__tests__/project-collection.test.ts` — 13 tests covering source derivation,
+  the refusal to invent competitor URLs, blocklist handling, approval
+  precedence, dedupe across trailing slashes, and per-project entity scoping.
+- Extended `scripts/smoke-dashboard-e2e.mjs` to 15 checks, adding the collect
+  route's contract: the no-sources refusal with its machine-readable code, and
+  a 404 for a project the user does not own.
+
+Writing those smoke assertions caught that `apiError` nests as
+`{ error: { code, message } }` rather than a bare string — my first assertion
+read the wrong field and passed a truthy object check while proving nothing.
+
+### Verification
+
+- `npm run test:e2e:dashboard`: PASS — 15 passed, 0 failed.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 64 files passed, 1 skipped; 694 tests passed,
+  1 skipped (up from 681).
+- Production `next build`: PASS; `/api/projects/[id]/collect` registers.
+- ESLint: zero errors.
+
+### What is still not wired
+
+MiroFish live testing is deliberately deferred at the product owner's request.
+The scenario routes and adapter are complete and unit-tested against a mocked
+worker; they have never run against the real service.

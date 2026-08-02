@@ -57,6 +57,33 @@ await client.query(
    VALUES ($1,$2,$3,'pricing_changed','$49/month','$59/month',$4,0.85,'Entry-tier price moved 20% on a tracked competitor','high',$5)`,
   [userId, projectId, ents[0].id, spans[0].id, randomUUID()]);
 
+// ── Collection route contract ───────────────────────────────────────────────
+// Exercised without depending on any external site being up: a project with no
+// sources must refuse with a specific instruction rather than returning an
+// empty run that reads as "we looked and found nothing".
+const bareProject = await (await fetch(`${BASE}/api/projects`, {
+  method: 'POST', headers: jsonHeaders(),
+  body: JSON.stringify({ name: 'No sources', product: 'Nothing', competitors: [] }),
+})).json();
+const bareId = bareProject?.data?.project?.id;
+
+const noSources = await fetch(`${BASE}/api/projects/${bareId}/collect`, {
+  method: 'POST', headers: jsonHeaders(),
+});
+const noSourcesBody = await noSources.json();
+check('collect refuses a project with no sources', noSources.status === 400, String(noSources.status));
+// apiError nests as { error: { code, message } }, not a bare string.
+const refusalText = noSourcesBody?.error?.message ?? String(noSourcesBody?.error ?? '');
+check('the refusal says what to do about it',
+  refusalText.includes('product URL'), refusalText.slice(0, 140));
+check('the refusal carries a machine-readable code',
+  noSourcesBody?.error?.code === 'NO_SOURCES', JSON.stringify(noSourcesBody?.error?.code));
+
+const missing = await fetch(`${BASE}/api/projects/00000000-0000-4000-8000-000000000000/collect`, {
+  method: 'POST', headers: jsonHeaders(),
+});
+check('collect 404s for a project the user does not own', missing.status === 404, String(missing.status));
+
 const dash = await fetch(`${BASE}/api/projects/${projectId}/dashboard`, { headers: jsonHeaders() });
 const dashBody = await dash.json();
 check('dashboard responds', dash.ok, `${dash.status}`);
