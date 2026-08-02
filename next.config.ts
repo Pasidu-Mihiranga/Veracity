@@ -48,6 +48,16 @@ const nextConfig: NextConfig = {
   // Pin workspace root so Next doesn't pick external parent lockfile
   outputFileTracingRoot: path.join(__dirname),
   transpilePackages: ['motion', '@splinetool/react-spline'],
+  /**
+   * Packages Next must not bundle into the server build.
+   *
+   * `apify-client` loads `proxy-agent` through a runtime require that the
+   * bundler cannot trace, so bundling it produced "Cannot find module
+   * 'proxy-agent'" on every Apify call — with the token correctly configured
+   * and the package correctly installed. The live-research run surfaced this;
+   * no unit test could, because the failure only exists inside the Next build.
+   */
+  serverExternalPackages: ['apify-client', 'proxy-agent'],
   webpack: (config, { dev }) => {
     if (dev && process.env.DISABLE_HMR === 'true') {
       config.watchOptions = {

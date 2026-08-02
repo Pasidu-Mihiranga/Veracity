@@ -1859,3 +1859,99 @@ missing `metric_observation` earlier.
 - Full Vitest: PASS — 769 passed, 1 skipped.
 - Production `next build`: PASS; `/timeline` and `/follow-up` register.
 - ESLint: zero errors across `components`, `lib`, and `app`.
+
+## 2026-08-02 — Typed events, entity correction, and the first live-provider run
+
+### Built — typed market events
+
+`lib/intelligence/typed-events.ts`. Change events were inferred from metric
+diffs: a `plan_price` observation moved, therefore "pricing changed". That works
+for a number that moved and is blind to everything else — a tier renamed, a plan
+sunset, a feature moved behind Enterprise.
+
+Worse, inference guesses at *what kind* of change happened. The research is
+explicit that pricing and release events must not be derived from content
+changes alone, because "this page differs" is not the claim "they raised the
+price", and presenting the second when you observed only the first is a
+fabrication with a diff attached to make it look verified.
+
+The extractors already know. Now they emit directly:
+
+- **A price moved** — plan present in both readings at a different amount.
+- **A plan appeared** — packaging changed, often a bigger signal than a price.
+- **A plan disappeared** — a strategic move involving *no number changing at
+  all*, which metric diffing could never see.
+- **A currency change** — a repricing even at the same number, and not compared
+  as a numeric move because across currencies that is meaningless.
+- **Releases and changelog entries** carry `effectiveAt` from the source, so a
+  competitor who shipped three weeks ago shipped three weeks ago.
+
+A first reading still emits nothing, and undated changelog entries are skipped
+rather than dated to now.
+
+### Built — entity match correction
+
+`GET/PATCH /api/projects/[id]/entities` and `EntityCorrectionPanel`.
+
+Entity matching is a heuristic and when it is wrong the failure compounds:
+evidence about a different company attaches to a competitor and every claim
+resting on it inherits the error. The user is the only reliable arbiter of "that
+Lilian is the design agency".
+
+Marking a span as a mismatch **does not delete it** — the excerpt was genuinely
+retrieved and the record of having looked is worth keeping. What changes is that
+it stops supporting claims, stops reaching the digest, and leaves the evidence
+pack. Critically, the correction also **downgrades the claims that leaned on
+it** to interpretation; without that the fix would be cosmetic, with the span
+withdrawn but its claims still sitting in the ledger at their old confidence.
+The count is returned so the UI can say what the correction actually did.
+
+Source allow/block was already enforced in `project-collection` and is verified
+by the existing tests.
+
+### `npm run test:e2e:live-research` — run for the first time
+
+Explicitly requested, real, and billable. It passed, and it surfaced two things
+no unit test could.
+
+**1. `proxy-agent` could not be found at runtime.** `apify-client` loads it
+through a require the bundler cannot trace, so every Apify call failed with
+"Cannot find module 'proxy-agent'" — with the token correctly configured and the
+package correctly installed. Fixed by adding `apify-client` and `proxy-agent` to
+`serverExternalPackages`. After the fix the Apify run executes and returns a
+dataset. This failure existed only inside the Next build, which is exactly the
+class of problem a live run exists to catch.
+
+**2. The SerpAPI account is out of searches.** Every `serpapi.*` call returned
+HTTP 429 "Your account has run out of searches." Not a code defect — a quota to
+top up. Until then, web and news search return nothing and the product is
+running on HN, Apify, and the structured connectors only.
+
+What the run did prove: Gemini synthesis works (4 calls, ~5.5k tokens,
+`gemini-3.1-flash-lite`), HN works, Apify works after the fix, and every failed
+tool was logged as `tool.failed` rather than silently substituted.
+
+**What it did not prove:** the smoke deletes its user on completion, so the
+stored output was gone before it could be inspected for fabrication. The
+forced-failure suite covers that contract at the unit level; this run did not
+independently confirm it end to end.
+
+### Tests added
+
+- `__tests__/typed-events.test.ts` — 15 tests, including the two cases inference
+  could never produce: a plan disappearing, and a rename at an identical price
+  emitting two events rather than one silent no-change.
+
+### Verification
+
+- `npm run test:e2e:live-research`: PASS (real providers).
+- `npm run test:e2e:dashboard`: PASS — 42/42.
+- `npm run typecheck`: PASS.
+- Full Vitest: PASS — 784 passed, 1 skipped (up from 769).
+- Production `next build`: PASS.
+- ESLint: zero errors.
+
+### Action for the product owner
+
+Top up SerpAPI, or accept that web and news search are dark. It is the single
+largest gap in live coverage right now, and no amount of code fixes it.
