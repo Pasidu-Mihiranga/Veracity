@@ -1026,3 +1026,58 @@ advanced prototype / private beta.
 done: fabricated output removed and locked by tests, the outbound URL policy in
 place, feature flags agreeing across client and server, real multimodal input,
 and a README that does not overstate the product.
+
+## 2026-08-02 — Wave 4 (part 2): scenario runner and result surfaces
+
+### Built — `lib/intelligence/scenario-runner.ts`
+
+Executes the three rounds and aggregates the result. Aggregation is where a
+synthetic panel is most likely to mislead, so the rules are strict:
+
+- **Failed personas are counted, never dropped.** Silently excluding them turns
+  a half-broken run into a smaller panel that looks complete, and the
+  distribution then reads as consensus among the survivors.
+- **Counts must reconcile to the panel size.** When they do not — because
+  personas failed, returned nothing, or named an alternative that is not in the
+  brief — the distribution is withheld and the reason is stated. A chart whose
+  bars do not sum to the stated total invites the reader to infer a total that
+  is not there.
+- **No probability is emitted.** Persona counts are counts; converting them to a
+  percentage implies a sampling frame that does not exist.
+- **A persona that fails one round is still asked the next**, so a transient
+  model error in round 2 cannot silently shrink the decision round.
+- Position changes between the challenge and decision rounds are recorded, so
+  movement can be charted rather than inferred from two separate distributions.
+  Movement is often more informative than the final split.
+
+### Built — `components/artifacts/ScenarioLabCharts.tsx`
+
+The design works against the single most dangerous misreading — persona
+agreement taken as evidence:
+
+- The synthetic badge sits on every panel, not just the first.
+- Counts render as "7 of 12 personas", never as a percentage.
+- Dissent gets equal visual weight to the majority, because a 7–5 split and a
+  12–0 split are different findings that a bar chart alone conflates.
+- Unanimity is explicitly flagged as more likely to reflect framing than
+  agreement, with a prompt to re-check the assumptions.
+- A zero count renders as no bar rather than a minimum-width stub.
+- Raw persona responses stay one click away, so the panel is inspectable rather
+  than something the user has to take on trust.
+- Limitations render last and always.
+
+### Tests added
+
+- `__tests__/scenario-runner.test.ts` — 17 tests: round execution, per-persona
+  history isolation, the absence of any probability field, reconciliation and
+  withholding, invented alternatives, failure counting, recovery after a
+  mid-scenario failure, refusal to fabricate a panel, dissent, objection
+  grouping, and position changes.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 60 files passed, 1 skipped; 639 tests passed,
+  1 skipped (up from 622).
+- Production `next build`: PASS.
+- ESLint: PASS, zero errors.
