@@ -755,3 +755,68 @@ every price keeps its surrounding sentence as the excerpt.
 - Full Vitest regression: PASS — 55 files passed, 1 skipped; 554 tests passed,
   1 skipped (up from 534).
 - ESLint: PASS, zero errors.
+
+## 2026-08-02 — Wave 3 (part 1): digest assembly and the returning-user surface
+
+### Built — `lib/intelligence/digest.ts`
+
+The five gates from the research (event is from this period, not already
+reported, entity matches, an evidence span is stored, materiality clears the
+threshold) are enforced in one function, so no caller can send an alert that
+skips one.
+
+The design bias is toward sending nothing. A digest a user stops opening is
+worth less than no digest, and the failure mode of a monitoring product is
+always over-reporting.
+
+- Suppression reasons are returned alongside the digest rather than discarded.
+  "We saw four changes but none cleared your threshold" is a useful answer and
+  lets a user tune the threshold instead of assuming the product is asleep.
+- Items are ordered most-material first, so a user who reads only the first
+  item gets the one that matters most, then grouped by entity so the digest
+  reads as "what did Lilian do" rather than a flat interleaved list.
+- The headline names the change (`Lilian changed pricing`) rather than counting
+  changes (`3 changes`), because only the former tells a user whether to open
+  it.
+- `shouldSend` is separate from `buildDigest`: an empty digest is useful
+  in-app — "nothing changed" is information — but must never become an email.
+- A hard item cap keeps a noisy week readable, and the overflow is disclosed.
+
+### Built — `components/dashboard/SinceLastVisit.tsx`
+
+The surface a returning user lands on. Research §14.1: lead with change, not a
+blank prompt. A chat box asks the user to remember what they were tracking; a
+change list tells them what happened while they were away, which is what makes a
+second visit worth more than the first.
+
+- "Nothing changed" is stated confidently rather than hidden. A product that
+  only speaks when it has news teaches users that silence means broken.
+- Every row shows why it was judged material, so a user can argue with the
+  threshold rather than having to trust it.
+- Unreachable sources are surfaced separately with an explicit note that a
+  change on them would not have been detected — "no change" and "we could not
+  look" mean opposite things, and collapsing them is dishonest.
+- Suppressed changes are disclosed and expandable, answering "why am I not
+  seeing more?" before the user has to ask.
+
+### Tests added
+
+- `__tests__/digest.test.ts` — 17 tests, one per gate plus ordering, grouping,
+  capping, headline construction, and rendering. Includes the cases that must
+  *not* send: pre-period events, cross-run duplicates, entity mismatch, missing
+  evidence span, and sub-threshold materiality.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 56 files passed, 1 skipped; 571 tests passed,
+  1 skipped (up from 554).
+- Production `next build`: PASS, compiled successfully.
+- ESLint: PASS, zero errors.
+
+### Remaining in Wave 3
+
+Wiring the dashboard into the project route as the default screen, the activity
+timeline and pricing/release charts on it, the feature verification matrix,
+rolling conversation summary, artifact references on turns, and a genuinely
+cheap Explain mode.
