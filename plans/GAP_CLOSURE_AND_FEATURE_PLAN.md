@@ -222,16 +222,16 @@ Where the honest charts get real data and the product starts answering "what cha
 
 - [x] **F-2** GitHub Releases connector → `metric_observations` (release cadence). Start here: cheapest path to a measured chart
 - [x] **F-1** SEC EDGAR connector → XBRL company facts → `metric_observations`
-- [ ] **F-4** Changelog/RSS collector → `change_events`
-- [ ] **F-3** Pricing-page snapshot extractor → dated plan/price/currency/interval records
+- [x] **F-4** Changelog/RSS collector → `change_events`
+- [x] **F-3** Pricing-page snapshot extractor → dated plan/price/currency/interval records
 - [ ] **F-9** GDELT connector with a *fixed, disclosed* query set → signal-volume trend with sample denominator
 - [ ] **F-10** FRED connector for adjacent-market context
-- [ ] **G-B2** Content diffing over `source_snapshots.content_hash` → normalized before/after
+- [x] **G-B2** Content diffing over `source_snapshots.content_hash` → normalized before/after
 - [x] **G-B1** `change-detector.ts` — the ten normalized event types from research §10.4
 - [x] **G-B4** `dedupe` — deterministic dedupe key; target <2% duplicates across adjacent runs
 - [x] **G-B3** `materiality.ts` — deterministic score from event type, source trust, magnitude, novelty, and the project's current decision. **Not** model confidence
 - [ ] **G-B5** Per-project scheduled collection in Inngest, split into idempotent steps
-- [ ] **G-B6** No-change short circuit: identical hash → heartbeat only, skip extraction and synthesis
+- [x] **G-B6** No-change short circuit: identical hash → heartbeat only, skip extraction and synthesis
 - [ ] Track collection success, freshness, and stale/broken monitored sources
 
 **Exit:** change a controlled test page; exactly one traceable event appears with a before/after and an evidence span. Run again unchanged: zero events, zero synthesis cost, freshness updated.
@@ -243,12 +243,12 @@ Where the honest charts get real data and the product starts answering "what cha
 Turns the accumulated state into the surface users return to.
 
 - [ ] **F-8** Project dashboard becomes the default screen; chat becomes "Ask this market" beside it
-- [ ] "Since your last visit" material-change strip
+- [x] "Since your last visit" material-change strip
 - [ ] **F-6** Competitor activity timeline
 - [ ] Pricing history + release cadence charts (from Wave 2 observations)
 - [ ] **F-11** Feature verification matrix — per-cell verification state and dated evidence
 - [ ] Evidence quality and stale-source warnings
-- [ ] **F-7** Weekly digest — fires only when snapshot is new, event is not duplicate, entity matches, materiality clears threshold, and an exact evidence span exists
+- [x] **F-7** Weekly digest — fires only when snapshot is new, event is not duplicate, entity matches, materiality clears threshold, and an exact evidence span exists
 - [ ] **G-D1** Rolling structured conversation summary preserving citation ids
 - [ ] **G-D2** Artifact references on turns — ask from any claim, chart, source, event, or recommendation
 - [ ] **G-D3** Make "Explain" genuinely cheap: answer from stored evidence with zero collection

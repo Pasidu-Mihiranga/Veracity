@@ -49,8 +49,20 @@ Last updated: 2026-08-02
 - [x] SEC EDGAR connector (measured filed financials).
 - [x] Change detection, deterministic dedupe key, materiality scoring.
 - [x] End-to-end proof: connector → spans → observations → measured chart.
-- [ ] Changelog/RSS, pricing-page extractor, GDELT, FRED connectors.
-- [ ] Per-project scheduled collection with the no-change short circuit.
+- [x] Changelog/RSS connector and pricing-page extractor.
+- [x] Collection run with the no-change short circuit and graceful degradation.
+- [ ] GDELT and FRED connectors.
+- [ ] Schedule the collection run per project through Inngest.
+
+## Wave 3 — living dashboard (2026-08-02)
+
+- [x] Digest assembly with the five send gates and disclosed suppression.
+- [x] `SinceLastVisit` returning-user surface.
+- [ ] Wire the dashboard into the project route as the default screen.
+- [ ] Activity timeline, pricing history, and release cadence on the dashboard.
+- [ ] Feature verification matrix with per-cell evidence.
+- [ ] Rolling conversation summary and artifact references on turns.
+- [ ] Make Explain genuinely cheap (answer from stored evidence, no collection).
 
 ## Wave 0 — product-level honesty sweep (2026-08-02)
 
