@@ -81,6 +81,10 @@ const envSchema = z.object({
   MIROFISH_LIVE_MAX_AGENTS: optionalInt(5, 1, 6),
   MIROFISH_LIVE_INTERVIEW_TIMEOUT_SEC: optionalInt(240, 30, 360),
   MIROFISH_LIVE_STRICT_SERIAL_MODE: optionalString,
+  // Shared secret for the MiroFish worker. The service refuses every API route
+  // without it, so a missing value here surfaces as a clear 503 rather than as
+  // a mysterious failure mid-panel.
+  MIROFISH_SERVICE_TOKEN: optionalString,
 
   // ── Rate limiting (optional locally; enable in production) ─
   UPSTASH_REDIS_REST_URL: optionalUrl,

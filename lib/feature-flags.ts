@@ -1,10 +1,22 @@
 /**
- * Competition / Phase 3B feature flags (NEXT_PUBLIC_* so client + server agree).
- * Default ON when unset so demo surfaces ship; set to "0" | "false" | "off" to disable.
+ * Feature flags.
+ *
+ * IMPORTANT — why every variable below is written out literally:
+ * Next.js replaces `process.env.NEXT_PUBLIC_*` in browser bundles only when the
+ * property is referenced *statically*. A dynamic lookup (`process.env[name]`)
+ * is not inlined, so client code silently fell back to the hardcoded default
+ * while the server read the deployed value. That disagreement is a correctness
+ * bug — a surface could render as enabled in the browser while the server
+ * treated it as off. See:
+ * https://nextjs.org/docs/pages/guides/environment-variables
+ *
+ * Rule: never introduce a dynamic `process.env[...]` read in this file, and
+ * never read a flag env var anywhere else. `__testResolveFlag` exists only so
+ * the parsing rules can be unit-tested.
  */
 
-function envFlag(name: string, defaultOn = true): boolean {
-  const raw = process.env[name];
+/** Parse one raw env value. Unset/empty falls back to `defaultOn`. */
+function parseFlag(raw: string | undefined, defaultOn: boolean): boolean {
   if (raw === undefined || raw === '') return defaultOn;
   const v = raw.trim().toLowerCase();
   if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false;
@@ -12,54 +24,72 @@ function envFlag(name: string, defaultOn = true): boolean {
   return defaultOn;
 }
 
+/** Exposed for tests only — production code must use `featureFlags`. */
+export const __testResolveFlag = parseFlag;
+
 export const featureFlags = {
   /** Expandable claim↔URL Evidence Trail on recommendations */
-  evidenceTrail: envFlag('NEXT_PUBLIC_FF_EVIDENCE_TRAIL'),
+  evidenceTrail: parseFlag(process.env.NEXT_PUBLIC_FF_EVIDENCE_TRAIL, true),
   /** Live Orchestrator View + Thinking Timeline */
-  orchestratorView: envFlag('NEXT_PUBLIC_FF_ORCHESTRATOR_VIEW'),
+  orchestratorView: parseFlag(process.env.NEXT_PUBLIC_FF_ORCHESTRATOR_VIEW, true),
   /** Full-screen Executive Board / Presentation Mode */
-  boardMode: envFlag('NEXT_PUBLIC_FF_BOARD_MODE'),
-  /** Phase 6 — async by default when an Inngest transport is explicitly configured */
-  asyncSweep: envFlag('NEXT_PUBLIC_FF_ASYNC_SWEEP', true),
-  /** Phase 5 — durable audit logs for exports / sweeps */
-  auditLogs: envFlag('NEXT_PUBLIC_FF_AUDIT_LOGS', false),
-  /** Phase 5 — strategic watchlists UI */
-  watchlists: envFlag('NEXT_PUBLIC_FF_WATCHLISTS', true),
-  /** Phase 5 — weekly monitoring + in-app alerts */
-  alerts: envFlag('NEXT_PUBLIC_FF_ALERTS', true),
-  /** Phase 3 — Decision Memory store */
-  decisionMemory: envFlag('NEXT_PUBLIC_FF_DECISION_MEMORY', true),
-  /** Phase 5 — Competitive Timeline + Trend Summary */
-  competitiveTimeline: envFlag('NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE', true),
-  /** Phase 3 — cross-session feedback learning injection */
-  feedbackLearning: envFlag('NEXT_PUBLIC_FF_FEEDBACK_LEARNING', true),
-  /** Phase 6 — multi-tenant workspaces */
-  workspaces: envFlag('NEXT_PUBLIC_FF_WORKSPACES', false),
-  /** Phase 6 — RBAC enforcement UI + assertPermission */
-  rbac: envFlag('NEXT_PUBLIC_FF_RBAC', false),
-  /** Phase 6 — SAML SSO ACS + config */
-  samlSso: envFlag('NEXT_PUBLIC_FF_SAML_SSO', false),
-  /** Phase 6 — Organization Intelligence Monitor */
-  orgIntelligence: envFlag('NEXT_PUBLIC_FF_ORG_INTELLIGENCE', false),
-  /** Phase 6 — canonical entities, profile snapshots, and timeline board refresh */
-  continuousIntelligence: envFlag('NEXT_PUBLIC_FF_CONTINUOUS_INTELLIGENCE', true),
-  /** Phase 7 — Evidence knowledge graph */
-  evidenceGraph: envFlag('NEXT_PUBLIC_FF_EVIDENCE_GRAPH', false),
-  /** Phase 7 — competitor profiles + timeline */
-  competitorProfiles: envFlag('NEXT_PUBLIC_FF_COMPETITOR_PROFILES', false),
-  /** Phase 7 — Knowledge Graph Explorer UI */
-  kgExplorer: envFlag('NEXT_PUBLIC_FF_KG_EXPLORER', false),
-  /** Phase 7 — Cross-Agent Memory */
-  crossAgentMemory: envFlag('NEXT_PUBLIC_FF_CROSS_AGENT_MEMORY', false),
-  /** Phase 7 — entity resolution / maintenance */
-  kgMaintenance: envFlag('NEXT_PUBLIC_FF_KG_MAINTENANCE', false),
-  /** Phase 7 — graph analytics widgets */
-  kgAnalytics: envFlag('NEXT_PUBLIC_FF_KG_ANALYTICS', false),
+  boardMode: parseFlag(process.env.NEXT_PUBLIC_FF_BOARD_MODE, true),
+  /** Async sweep — Inngest transport must also be configured */
+  asyncSweep: parseFlag(process.env.NEXT_PUBLIC_FF_ASYNC_SWEEP, true),
+  /** Durable audit logs for exports / sweeps */
+  auditLogs: parseFlag(process.env.NEXT_PUBLIC_FF_AUDIT_LOGS, false),
+  /** Strategic watchlists UI */
+  watchlists: parseFlag(process.env.NEXT_PUBLIC_FF_WATCHLISTS, true),
+  /** Weekly monitoring + in-app alerts */
+  alerts: parseFlag(process.env.NEXT_PUBLIC_FF_ALERTS, true),
+  /** Decision Memory store */
+  decisionMemory: parseFlag(process.env.NEXT_PUBLIC_FF_DECISION_MEMORY, true),
+  /** Competitive Timeline + Trend Summary */
+  competitiveTimeline: parseFlag(process.env.NEXT_PUBLIC_FF_COMPETITIVE_TIMELINE, true),
+  /** Cross-session feedback learning injection */
+  feedbackLearning: parseFlag(process.env.NEXT_PUBLIC_FF_FEEDBACK_LEARNING, true),
+  /** Canonical entities, profile snapshots, and timeline board refresh */
+  continuousIntelligence: parseFlag(process.env.NEXT_PUBLIC_FF_CONTINUOUS_INTELLIGENCE, true),
+
+  // ── Deferred until after the functional product ships ────────────────────
+  // Enterprise identity, tenancy, and governance are sequenced after the MVP
+  // and the research features (plans/GAP_CLOSURE_AND_FEATURE_PLAN.md §5.6).
+  // These default OFF on both client and server and must stay that way until
+  // the enterprise phase begins.
+
+  /** Multi-tenant workspaces */
+  workspaces: parseFlag(process.env.NEXT_PUBLIC_FF_WORKSPACES, false),
+  /** RBAC enforcement UI + assertPermission */
+  rbac: parseFlag(process.env.NEXT_PUBLIC_FF_RBAC, false),
   /**
-   * Architecture — LangGraph wave executor (ADR-0004 / ADR-0007 / ADR-0008).
-   * Default OFF in code. Set NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1 locally to test.
+   * SAML SSO ACS + config.
+   * Deferred: the current implementation does not verify assertion signatures,
+   * so it must not be enabled in the functional product. A standards-compliant
+   * replacement is scheduled for the enterprise phase.
    */
-  langgraphExecutor: envFlag('NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR', false),
+  samlSso: parseFlag(process.env.NEXT_PUBLIC_FF_SAML_SSO, false),
+  /** Organization Intelligence Monitor */
+  orgIntelligence: parseFlag(process.env.NEXT_PUBLIC_FF_ORG_INTELLIGENCE, false),
+
+  // ── Knowledge-graph surfaces — deferred (research §11.3) ─────────────────
+
+  /** Evidence knowledge graph */
+  evidenceGraph: parseFlag(process.env.NEXT_PUBLIC_FF_EVIDENCE_GRAPH, false),
+  /** Competitor profiles + timeline */
+  competitorProfiles: parseFlag(process.env.NEXT_PUBLIC_FF_COMPETITOR_PROFILES, false),
+  /** Knowledge Graph Explorer UI */
+  kgExplorer: parseFlag(process.env.NEXT_PUBLIC_FF_KG_EXPLORER, false),
+  /** Cross-Agent Memory */
+  crossAgentMemory: parseFlag(process.env.NEXT_PUBLIC_FF_CROSS_AGENT_MEMORY, false),
+  /** Entity resolution / maintenance */
+  kgMaintenance: parseFlag(process.env.NEXT_PUBLIC_FF_KG_MAINTENANCE, false),
+  /** Graph analytics widgets */
+  kgAnalytics: parseFlag(process.env.NEXT_PUBLIC_FF_KG_ANALYTICS, false),
+  /**
+   * LangGraph wave executor (ADR-0004 / ADR-0007 / ADR-0008).
+   * Gated behind a benchmark; default OFF.
+   */
+  langgraphExecutor: parseFlag(process.env.NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR, false),
 } as const;
 
 export type FeatureFlagKey = keyof typeof featureFlags;

@@ -81,13 +81,41 @@ function supportLevel(score: number): EvidenceSupportLevel {
   return 'unsupported';
 }
 
+/**
+ * Spans available to prove claims, keyed by the claim text they support.
+ *
+ * When a span is available it wins outright: an excerpt from the page is proof,
+ * whereas the lexical score below only measures whether a claim's words happen
+ * to overlap a source's title and URL. Keeping the lexical path is deliberate —
+ * most agents do not produce spans yet — but it is now labelled as what it is
+ * so a caller can tell a proven claim from a topically-related link.
+ */
+export interface SpanBindingIndex {
+  /** claim text -> { spanIds, sourceUrls } */
+  byClaim: Map<string, { spanIds: string[]; sourceUrls: string[] }>;
+}
+
 function bindClaim(
   claim: string,
   sources: AgentSource[],
   entityTerms: string[],
   officialDomains: string[],
   maxUrls: number,
+  spanIndex?: SpanBindingIndex,
 ): EvidenceClaimBinding {
+  const spanMatch = spanIndex?.byClaim.get(claim.trim());
+  if (spanMatch && spanMatch.spanIds.length > 0) {
+    return {
+      claim,
+      // An excerpt that supports the claim is the strongest binding available.
+      support: 'supported',
+      sourceUrls: spanMatch.sourceUrls.slice(0, maxUrls),
+      matchScore: 1,
+      bindingMethod: 'span',
+      evidenceSpanIds: spanMatch.spanIds,
+    };
+  }
+
   const scored = sources
     .map((source) => ({
       url: source.url,
@@ -103,6 +131,8 @@ function bindClaim(
     support: supportLevel(matchScore),
     sourceUrls,
     matchScore,
+    // Recorded so the UI can say "related source" rather than "evidence".
+    bindingMethod: 'lexical',
   };
 }
 
@@ -129,6 +159,7 @@ export function bindEvidenceToSources(
   opts?: {
     productUrl?: string;
     competitorUrl?: string;
+    spanIndex?: SpanBindingIndex;
   },
 ): Recommendation[] {
   const entityTerms = buildEntityTerms(product, competitor);
@@ -137,7 +168,9 @@ export function bindEvidenceToSources(
   return recommendations.map((rec) => {
     const bindings = (rec.evidence ?? [])
       .filter((claim) => claim.trim().length > 0)
-      .map((claim) => bindClaim(claim, sources, entityTerms, officialDomains, maxUrls));
+      .map((claim) =>
+        bindClaim(claim, sources, entityTerms, officialDomains, maxUrls, opts?.spanIndex),
+      );
     const sourceUrls = [...new Set(bindings.flatMap((binding) => binding.sourceUrls))]
       .slice(0, maxUrls);
     const evidenceStatus = aggregateSupport(bindings);
@@ -174,6 +207,7 @@ export function bindProseToSources(
   opts?: {
     productUrl?: string;
     competitorUrl?: string;
+    spanIndex?: SpanBindingIndex;
   },
 ): EvidenceClaimBinding[] {
   if (!prose || typeof prose !== 'string') return [];
@@ -187,6 +221,6 @@ export function bindProseToSources(
     .filter((s) => s.length > 10);
 
   return sentences.map((sentence) =>
-    bindClaim(sentence, sources, entityTerms, officialDomains, maxUrls),
+    bindClaim(sentence, sources, entityTerms, officialDomains, maxUrls, opts?.spanIndex),
   );
 }

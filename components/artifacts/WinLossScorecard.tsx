@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
+import { UnassessedBadge } from './UnassessedBadge';
 import type { WinLossOutput, WinReason } from '@/lib/agents/types';
 
 interface Props {
@@ -47,7 +49,7 @@ export function WinLossScorecard({ output, competitor, product }: Props) {
   const competitorLosses = output.competitorLosses ?? [];
   const buyerSentiment = output.buyerSentiment;
   const topSwitchTriggers = output.topSwitchTriggers ?? [];
-  const sentCfg = SENTIMENT_CONFIG[buyerSentiment] ?? SENTIMENT_CONFIG.mixed;
+  const sentCfg = buyerSentiment ? SENTIMENT_CONFIG[buyerSentiment] : null;
   const competitorLabel = competitor && competitor !== 'main competitor' ? competitor : 'Competitor';
   const productLabel = product || 'Us';
 
@@ -57,9 +59,13 @@ export function WinLossScorecard({ output, competitor, product }: Props) {
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Win / Loss Analysis</div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono font-semibold text-foreground uppercase tracking-wider px-2 py-0.5 rounded bg-accent/10 border border-accent/20">{competitorLabel}</span>
-          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${sentCfg.class}`}>
-            {sentCfg.label}
-          </span>
+          {sentCfg ? (
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${sentCfg.class}`}>
+              {sentCfg.label}
+            </span>
+          ) : (
+            <UnassessedBadge label="Sentiment" />
+          )}
         </div>
       </div>
 
@@ -98,6 +104,16 @@ export function WinLossScorecard({ output, competitor, product }: Props) {
           </div>
         </div>
       )}
+
+      <ArtifactMethodology
+        output={output}
+        method="Reasons were extracted from public reviews and community discussion, then grouped. Frequency reflects how often a theme appeared in the retrieved sample."
+        limitations={[
+          'A convenience sample of public posts, not a win/loss survey.',
+          'Frequency describes the retrieved sample only; the population denominator is unknown.',
+        ]}
+        csv={{ filename: 'veracity-win-loss.csv', headers: ['side', 'reason', 'frequency', 'evidence'], rows: [...competitorWins.map((w) => ['competitor_win', w.reason, w.frequency, w.evidence]), ...competitorLosses.map((w) => ['competitor_loss', w.reason, w.frequency, w.evidence])] }}
+      />
     </div>
   );
 }

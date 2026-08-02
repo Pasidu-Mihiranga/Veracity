@@ -2,6 +2,9 @@
   "name": "ai-studio-applet",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:local": "npm run db:local:start && npm run dev",
@@ -23,6 +26,9 @@
     "test:api-smoke": "node scripts/api-smoke.mjs",
     "test:e2e:market-project": "node scripts/smoke-market-project.mjs",
     "test:e2e:live-research": "VERACITY_LIVE_RESEARCH=1 node scripts/smoke-market-project.mjs",
+    "test:e2e:evidence-ledger": "node scripts/smoke-evidence-ledger.mjs",
+    "test:e2e:swarm-scenarios": "node scripts/smoke-swarm-scenarios.mjs",
+    "test:e2e:dashboard": "node scripts/smoke-dashboard-e2e.mjs",
     "test:monitoring-integration": "npx tsx scripts/validate-phase5-monitoring.ts",
     "test:continuous-integration": "npx tsx scripts/validate-phase5-monitoring.ts",
     "test:phase6": "vitest run __tests__/phase6-continuous-intelligence.test.ts",
@@ -34,9 +40,13 @@
     "db:migrate:market-projects": "node scripts/apply-market-projects-migration.mjs",
     "db:migrate:project-history": "node scripts/apply-project-history-migration.mjs",
     "db:migrate:project-decisions": "node scripts/apply-project-decisions-migration.mjs",
+    "db:migrate:evidence-ledger": "node scripts/apply-evidence-ledger-migration.mjs",
+    "db:migrate:swarm-scenarios": "node scripts/apply-swarm-scenarios-migration.mjs",
+    "db:migrate:entity-ownership": "node scripts/apply-entity-ownership-migration.mjs",
+    "db:migrate:conversation-summaries": "node scripts/apply-conversation-summaries-migration.mjs",
     "typecheck": "tsc --noEmit",
     "bench:recall": "npx tsx scripts/benchmark-recall.mjs",
-    "bench:executors": "vitest run __tests__/bench-executor-parity.test.ts",
+    "bench:executors": "BENCH_WRITE=1 vitest run __tests__/bench-executor-parity.test.ts",
     "bench:executors:live": "BENCH_LIVE=1 vitest run __tests__/bench-live-sample.test.ts",
     "build:analyze": "ANALYZE=true next build",
     "prepare": "husky"

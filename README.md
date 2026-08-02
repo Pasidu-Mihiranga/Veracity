@@ -1,6 +1,225 @@
 # Veracity
 
-> Multi-agent growth & competitive intelligence — live research, execution assets, closed feedback loop, and executive PDF export.
+> **Know what changed, prove it, and decide what to do next.**
+>
+> A living competitive decision workspace. Veracity monitors the competitors and
+> sources a team chooses, turns what it finds into a traceable evidence ledger,
+> and builds charts whose every value can be traced back to the exact excerpt it
+> came from.
+
+**Status: advanced prototype, private beta.** Not enterprise-ready — identity,
+tenancy, and governance are deliberately deferred until the core loop retains
+users. See [`plans/GAP_CLOSURE_AND_FEATURE_PLAN.md`](./plans/GAP_CLOSURE_AND_FEATURE_PLAN.md) §5.6.
+
+### What is actually true today
+
+| Claim | Reality |
+|---|---|
+| Evidence-backed claims | Real: `metric_observations` cannot be stored without an evidence span, enforced by the database |
+| Measured charts | Real for GitHub releases, SEC filings, changelogs, and pricing pages. Other domains still produce model-derived output, and are labelled `derived` |
+| Change detection | Real: content-hash diffing, deterministic dedupe, explainable materiality |
+| No fabrication on provider failure | Enforced by `__tests__/no-fabrication-on-failure.test.ts` across all six research agents |
+| Synthetic scenario panel | Model-generated personas. Not survey data, not calibrated, never enters the evidence ledger |
+| Enterprise SSO / SCIM / RBAC | **Not available.** SAML routes exist but do not verify assertion signatures and are off by default |
+| Image analysis | Real — image bytes are sent as multimodal parts |
+
+---
+
+# Getting started
+
+Works on **macOS, Linux, and Windows (WSL2 recommended)**. Roughly 15 minutes,
+most of which is waiting for installs.
+
+## 1. What you need first
+
+| Requirement | Version | How to check | If you do not have it |
+|---|---|---|---|
+| **Node.js** | 20.12 or newer (22 recommended) | `node -v` | [nodejs.org](https://nodejs.org) or `nvm install 22` |
+| **PostgreSQL** | 14+ with the `pgvector` extension | `psql --version` | See step 3 — the repo can set up its own |
+| **Git** | any recent | `git --version` | [git-scm.com](https://git-scm.com) |
+| **Python** | 3.10+ | `python3 --version` | Only needed for the optional simulation service |
+
+The repo pins Node with `.nvmrc`. If you use nvm, run `nvm use` in the project
+folder and it picks the right version. **Node 18 will not work** — the test
+runner fails to start on it, and the error message does not explain why.
+
+## 2. Get the code and install
+
+```bash
+git clone <your-repo-url> veracity
+cd veracity
+nvm use          # optional, but pins the right Node
+npm install
+```
+
+## 3. Set up the database
+
+You need PostgreSQL with `pgvector`. Pick whichever fits.
+
+### Option A — let the repo run its own PostgreSQL (recommended for local dev)
+
+This creates a PostgreSQL instance inside the project folder on port **5435**,
+so it cannot collide with anything else you already run.
+
+```bash
+npm run db:local:start     # starts it
+npm run db:schema:apply    # creates all tables
+npm run db:local:status    # confirms it is up
+```
+
+Requires PostgreSQL and pgvector installed via your package manager:
+
+```bash
+# macOS
+brew install postgresql@17 pgvector
+
+# Ubuntu / Debian / WSL2
+sudo apt install postgresql postgresql-contrib postgresql-17-pgvector
+```
+
+### Option B — Docker
+
+```bash
+docker run -d --name veracity-db \
+  -e POSTGRES_PASSWORD=veracity \
+  -e POSTGRES_DB=veracity \
+  -p 5432:5432 \
+  pgvector/pgvector:pg17
+
+npm run db:schema:apply
+```
+
+### Option C — a hosted database
+
+Any PostgreSQL 14+ with pgvector works (Supabase, Neon, RDS). Put its
+connection string in `DATABASE_URL` and run `npm run db:schema:apply`.
+
+### Apply the migrations
+
+After the schema, run these once. Each is safe to re-run.
+
+```bash
+npm run db:migrate:market-projects
+npm run db:migrate:project-history
+npm run db:migrate:project-decisions
+npm run db:migrate:evidence-ledger
+npm run db:migrate:swarm-scenarios
+npm run db:migrate:entity-ownership
+```
+
+## 4. Configure your keys
+
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and fill it in. **Only three are required.**
+
+### Required — the app will not start without these
+
+| Variable | What it is | Where to get it | Cost |
+|---|---|---|---|
+| `DATABASE_URL` | Your PostgreSQL connection string | From step 3. Local default: `postgresql://veracity@localhost:5435/veracity` | Free |
+| `AUTH_SECRET` | Signs your login sessions | Generate one: `openssl rand -base64 32` | Free |
+| `GEMINI_API_KEY` | The model that reads pages and writes the analysis | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Free tier available |
+
+### Strongly recommended — without these, coverage is thin
+
+| Variable | What it unlocks | Where | Cost |
+|---|---|---|---|
+| `SERPAPI_KEY` | Web and news search. **Without it the product cannot search the open web at all** | [serpapi.com](https://serpapi.com) | Free tier, then paid |
+| `FIRECRAWL_API_KEY` | Reading competitor pages reliably (JS-heavy sites) | [firecrawl.dev](https://firecrawl.dev) | Free tier available |
+
+### Optional — each adds one capability, and the product says so when missing
+
+| Variable | What it unlocks | Where | Cost |
+|---|---|---|---|
+| `GITHUB_TOKEN` | Higher rate limits on release tracking. Public repos work without it | [github.com/settings/tokens](https://github.com/settings/tokens) | Free |
+| `FRED_API_KEY` | Macroeconomic context charts | [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html) | Free |
+| `APIFY_API_TOKEN` | Social signal from X/Twitter | [apify.com](https://apify.com) | Free tier, then paid |
+| `SEC_EDGAR_USER_AGENT` | Your contact string for SEC filings. Set it to a real email | — | Free |
+| `MIROFISH_*` | The simulated buyer panel. See below | — | Free (self-hosted) |
+
+**No key needed at all** for: SEC EDGAR filings, GDELT news volume, Hacker News,
+Reddit, and RSS/changelog feeds. Those work out of the box.
+
+## 5. Start it
+
+```bash
+npm run dev
+```
+
+Open **http://localhost:3000**, create an account, and you are in. Nothing is
+sent anywhere on signup — the account lives in your own database.
+
+## 6. First five minutes in the product
+
+1. **Create a Market Project** — your product, its website, and up to ten
+   competitors. This is the setup you do once.
+2. **Press Collect.** The product reads the pages you pointed it at and saves
+   exactly what they said.
+3. **Look at the dashboard.** It leads with what changed, and every number has a
+   "See the quote" link showing the words it came from.
+4. **Ask a follow-up.** Questions about research you already have are answered
+   from what is stored — fast and nearly free.
+5. **Come back next week.** It tells you what moved while you were away.
+
+---
+
+## Running the optional simulated-buyer panel
+
+Not required. It lets you stress-test a decision against model-generated buyer
+personas — useful for surfacing objections, **not** a prediction of the market.
+
+```bash
+cd mirofish-service
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cd ..
+
+# Generate a shared secret and put the SAME value in .env
+openssl rand -hex 32
+
+npm run mirofish        # runs on 127.0.0.1:5001
+```
+
+In `.env`:
+
+```bash
+MIROFISH_SERVICE_TOKEN=<the value you generated>
+MIROFISH_LIVE_BASE_URL=http://localhost:5001
+MIROFISH_ALLOWED_ORIGIN=http://localhost:3000
+MIROFISH_HOST=127.0.0.1
+```
+
+The service refuses every request without the token, and binds to loopback only.
+Both are deliberate: it holds a model key and does unbounded work per request.
+
+---
+
+## Checking your install works
+
+```bash
+npm run typecheck                    # types
+npm test                             # ~785 unit tests
+npm run build                        # production build
+npm run test:e2e:evidence-ledger     # database rules (needs the DB up)
+npm run test:e2e:dashboard           # full flow (needs `npm run dev` running)
+```
+
+`npm run test:e2e:live-research` calls **real, paid providers**. It is the only
+command here that costs money.
+
+## Common problems
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `styleText is not exported` when running tests | Node 18 | `nvm use 22` |
+| `DATABASE_URL: Required environment variable is missing` | No `.env` | `cp .env.example .env` and fill it in |
+| `connect ECONNREFUSED ...:5435` | Database not running | `npm run db:local:start` |
+| Searches return nothing, logs show `429` | SerpAPI quota exhausted | Top up, or accept no web search |
+| `relation "evidence_spans" does not exist` | Migrations not run | Run the migration commands in step 3 |
+| The panel says "unavailable" | MiroFish not running or token mismatch | Check both `.env` values match |
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
 ![Gemini](https://img.shields.io/badge/Gemini-AI-blue?logo=google)
@@ -22,6 +241,11 @@
 | [`docs/adr/`](./docs/adr/) | Architecture Decision Records |
 | [`CLAUDE.md`](./CLAUDE.md) | Agent/domain notes for contributors |
 | [`.env.example`](./.env.example) | Required vs optional environment variables |
+| **[`TOUR.md`](./TOUR.md)** | **Guided demo script** — how to show this to a customer, screen by screen, in plain language |
+| **[`AGENTS.md`](./AGENTS.md)** | **Start here if you are an AI coding agent** — commands, conventions, and the failure modes that have actually happened in this repo |
+| [`plans/TODO.md`](./plans/TODO.md) | What is built and what is not |
+| [`plans/PLAIN_LANGUAGE_PLAN.md`](./plans/PLAIN_LANGUAGE_PLAN.md) | UI wording rules and the vocabulary decisions behind them |
+| [`log.md`](./log.md) | Chronological engineering journal — why each change was made |
 
 > **Rule of thumb:** setup → this README · **what product to build now** → product-first roadmap · technical findings → full audit · detailed historical engineering tasks → phase plan · ADRs → `docs/adr/`.
 

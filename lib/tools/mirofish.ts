@@ -14,7 +14,23 @@
  */
 
 import { getCached, setCache } from '../supabase';
+import { getConfig } from '../config';
 import type { ToolResult } from './types';
+
+/**
+ * Headers for every call to the MiroFish worker.
+ *
+ * The service now requires a shared secret on all API routes, so omitting it
+ * turns every panel into a 401. Centralised here rather than repeated at each
+ * call site, because a single missed header is a silent feature outage.
+ */
+function mirofishHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getConfig().MIROFISH_SERVICE_TOKEN;
+  if (token) headers['X-MiroFish-Token'] = token;
+  return headers;
+}
+
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL = (process.env.MIROFISH_BASE_URL ?? 'http://localhost:5001').replace(/\/$/, '');
@@ -91,6 +107,7 @@ export function getSimulationIdForProduct(product: string): string | undefined {
 export async function isSimulationReady(simulationId: string): Promise<boolean> {
   try {
     const res = await fetch(`${BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/run-status`, {
+      headers: mirofishHeaders(),
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return false;
@@ -157,7 +174,7 @@ async function interviewAllAgents(
 ): Promise<SwarmInterviewResponse[]> {
   const res = await fetch(`${BASE_URL}/api/simulation/interview/all`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: mirofishHeaders(),
     body: JSON.stringify({
       simulation_id: simulationId,
       prompt,
@@ -192,7 +209,7 @@ async function interviewAllAgents(
 async function fetchAgentIds(simulationId: string, maxAgents = 6): Promise<number[]> {
   const res = await fetch(
     `${BASE_URL}/api/simulation/${encodeURIComponent(simulationId)}/config`,
-    { signal: AbortSignal.timeout(5_000) },
+    { headers: mirofishHeaders(), signal: AbortSignal.timeout(5_000) },
   );
   if (!res.ok) throw new Error(`Could not fetch sim config: ${res.status}`);
   const json = await res.json() as { data?: { agent_configs?: { agent_id: number }[] } };
@@ -214,7 +231,7 @@ async function interviewSingleAgent(
   try {
     const res = await fetch(`${BASE_URL}/api/simulation/interview`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: mirofishHeaders(),
       body: JSON.stringify({ simulation_id: simulationId, agent_id: agentId, prompt, platform, timeout: timeoutSec }),
       signal: AbortSignal.timeout((timeoutSec + 5) * 1_000),
     });

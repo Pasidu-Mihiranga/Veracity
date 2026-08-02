@@ -11,6 +11,14 @@ import { langGraphExecutor } from '@/lib/agents/workflow/langgraph-executor';
 import type { AgentConfig, AgentContext, AgentOutput, IntelligenceDomain } from '@/lib/agents/types';
 import type { WorkflowExecutor } from '@/lib/agents/workflow/types';
 
+/**
+ * Whether this run should refresh the committed benchmark artifacts.
+ *
+ * Set by `npm run bench:executors`. Left unset during `npm test`, so a routine
+ * test run never dirties the working tree.
+ */
+const shouldWriteReport = process.env.BENCH_WRITE === '1';
+
 type BenchQuery = {
   id: string;
   category: string;
@@ -221,7 +229,17 @@ describe('Phase 4 executor parity benchmark', () => {
         note: 'Stub-agent wave-executor parity + absolute overhead. Live Gemini ≤+5% latency/cost still required before default-on.',
       };
 
-      fs.writeFileSync(resultsPath, JSON.stringify({ summary, cases }, null, 2));
+      // Writing is opt-in. `npm test` runs this suite constantly, and each run
+      // rewrote both artifacts with a new timestamp and a few microseconds of
+      // latency jitter — producing a dirty working tree that says nothing
+      // changed. The committed report is the evidence ADR-0007 gates on, so it
+      // is refreshed deliberately via `npm run bench:executors`, not as a side
+      // effect of running the tests.
+      //
+      // The gates below still run every time. Only the file writes are gated.
+      if (shouldWriteReport) {
+        fs.writeFileSync(resultsPath, JSON.stringify({ summary, cases }, null, 2));
+      }
 
       const byCat: Record<string, number> = {};
       for (const c of cases) byCat[c.category] = (byCat[c.category] || 0) + 1;
@@ -273,7 +291,9 @@ ${
 - Runner: \`npm run bench:executors\`
 `;
 
-      fs.writeFileSync(reportPath, md);
+      if (shouldWriteReport) {
+        fs.writeFileSync(reportPath, md);
+      }
 
       expect(parityGate).toBe(true);
       expect(latencyGateStub).toBe(true);

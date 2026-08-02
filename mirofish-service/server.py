@@ -30,6 +30,7 @@ import uuid
 import threading
 import time
 import re
+import hmac
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -57,7 +58,50 @@ if not GEMINI_API_KEY:
 ai = OpenAI(api_key=GEMINI_API_KEY, base_url=GEMINI_BASE_URL)
 
 app = Flask(__name__)
-CORS(app)
+
+# ── Access control ────────────────────────────────────────────────────────────
+# This service holds a model API key and does unbounded model work on request.
+# Left open it is a quota-drain and a cross-tenant read waiting to happen, so it
+# is treated as a private worker rather than a public API:
+#
+#   - CORS is restricted to the app origin instead of every origin.
+#   - Every route except /health requires a shared secret.
+#   - The listen address defaults to loopback (see the __main__ block).
+#
+# MIROFISH_ALLOWED_ORIGIN and MIROFISH_SERVICE_TOKEN are set by whatever starts
+# both processes. With no token configured the service refuses to serve anything
+# rather than falling open, because a silent open default is how this ends up
+# exposed in the one environment nobody checked.
+ALLOWED_ORIGIN   = os.getenv("MIROFISH_ALLOWED_ORIGIN", "http://localhost:3000")
+SERVICE_TOKEN    = os.getenv("MIROFISH_SERVICE_TOKEN", "")
+
+CORS(app, origins=[ALLOWED_ORIGIN], supports_credentials=False)
+
+if not SERVICE_TOKEN:
+    print("[MiroFish] WARNING: MIROFISH_SERVICE_TOKEN is not set — all API routes will return 503")
+
+
+@app.before_request
+def _require_service_token():
+    """Reject anything without the shared secret, except health checks."""
+    if request.path in ("/health", "/api/health"):
+        return None
+    if request.method == "OPTIONS":
+        return None
+
+    if not SERVICE_TOKEN:
+        return jsonify({
+            "success": False,
+            "error": "service is not configured with MIROFISH_SERVICE_TOKEN",
+        }), 503
+
+    presented = request.headers.get("X-MiroFish-Token", "")
+    # Constant-time compare: a plain == leaks the token a byte at a time to
+    # anyone willing to measure.
+    if not hmac.compare_digest(presented, SERVICE_TOKEN):
+        return jsonify({"success": False, "error": "unauthorized"}), 401
+
+    return None
 
 # ── In-memory task registry ───────────────────────────────────────────────────
 # { task_id: { status, result, error } }
@@ -77,15 +121,38 @@ def new_project_id() -> str:
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+# Identifiers are generated server-side as "sim_<hex>" / "proj_<hex>", so a
+# well-formed id can only ever be alphanumerics, underscore, and hyphen.
+# Anything else arrived from a caller who is trying to escape the data
+# directory.
+_SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _safe_subdir(root: Path, identifier: str, kind: str) -> Path:
+    """Resolve `root/identifier`, refusing anything that escapes `root`.
+
+    The character check alone would be enough today, but the resolve-and-compare
+    is what keeps this correct if the id format is ever relaxed — and on a
+    filesystem with symlinks, only the resolved comparison is authoritative.
+    """
+    if not _SAFE_ID.match(identifier or ""):
+        raise ValueError(f"invalid {kind}")
+
+    base = root.resolve()
+    candidate = (base / identifier).resolve()
+
+    if candidate != base and base not in candidate.parents:
+        raise ValueError(f"invalid {kind}")
+
+    candidate.mkdir(parents=True, exist_ok=True)
+    return candidate
+
+
 def sim_dir(simulation_id: str) -> Path:
-    d = DATA_DIR / "simulations" / simulation_id
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return _safe_subdir(DATA_DIR / "simulations", simulation_id, "simulation_id")
 
 def proj_dir(project_id: str) -> Path:
-    d = DATA_DIR / "projects" / project_id
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return _safe_subdir(DATA_DIR / "projects", project_id, "project_id")
 
 def load_json(path: Path) -> dict:
     if path.exists():
@@ -689,7 +756,20 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5001))
-    print(f"[MiroFish Gemini Swarm] Starting on port {port}")
+    # Loopback by default. This is a private worker the Next.js app calls; it
+    # has no reason to accept connections from the network, and binding 0.0.0.0
+    # by default means one careless deployment exposes the model quota.
+    host = os.getenv("MIROFISH_HOST", "127.0.0.1")
+
+    print(f"[MiroFish Gemini Swarm] Starting on {host}:{port}")
     print(f"[MiroFish Gemini Swarm] Model: {GEMINI_MODEL}")
     print(f"[MiroFish Gemini Swarm] Data dir: {DATA_DIR.resolve()}")
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    print(f"[MiroFish Gemini Swarm] CORS origin: {ALLOWED_ORIGIN}")
+    print(f"[MiroFish Gemini Swarm] Auth: {'enabled' if SERVICE_TOKEN else 'NOT CONFIGURED (routes return 503)'}")
+    if host != "127.0.0.1":
+        print("[MiroFish] WARNING: binding a non-loopback address exposes this service")
+
+    # Flask's development server is single-purpose and not built for untrusted
+    # load. It is acceptable only because the service is loopback-only and
+    # authenticated; a networked deployment must front it with a real WSGI server.
+    app.run(host=host, port=port, debug=False, threaded=True)

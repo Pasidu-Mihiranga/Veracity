@@ -122,6 +122,13 @@ function mergeDeepenedOutput(
 
 interface OrchestrateOptions {
   injectedContext?: string; // extra context injected into agents and synthesizer (e.g. feedback loop)
+  /**
+   * Rendered evidence pack for the project, with span ids agents can cite.
+   *
+   * Supplied by the caller rather than fetched here, because the orchestrator
+   * does not know which project a run belongs to — only the request path does.
+   */
+  evidencePackBlock?: string;
   forceExecution?: boolean; // force stage-2 execution even when classifier says false
   followUpMode?: 'full' | 'targeted'; // targeted runs only classifier-selected research domains
   selectedAgents?: string[]; // optional UI-selected domains from client
@@ -316,6 +323,9 @@ export async function orchestrate(
     priorContext: combinedPriorContext || undefined,
     images: images.length > 0 ? images : undefined,
     memoryContext: scopedMemory,
+    // Every research agent gets the same pack, so a citation means the same
+    // thing whichever agent produced it.
+    evidencePackBlock: options?.evidencePackBlock,
     scratchpad,
   };
 

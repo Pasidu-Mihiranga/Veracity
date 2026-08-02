@@ -27,7 +27,7 @@ function g2ReviewsUrl(competitorBrand: string): string {
 }
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || `${product} alternatives`;
@@ -125,7 +125,7 @@ Rules:
 - Separate facts (quoted from reviews) from interpretation.
 - Be specific about reasons — generic answers are useless.
 - Frequency: "often" = mentioned 3+ times, "sometimes" = 1-2 times, "rarely" = once.
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
@@ -163,7 +163,8 @@ Produce JSON:
       interpretation: synthesisFailureInterpretation(err),
       competitorWins: [],
       competitorLosses: [],
-      buyerSentiment: 'mixed',
+      // Undefined, not 'mixed': synthesis failed, so no sentiment was assessed.
+      buyerSentiment: undefined,
       topSwitchTriggers: [],
       synthesizedAnswer: 'Buyer sentiment data collected but synthesis failed.',
       confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
@@ -189,7 +190,9 @@ Produce JSON:
     competitor: competitorName ?? 'category alternatives',
     competitorWins: (parsed.competitorWins ?? []) as WinReason[],
     competitorLosses: (parsed.competitorLosses ?? []) as WinReason[],
-    buyerSentiment: parsed.buyerSentiment ?? 'mixed',
+    // No default: an unassessed judgment stays undefined so the artifact can
+    // render an explicit unavailable state instead of a plausible badge.
+    buyerSentiment: parsed.buyerSentiment,
     topSwitchTriggers: parsed.topSwitchTriggers ?? [],
   };
 

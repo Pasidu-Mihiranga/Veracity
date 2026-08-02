@@ -20,7 +20,7 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const category = competitor
     ? `${product} vs ${competitor}`
@@ -93,7 +93,7 @@ Types of adjacent threats to watch:
 2. Infrastructure players — lower-level tech companies moving up-stack
 3. Horizontal AI — general-purpose AI agents expanding into this vertical
 4. Category convergence — adjacent tools expanding into this space
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Product category: ${category}
@@ -133,8 +133,10 @@ Produce JSON:
       facts: factsFromRawSignals(rawContent, 3),
       interpretation: synthesisFailureInterpretation(err),
       threats: [],
-      overallRisk: 'medium',
-      timeToImpact: '12-18 months',
+      // Undefined, not 'medium' / '12-18 months': synthesis failed, so no
+      // risk level or impact horizon was assessed.
+      overallRisk: undefined,
+      timeToImpact: undefined,
       defensiveActions: [],
       synthesizedAnswer: 'Adjacent threat data collected but synthesis failed.',
       confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
@@ -158,8 +160,10 @@ Produce JSON:
     sources,
     generatedAt: new Date().toISOString(),
     threats: (parsed.threats ?? []) as AdjacentThreat[],
-    overallRisk: parsed.overallRisk ?? 'medium',
-    timeToImpact: parsed.timeToImpact ?? '12-18 months',
+    // No default: an unassessed judgment stays undefined so the artifact can
+    // render an explicit unavailable state instead of a plausible badge.
+    overallRisk: parsed.overallRisk,
+    timeToImpact: parsed.timeToImpact,
     defensiveActions: parsed.defensiveActions ?? [],
   };
 
