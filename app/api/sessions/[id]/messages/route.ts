@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { compareSourceCoverage, extractProjectSnapshot } from '@/lib/project-snapshot-data';
 import { storeResearchClaims, type AgentClaimInput } from '@/lib/intelligence/claims-from-research';
+import { buildEvidencePack } from '@/lib/intelligence/evidence-pack';
 import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -144,17 +145,31 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     try {
       const agents = agentClaimInputs(metadata);
       if (agents.length > 0) {
+        // The same pack the agents were given, so any id they cited can be
+        // validated against what they actually had rather than against the
+        // whole ledger.
+        const pack = await buildEvidencePack({
+          userId: user.id,
+          projectId: owned.project_id,
+        });
+
         const stored = await storeResearchClaims({
           userId: user.id,
           projectId: owned.project_id,
           sessionId: id,
           agents,
+          pack,
         });
         logger.info('claims.stored', {
           projectId: owned.project_id,
           saved: stored.saved,
           asFacts: stored.asFacts,
           asInterpretation: stored.asInterpretation,
+          citedByAgent: stored.citedByAgent,
+          matchedHeuristically: stored.matchedHeuristically,
+          // Worth watching: a rising count means agents are inventing ids,
+          // which the pack instructions are supposed to prevent.
+          hallucinatedCitations: stored.hallucinatedCitations,
           rejected: stored.rejected.length,
         });
       }

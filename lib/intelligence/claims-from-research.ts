@@ -20,6 +20,7 @@
 import { query } from '@/lib/db';
 import { saveVerifiedClaims } from './ledger-repo';
 import { deriveConfidence } from './claim-verifier';
+import { extractCitations, type EvidencePack } from './evidence-pack';
 import type { Claim, EvidenceSpan, MetricObservation } from './types';
 
 export interface AgentClaimInput {
@@ -32,6 +33,12 @@ export interface StoredClaimsResult {
   saved: number;
   asFacts: number;
   asInterpretation: number;
+  /** Facts backed by an id the agent itself cited. */
+  citedByAgent: number;
+  /** Facts matched by the fallback heuristic instead. */
+  matchedHeuristically: number;
+  /** Ids agents cited that were not in the pack they were given. */
+  hallucinatedCitations: number;
   rejected: Array<{ statement: string; reasons: string[] }>;
 }
 
@@ -179,6 +186,8 @@ export async function storeResearchClaims(params: {
   projectId: string;
   sessionId?: string | null;
   agents: AgentClaimInput[];
+  /** The pack the agents were given, for validating what they cited back. */
+  pack?: EvidencePack;
 }): Promise<StoredClaimsResult> {
   const { spans, observationsBySpan } = await loadRecentEvidence({
     userId: params.userId,
@@ -189,15 +198,39 @@ export async function storeResearchClaims(params: {
   const claims: Claim[] = [];
   let asFacts = 0;
   let asInterpretation = 0;
+  let citedByAgent = 0;
+  let matchedHeuristically = 0;
+  let hallucinatedCitations = 0;
 
   for (const agent of params.agents) {
-    for (const statement of agent.facts) {
-      const trimmed = statement.trim();
+    for (const rawStatement of agent.facts) {
+      // Strip any citation markup first, so bracket ids never reach the user
+      // and the stored statement reads as prose.
+      const { statement: cleaned, citedSpanIds, hallucinatedIds } = params.pack
+        ? extractCitations(rawStatement, params.pack)
+        : { statement: rawStatement, citedSpanIds: [], hallucinatedIds: [] };
+
+      hallucinatedCitations += hallucinatedIds.length;
+
+      const trimmed = cleaned.trim();
       if (!trimmed) continue;
 
-      const supporting = spanList
-        .filter((span) => excerptSupports(trimmed, span.excerpt))
-        .map((span) => span.id);
+      // An agent's own citation is direct testimony about what it used, so it
+      // wins — but it is still verified: the excerpt must actually support the
+      // statement, exactly as an uncited match would have to.
+      const verifiedCitations = citedSpanIds.filter((id) => {
+        const span = spans.get(id);
+        return span ? excerptSupports(trimmed, span.excerpt) : false;
+      });
+
+      const supporting = verifiedCitations.length > 0
+        ? verifiedCitations
+        : spanList
+            .filter((span) => excerptSupports(trimmed, span.excerpt))
+            .map((span) => span.id);
+
+      if (verifiedCitations.length > 0) citedByAgent += 1;
+      else if (supporting.length > 0) matchedHeuristically += 1;
 
       if (supporting.length > 0) {
         asFacts += 1;
@@ -261,7 +294,11 @@ export async function storeResearchClaims(params: {
   }
 
   if (claims.length === 0) {
-    return { saved: 0, asFacts: 0, asInterpretation: 0, rejected: [] };
+    return {
+      saved: 0, asFacts: 0, asInterpretation: 0,
+      citedByAgent: 0, matchedHeuristically: 0, hallucinatedCitations,
+      rejected: [],
+    };
   }
 
   const result = await saveVerifiedClaims({
@@ -277,6 +314,9 @@ export async function storeResearchClaims(params: {
     saved: result.saved.length,
     asFacts,
     asInterpretation,
+    citedByAgent,
+    matchedHeuristically,
+    hallucinatedCitations,
     rejected: result.rejected,
   };
 }

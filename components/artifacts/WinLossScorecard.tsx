@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
 import { UnassessedBadge } from './UnassessedBadge';
 import type { WinLossOutput, WinReason } from '@/lib/agents/types';
 
@@ -103,6 +104,16 @@ export function WinLossScorecard({ output, competitor, product }: Props) {
           </div>
         </div>
       )}
+
+      <ArtifactMethodology
+        output={output}
+        method="Reasons were extracted from public reviews and community discussion, then grouped. Frequency reflects how often a theme appeared in the retrieved sample."
+        limitations={[
+          'A convenience sample of public posts, not a win/loss survey.',
+          'Frequency describes the retrieved sample only; the population denominator is unknown.',
+        ]}
+        csv={{ filename: 'veracity-win-loss.csv', headers: ['side', 'reason', 'frequency', 'evidence'], rows: [...competitorWins.map((w) => ['competitor_win', w.reason, w.frequency, w.evidence]), ...competitorLosses.map((w) => ['competitor_loss', w.reason, w.frequency, w.evidence])] }}
+      />
     </div>
   );
 }

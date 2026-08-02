@@ -26,7 +26,7 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || `${product} category pricing`;
@@ -85,7 +85,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
 
   // ── Gemini synthesis ───────────────────────────────────────────────────────
   const systemPrompt = `You are a pricing strategist who analyses SaaS pricing models, buyer willingness-to-pay signals, and competitive pricing dynamics. You extract concrete pricing data and identify strategic opportunities.
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}

@@ -1706,3 +1706,84 @@ response per call.
   1 skipped (up from 730).
 - Production `next build`: PASS.
 - ESLint: zero errors.
+
+## 2026-08-02 — The three named remainders, closed
+
+### 1. Shared evidence pack — agents now cite
+
+The bridge from agent output to claims had to *guess* afterwards which excerpt
+supported which statement, by lexical similarity. That guess is deliberately
+conservative, so it under-matches: real facts got filed as interpretation and
+the fact count read low.
+
+`lib/intelligence/evidence-pack.ts` gives agents the evidence up front, with
+ids, and asks them to cite. A citation the agent made is direct testimony about
+what it used; a similarity score computed afterwards is only an inference about
+what it might have used.
+
+Two properties preserved:
+
+- **Citing is preferred, never trusted blindly.** A cited id must exist in the
+  pack that agent was given, *and* the excerpt must still support the statement.
+  An agent citing `[span-999]` gets it stripped exactly as a hallucinated URL
+  would be, and the count of such attempts is logged so the prompt instruction
+  can be monitored.
+- **The heuristic stays as a fallback**, so this raises the ceiling without
+  lowering the floor.
+
+The pack is threaded through `AgentContext.evidencePackBlock` into all six
+research agents' system prompts, and the messages route passes the same pack to
+the claims bridge so a cited id is validated against what that agent actually
+had rather than against the whole ledger.
+
+Citation markup is stripped before storage, so bracket ids never reach the user.
+
+### 2. Methodology contract on the five remaining artifacts
+
+`ChartSpecView` carries data class, unit, period, formula, sources, and CSV —
+but only for things with a period and a numeric axis. A competitive matrix, a
+win/loss scorecard, and a positioning gap table are not series. Forcing them
+through a chart spec would mean **inventing a period and unit they do not have**,
+which is the kind of fabrication the spec exists to prevent.
+
+What they do share is the obligation: say where this came from, what class of
+claim it is, how fresh it is, and let the user take the rows away.
+`ArtifactMethodology` carries that, and is now on `CompetitiveMatrix`,
+`WinLossScorecard`, `PricingTable`, `PositioningGap`, and `ThreatHeatmap`.
+
+Each states its own honest method and limitations rather than a generic string —
+win/loss says the frequency describes a convenience sample of public posts with
+an unknown denominator; pricing says advertised list prices only, with
+negotiated and annual-commit pricing invisible; threats say risk levels are
+judgments about plausibility, not observed intent. Data class defaults to
+`derived`, so a genuinely observed artifact has to say so rather than an
+unlabelled one being read as measured.
+
+### 3. Scenario brief review UI
+
+`components/dashboard/ScenarioBriefReview.tsx`. This screen is the reason
+`ScenarioBrief` exists rather than a raw prompt: a synthetic panel answers
+whatever it is asked, so a question that smuggled in an assumption produces an
+answer that inherits it invisibly. The only defence is showing the premise
+before the panel sees it.
+
+Facts and assumptions sit adjacent and visually distinct, assumptions are
+editable, and an edit says plainly that it will run as a **new version** rather
+than silently overwriting the base case — because comparison is the point of
+branching. A brief with no facts says outright that it is a thought experiment.
+
+### Verification
+
+- `npm run test:e2e:dashboard`: PASS — 35 checks (was 25), adding: an agent
+  citation binds the claim to that exact span, citation markup never reaches the
+  stored statement, an invented span id is stripped rather than stored, a
+  measured chart is built from the stored observation with every row tracing to
+  an evidence span and a stated formula, and evidence coverage is classed
+  derived rather than measured.
+- `npm run test:e2e:evidence-ledger`: PASS — 18/18.
+- `npm run test:e2e:swarm-scenarios`: PASS — 15/15.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 68 files passed, 1 skipped; 769 tests passed,
+  1 skipped (up from 752).
+- Production `next build`: PASS.
+- ESLint: zero errors; two pre-existing warnings remain in files not touched.

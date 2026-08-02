@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
 import type { PositioningOutput } from '@/lib/agents/types';
 
 interface Props {
@@ -84,6 +85,16 @@ export function PositioningGap({ output, product, competitor }: Props) {
           </div>
         </div>
       )}
+
+      <ArtifactMethodology
+        output={output}
+        method="Positioning statements were taken from homepage and ad copy, then compared dimension by dimension."
+        limitations={[
+          'Compares stated messaging, not how buyers actually perceive either product.',
+          'Ad copy varies by audience and geography; the retrieved sample may not be representative.',
+        ]}
+        csv={{ filename: 'veracity-positioning-gaps.csv', headers: ['dimension', 'your_message', 'competitor_message', 'gap', 'opportunity'], rows: gaps.map((g) => [g.dimension, g.yourMessage, g.competitorMessage, g.gap, g.opportunity]) }}
+      />
     </div>
   );
 }

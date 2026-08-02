@@ -26,7 +26,7 @@ function isSocialUrl(url: string): boolean {
 }
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   // ── Smart query planning — generates 3 query variants per intent ─────────
   const queryBundle = planQueries({
@@ -163,7 +163,7 @@ Rules:
 - Be specific: name trends and directions. Do NOT invent precise scores like "100/100", exact average HN scores, or market % unless the raw signals contain that number.
 - If quantifying engagement, say "estimated" or "directional" and keep magnitudes coarse.
 - Output valid JSON matching the schema exactly.
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Product: ${product}

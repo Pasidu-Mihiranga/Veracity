@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
 import { UnassessedBadge } from './UnassessedBadge';
 import type { AdjacentOutput, AdjacentThreat } from '@/lib/agents/types';
 
@@ -110,6 +111,16 @@ export function ThreatHeatmap({ output }: Props) {
           ))}
         </div>
       )}
+
+      <ArtifactMethodology
+        output={output}
+        method="Adjacent companies were identified from funding, patent, and platform signals, then rated by how plausibly they could enter this category."
+        limitations={[
+          'Risk levels are model judgments about plausibility, not observed intent.',
+          'A company absent here may still be a threat — this covers only what the retrieved signals surfaced.',
+        ]}
+        csv={{ filename: 'veracity-adjacent-threats.csv', headers: ['company', 'category', 'threat_vector', 'risk_level', 'evidence'], rows: threats.map((t) => [t.company, t.category, t.threatVector, t.riskLevel, t.evidence]) }}
+      />
     </div>
   );
 }

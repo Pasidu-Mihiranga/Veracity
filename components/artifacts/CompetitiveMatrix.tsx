@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
 import type { CompetitiveOutput, CompetitorFeature } from '@/lib/agents/types';
 import { useTheme } from '@/lib/theme-provider';
 
@@ -258,6 +259,16 @@ export function CompetitiveMatrix({ output, product }: Props) {
           </div>
         )}
       </div>
+
+      <ArtifactMethodology
+        output={output}
+        method="The model structured retrieved competitor pages, news, and hiring signals into feature rows. Each cell is its reading of that text, not a tested comparison."
+        limitations={[
+          'Cell ratings are model judgments, not verified feature tests.',
+          'Absence of a feature in the sources is not evidence the feature is absent.',
+        ]}
+        csv={{ filename: 'veracity-competitive-matrix.csv', headers: ['feature', 'your_product', 'competitor', 'gap_direction'], rows: matrix.map((row) => [row.feature, row.yourProduct, row.competitor, row.gapDirection]) }}
+      />
     </div>
   );
 }

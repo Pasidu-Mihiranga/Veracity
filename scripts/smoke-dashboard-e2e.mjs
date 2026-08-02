@@ -229,6 +229,77 @@ if (explain.status === 409) {
     Array.isArray(explainBody?.data?.citedClaimIds));
 }
 
+// ── Evidence pack: agents can cite, and citations are validated ─────────────
+const packed = await client.query(
+  `SELECT s.id FROM evidence_spans s WHERE s.user_id = $1 AND s.project_id = $2 LIMIT 1`,
+  [userId, projectId],
+);
+const citableSpanId = packed.rows[0].id;
+
+const cited = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
+  method: 'POST', headers: jsonHeaders(),
+  body: JSON.stringify({
+    role: 'assistant',
+    content: 'Cited findings.',
+    metadata: {
+      orchestratorOutput: {
+        product: 'Vector Agents', generatedAt: new Date().toISOString(),
+        outputs: [{
+          agentId: 'pricing',
+          facts: [
+            // A real citation the agent was given.
+            `Team plan is $59 per month [${citableSpanId}]`,
+            // An id that does not exist — must be stripped, not stored.
+            'Revenue tripled [99999999-9999-4999-8999-999999999999]',
+          ],
+          interpretation: [], sources: [],
+        }],
+      },
+    },
+  }),
+});
+check('cited message accepted', cited.ok, String(cited.status));
+
+const citedClaims = await client.query(
+  `SELECT statement, claim_type, supporting_span_ids FROM claims
+    WHERE user_id = $1 AND project_id = $2 AND statement LIKE '%Team plan%'
+    ORDER BY created_at DESC LIMIT 1`,
+  [userId, projectId],
+);
+check('an agent citation binds the claim to that exact span',
+  citedClaims.rows[0]?.supporting_span_ids?.includes(citableSpanId),
+  JSON.stringify(citedClaims.rows[0]));
+check('citation markup never reaches the stored statement',
+  !citedClaims.rows[0]?.statement.includes('['), citedClaims.rows[0]?.statement);
+
+const ghostClaim = await client.query(
+  `SELECT statement FROM claims WHERE user_id = $1 AND statement LIKE '%99999999%'`,
+  [userId],
+);
+check('an invented span id is stripped rather than stored', ghostClaim.rows.length === 0);
+
+// ── Charts route reads the ledger ───────────────────────────────────────────
+const charts = await fetch(`${BASE}/api/projects/${projectId}/charts`, { headers: jsonHeaders() });
+const chartsBody = await charts.json();
+check('charts route responds', charts.ok, String(charts.status));
+check('a measured chart is built from the stored observation',
+  Array.isArray(chartsBody?.data?.charts) && chartsBody.data.charts.length > 0,
+  JSON.stringify(chartsBody?.data?.charts?.length));
+
+const priceChart = chartsBody?.data?.charts?.find((c) => String(c.id).includes('plan_price'));
+if (priceChart) {
+  check('the chart is classed measured', priceChart.dataClass === 'measured', priceChart.dataClass);
+  check('every chart row traces to an evidence span',
+    Array.isArray(priceChart.evidenceSpanIds) && priceChart.evidenceSpanIds.length > 0);
+  check('the chart states its formula', Boolean(priceChart.formula));
+} else {
+  check('a plan_price chart was planned', false, JSON.stringify(chartsBody?.data?.unavailable));
+}
+
+const coverage = chartsBody?.data?.charts?.find((c) => String(c.id).includes('evidence-coverage'));
+check('evidence coverage is derived, not measured',
+  !coverage || coverage.dataClass === 'derived', coverage?.dataClass);
+
 await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
 await client.end();
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -20,7 +20,7 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const category = competitor
     ? `${product} vs ${competitor}`
@@ -93,7 +93,7 @@ Types of adjacent threats to watch:
 2. Infrastructure players — lower-level tech companies moving up-stack
 3. Horizontal AI — general-purpose AI agents expanding into this vertical
 4. Category convergence — adjacent tools expanding into this space
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Product category: ${category}

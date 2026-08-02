@@ -602,6 +602,15 @@ export interface AgentContext {
   images?: ImageAttachment[];  // optional visual context from user
   memoryContext?: string;      // persistent user memory across all sessions
   researchOutputs?: AgentOutput[];  // stage-1 research findings — populated for Execution Engine only
+  /**
+   * Excerpts already collected for this project, with ids the agent can cite.
+   *
+   * A citation the agent made is testimony about what it used; a similarity
+   * score computed afterwards is only an inference about what it might have
+   * used. Agents that receive this should append `[span-id]` to any fact taken
+   * from an excerpt.
+   */
+  evidencePackBlock?: string;
   /** Shared intermediate facts across mission waves */
   scratchpad?: {
     productFacts: string[];
