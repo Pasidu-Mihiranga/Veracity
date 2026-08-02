@@ -18,6 +18,16 @@ Last updated: 2026-08-02
 - [x] Add explicit Explain, Verify, Compare, Ask swarm, and Full refresh turn modes.
 - [x] Add project-linked Adopt/Watch/Reject decisions and outcome notes.
 
+## Wave 4 — Swarm Decision Lab (2026-08-02)
+
+- [x] Versioned `ScenarioBrief` with facts separated from assumptions.
+- [x] Assumption branching that versions rather than overwrites.
+- [x] Scenario/round/response persistence (migration `0010`).
+- [x] Harden the MiroFish service: auth, restricted CORS, loopback bind, path safety.
+- [ ] Wire the brief into the run path and persist rounds through the repo.
+- [ ] Segment and persona follow-up UI.
+- [ ] Dissent, objection, sensitivity, and round-transition charts.
+
 ## Next
 
 - [x] Remove remaining fake numeric and provider fallbacks identified in the audit. (2026-08-02, locked by `__tests__/no-fabrication-on-failure.test.ts`.)
@@ -64,14 +74,14 @@ Last updated: 2026-08-02
 - [ ] Rolling conversation summary and artifact references on turns.
 - [ ] Make Explain genuinely cheap (answer from stored evidence, no collection).
 
-## Wave 0 — product-level honesty sweep (2026-08-02)
+## Wave 0 — product-level honesty sweep (2026-08-02) — COMPLETE
 
 - [x] Remove the market-trends synthesis-failure fabrication.
 - [x] Make analyst judgment fields optional and render an unavailable state.
 - [x] Add the centralized outbound URL policy and route research fetches through it.
 - [x] Replace dynamic feature-flag env reads with static ones.
-- [ ] Send real image bytes to the model instead of image metadata.
-- [ ] Rewrite README and homepage claims to the product promise.
+- [x] Send real image bytes to the model instead of image metadata.
+- [x] Rewrite README claims to the product promise, with a claim-by-claim reality table.
 
 ## Later, after MVP value is demonstrated
 

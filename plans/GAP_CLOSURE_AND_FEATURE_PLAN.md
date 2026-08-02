@@ -159,15 +159,15 @@ Explicitly **not** building (per research §11.3 and §11.4): SAML/SCIM, CRM/Sla
 
 Five waves. Each ends in a demoable vertical slice. Do not start a wave before the prior wave's exit criteria pass.
 
-### Wave 0 — Product-level honesty sweep (2–3 days)
+### Wave 0 — Product-level honesty sweep (2–3 days) — COMPLETE 2026-08-02
 
 **Scope rule set by the product owner on 2026-08-02:** enterprise security and enterprise monitoring work is *deferred until after the functional product ships*. Wave 0 contains only fixes that affect whether the **product itself** is correct and trustworthy. Nothing here is an enterprise-identity or compliance project. See §5.6 for what was moved out.
 
 - [x] **G-E6** Sweep remaining fabricated fallbacks; add a test that forces provider failure on every agent and asserts no factual field is populated. *Highest-value item in the wave — it is the MVP's core trust claim*
 - [x] **G-E4** Replace dynamic `process.env[name]` in `lib/feature-flags.ts` with a statically enumerated, validated config object. This is a correctness bug: the browser currently reads different flag values than the server
 - [x] **G-E3** Build `lib/net/outbound-policy.ts`: parse → DNS-resolve → reject private/link-local/metadata ranges → restrict protocol+port → cap redirects/bytes/time → revalidate each redirect hop. Route `lib/tools/` through it. Product-level because research tools fetch model-influenced URLs; it also stops wasted fetches. **Timeboxed — must not delay feature work**
-- [ ] **G-E5** Send real image bytes to Gemini multimodal parts so image analysis is genuine
-- [ ] **G-F3** Rewrite README + homepage claims to the product promise: *Know what changed, prove it, and decide what to do next*
+- [x] **G-E5** Send real image bytes to Gemini multimodal parts so image analysis is genuine
+- [x] **G-F3** Rewrite README + homepage claims to the product promise: *Know what changed, prove it, and decide what to do next*
 - [x] **G-E1** SAML stays **off by default** and unreachable in the functional product. No rebuild now — see §5.6
 - [ ] **G-E2** MiroFish binds loopback with a shared-secret header. Done as part of Wave 4 when the service is properly implemented, not as separate security work
 
@@ -249,10 +249,10 @@ Turns the accumulated state into the surface users return to.
 - [ ] **F-11** Feature verification matrix — per-cell verification state and dated evidence
 - [ ] Evidence quality and stale-source warnings
 - [x] **F-7** Weekly digest — fires only when snapshot is new, event is not duplicate, entity matches, materiality clears threshold, and an exact evidence span exists
-- [ ] **G-D1** Rolling structured conversation summary preserving citation ids
-- [ ] **G-D2** Artifact references on turns — ask from any claim, chart, source, event, or recommendation
-- [ ] **G-D3** Make "Explain" genuinely cheap: answer from stored evidence with zero collection
-- [ ] **G-D4** Separate user-profile memory from project evidence memory
+- [x] **G-D1** Rolling structured conversation summary preserving citation ids
+- [x] **G-D2** Artifact references on turns — ask from any claim, chart, source, event, or recommendation
+- [x] **G-D3** Make "Explain" genuinely cheap: answer from stored evidence with zero collection
+- [x] **G-D4** Separate user-profile memory from project evidence memory
 - [ ] **G-B?** Source approve/block genuinely enforced in every collector (currently a labelled preference only)
 - [ ] Entity-match correction UI
 
@@ -264,12 +264,12 @@ Turns the accumulated state into the surface users return to.
 
 The differentiator, built only once the evidence base it draws from is real.
 
-- [ ] **G-C6** Configure and smoke-test the MiroFish path end to end; keep it private per Wave 0
-- [ ] **G-C1** `ScenarioBrief` — versioned, generated from verified project state (decision question, alternatives, segments, observed facts by claim id, assumptions, uncertainties, exclusions). User reviews and edits **before** the expensive run
-- [ ] **G-C2** Persist `swarm_sessions`, `swarm_turns`, `swarm_responses` — full persona text, round, segment, structured choice
+- [x] **G-C6** Configure and smoke-test the MiroFish path end to end; keep it private per Wave 0
+- [x] **G-C1** `ScenarioBrief` — versioned, generated from verified project state (decision question, alternatives, segments, observed facts by claim id, assumptions, uncertainties, exclusions). User reviews and edits **before** the expensive run
+- [x] **G-C2** Persist `swarm_sessions`, `swarm_turns`, `swarm_responses` — full persona text, round, segment, structured choice
 - [ ] **G-C3** Three rounds: independent reaction → challenge with verified evidence → decision with blocking objection and missing information
 - [ ] Follow-ups scoped to full panel, one segment, or one persona, carrying prior swarm turns
-- [ ] **G-C4** Assumption branching creates a versioned branch, never an overwrite
+- [x] **G-C4** Assumption branching creates a versioned branch, never an overwrite
 - [ ] **G-C5** Charts: alternative distribution by segment, round-to-round position transitions, objection frequency by stakeholder type, assumption sensitivity matrix, dissent map
 - [ ] Cache key includes scenario version, panel version, model, and evidence hash
 - [ ] Synthesis renders three visually separate blocks: **observed evidence** / **analyst inference** / **synthetic scenario**. Synthetic consensus never raises the confidence of an observed claim
