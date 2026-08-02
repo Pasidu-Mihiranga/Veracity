@@ -820,3 +820,64 @@ Wiring the dashboard into the project route as the default screen, the activity
 timeline and pricing/release charts on it, the feature verification matrix,
 rolling conversation summary, artifact references on turns, and a genuinely
 cheap Explain mode.
+
+## 2026-08-02 — Wave 3 (part 2): bounded conversation context
+
+### Built — `lib/intelligence/conversation-context.ts`
+
+CLAUDE.md is emphatic that this is not a popup chatbot: context must never reset
+between messages, and an agent must never ask again for something the user
+already established. The naive way to honour that — send the whole transcript —
+gets expensive, then slow, then wrong, because the useful facts end up buried
+among small talk.
+
+Context is assembled from five layers with separate budgets:
+
+1. the current question and any artifacts the user attached to it
+2. project state — entities, decision focus, corrections, open questions
+3. a rolling structured summary of everything older than the recent window
+4. the most recent turns, verbatim
+5. retrieved claims and evidence
+
+Decisions worth recording:
+
+- **Layer 2 has a hard floor.** It is the cheapest layer and its absence causes
+  the worst failure: an agent that has forgotten which product it is researching
+  answers confidently about the wrong company. A 400-turn transcript can no
+  longer crowd it out.
+- **Corrections render last**, so they read as the final word. A user who has
+  said "that is a different Lilian" must not be contradicted by an earlier
+  inference in the same prompt.
+- **Summaries preserve evidence ids verbatim.** A summarised claim that loses
+  its ids becomes an unsourced assertion.
+- **Recent turns are trimmed from the oldest end**, never mid-turn, because the
+  newest exchange is what the question follows on from.
+- **Assumptions are labelled as assumptions**, not folded in with facts.
+- `canAnswerFromStored` returns a *reason* when it declines, so the UI can say
+  "this needs fresh data because the newest evidence is 40 days old" rather than
+  silently escalating to a sweep the user did not ask for.
+
+`requiresCollection` makes Explain and Compare genuinely cheap: they answer from
+stored evidence with no collection. Running six agents to answer "what did you
+mean by that?" costs as much as the original sweep and is not more correct.
+
+### A budget-accounting bug the tests caught
+
+Section separators were not charged against the budget, so a context with
+several layers overshot by seven characters per joiner every time. Small, but it
+means the declared budget was not the real one — and the whole point of the
+budget is that it can be relied on. The joiner cost is now deducted as each
+section is added.
+
+### Tests added
+
+- `__tests__/conversation-context.test.ts` — 19 tests. Includes the case that
+  matters most: project state survives a 400-turn transcript at 500 characters
+  per turn, so the product cannot forget what it is researching.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 57 files passed, 1 skipped; 590 tests passed,
+  1 skipped (up from 571).
+- ESLint: PASS, zero errors.
