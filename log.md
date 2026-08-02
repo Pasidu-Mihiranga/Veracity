@@ -1787,3 +1787,75 @@ branching. A brief with no facts says outright that it is a thought experiment.
   1 skipped (up from 752).
 - Production `next build`: PASS.
 - ESLint: zero errors; two pre-existing warnings remain in files not touched.
+
+## 2026-08-02 — Activity timeline, artifact attachment, swarm follow-up
+
+### Built — activity timeline and source coverage
+
+`GET /api/projects/[id]/timeline` plus `components/dashboard/ActivityTimeline.tsx`.
+
+Deliberately distinct from the digest. The digest answers "what should I look at
+since last time" and applies materiality gates; this answers "what has happened
+at all", and **includes the changes the gates suppressed** — marked as
+below-threshold rather than hidden. Someone investigating a competitor needs the
+quiet moves too. The gates exist to protect attention, not history.
+
+The coverage matrix reports what has actually been read per entity, per source
+type, with age. It is deliberately **coverage, not a feature comparison**:
+claiming a feature matrix the ledger cannot support would be the exact
+fabrication this product exists to avoid. What it can honestly say is "we read
+their pricing page twice this month and have never seen their changelog", which
+is what a user needs to judge how much weight the rest deserves. A source never
+collected renders as "never collected" rather than a blank cell, which reads as
+a rendering failure.
+
+### Built — artifact attachment
+
+`components/dashboard/ArtifactAttachPicker.tsx`. "Ask about this chart" only
+works if the chart's content travels with the question; without it the model
+guesses which chart was meant, and a wrong guess produces a confident answer
+about the wrong thing.
+
+Attaching is also what makes a turn cheap: a question with an attached claim can
+be answered from the ledger by the Explain path, while the same question without
+it looks like new research and triggers a sweep. Display-only metadata is
+dropped before sending, so nothing decorative reaches the prompt.
+
+### Built — swarm follow-up
+
+`POST /api/scenarios/[id]/follow-up` and `ScenarioFollowUp`.
+
+A follow-up is recorded as a **further round on the same scenario**, not a new
+scenario. The thread is the point: "why did procurement object?" is a question
+about the panel that already answered, and a fresh scenario would lose the
+context that makes the answer meaningful.
+
+Scope narrows who is asked, and the respondent count is shown before the user
+commits — asking one persona is cheap and specific, asking the whole panel again
+costs a full round. Prior responses are scoped per persona, so no persona ever
+sees another's answers; sharing them would manufacture the agreement the round
+structure exists to avoid. A persona that fails is recorded as failed rather
+than omitted, so a partial follow-up reads as partial.
+
+Following up on a scenario that never ran returns 409 rather than starting one.
+
+### A smoke-seed correction
+
+Coverage came back empty at first. The query was right: `project-collection`
+creates entities under `project:{id}`, and my smoke seeded a test-specific scope
+key, so the join correctly found nothing. Fixed the seed to match what
+collection actually does — the same class of unrealistic-fixture problem as the
+missing `metric_observation` earlier.
+
+### Verification
+
+- `npm run test:e2e:dashboard`: PASS — 42 checks (was 35). New: the timeline
+  includes the change the digest suppressed, coverage reports what has been read
+  per entity and counts stored excerpts, and follow-up refuses a panel that
+  never answered with an explanatory message.
+- `npm run test:e2e:evidence-ledger`: PASS — 18/18.
+- `npm run test:e2e:swarm-scenarios`: PASS — 15/15.
+- `npm run typecheck`: PASS.
+- Full Vitest: PASS — 769 passed, 1 skipped.
+- Production `next build`: PASS; `/timeline` and `/follow-up` register.
+- ESLint: zero errors across `components`, `lib`, and `app`.

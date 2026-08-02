@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlaskConical, AlertTriangle, GitBranch } from 'lucide-react';
 import { ScenarioLabCharts } from '@/components/artifacts/ScenarioLabCharts';
+import { ScenarioFollowUp } from './ScenarioFollowUp';
 import type { ScenarioOutcome, PersonaResponseRecord } from '@/lib/intelligence/scenario-runner';
 import type { ScenarioBrief } from '@/lib/intelligence/scenario-brief';
 
@@ -259,6 +260,18 @@ export function ScenarioView({ scenarioId }: ScenarioViewProps) {
         outcome={outcome}
         alternativeLabels={alternativeLabels}
         segmentLabels={segmentLabels}
+      />
+
+      {/*
+        Follow-ups are further rounds on this scenario, not new scenarios. The
+        thread is the point: "why did procurement object?" is a question about
+        the panel that already answered.
+      */}
+      <ScenarioFollowUp
+        scenarioId={scenario.id}
+        segments={scenario.brief.targetSegments.map((s) => ({ id: s.id, label: s.label }))}
+        personas={[...new Set(payload.responses.map((r) => r.persona_id))]}
+        onAsked={() => void load()}
       />
 
       {lineage.length > 1 ? (

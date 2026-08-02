@@ -43,11 +43,11 @@ const userId = users[0].id;
 
 const { rows: ents } = await client.query(
   `INSERT INTO canonical_entities (user_id, scope_key, entity_key, entity_type, display_name)
-   VALUES ($1,$2,'lilian','competitor','Lilian') RETURNING id`, [userId, `smoke-${runId}`]);
+   VALUES ($1,$2,'lilian','competitor','Lilian') RETURNING id`, [userId, `project:${projectId}`]);
 const { rows: snaps } = await client.query(
   `INSERT INTO source_snapshots (entity_id, user_id, project_id, scope_key, source_type, source_url, source_title, content_hash, normalized_content)
    VALUES ($1,$2,$3,$4,'page','https://lilian.example/pricing','Pricing','h1','Team plan is $59 per month.') RETURNING id`,
-  [ents[0].id, userId, projectId, `smoke-${runId}`]);
+  [ents[0].id, userId, projectId, `project:${projectId}`]);
 const { rows: spans } = await client.query(
   `INSERT INTO evidence_spans (snapshot_id, user_id, project_id, excerpt, start_offset, end_offset, extraction_type, entity_match)
    VALUES ($1,$2,$3,'Team plan is $59 per month',0,26,'price','confirmed') RETURNING id`,
@@ -299,6 +299,41 @@ if (priceChart) {
 const coverage = chartsBody?.data?.charts?.find((c) => String(c.id).includes('evidence-coverage'));
 check('evidence coverage is derived, not measured',
   !coverage || coverage.dataClass === 'derived', coverage?.dataClass);
+
+// ── Timeline shows everything, including sub-threshold changes ──────────────
+const timeline = await fetch(`${BASE}/api/projects/${projectId}/timeline`, { headers: jsonHeaders() });
+const timelineBody = await timeline.json();
+check('timeline route responds', timeline.ok, String(timeline.status));
+
+const tlEvents = timelineBody?.data?.events ?? [];
+check('timeline includes the material change',
+  tlEvents.some((e) => e.event_type === 'pricing_changed'), String(tlEvents.length));
+check('timeline also includes the change the digest suppressed',
+  tlEvents.some((e) => e.event_type === 'documentation_changed'),
+  JSON.stringify(tlEvents.map((e) => e.event_type)));
+
+const coverageRows = timelineBody?.data?.coverage ?? [];
+check('coverage reports what has been read per entity',
+  coverageRows.length > 0 && coverageRows.some((r) => r.entity_label === 'Lilian'),
+  JSON.stringify(coverageRows.slice(0, 2)));
+check('coverage counts the stored excerpts',
+  coverageRows.some((r) => Number(r.span_count) > 0));
+
+// ── Follow-up refuses a scenario that never ran ─────────────────────────────
+const draftScenario = await client.query(
+  `INSERT INTO swarm_scenarios (user_id, project_id, brief, version, status)
+   VALUES ($1, $2, $3::jsonb, 1, 'draft') RETURNING id`,
+  [userId, projectId, JSON.stringify({ id: 's1', version: 1, decisionQuestion: 'Q', alternatives: [] })],
+);
+const followUp = await fetch(`${BASE}/api/scenarios/${draftScenario.rows[0].id}/follow-up`, {
+  method: 'POST', headers: jsonHeaders(),
+  body: JSON.stringify({ question: 'Why?', scope: 'panel' }),
+});
+check('follow-up refuses a panel that never answered', followUp.status === 409, String(followUp.status));
+const followUpBody = await followUp.json();
+check('the refusal explains there is no panel to question',
+  String(followUpBody?.error?.message).includes('no panel'),
+  String(followUpBody?.error?.message).slice(0, 90));
 
 await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
 await client.end();

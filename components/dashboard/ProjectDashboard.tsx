@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { SinceLastVisit } from './SinceLastVisit';
 import { ProjectCharts } from './ProjectCharts';
+import { ActivityTimeline } from './ActivityTimeline';
 import { EvidenceDrawer } from '@/components/artifacts/EvidenceDrawer';
 import { useProjectDashboard } from '@/hooks/useProjectDashboard';
 import type { DigestCandidate } from '@/lib/intelligence/digest';
@@ -113,6 +114,18 @@ export function ProjectDashboard({ projectId, onAskAbout }: ProjectDashboardProp
           projectId={projectId}
           onOpenEvidence={(spanIds) =>
             void dashboard.openEvidence(spanIds, 'Evidence behind this chart')
+          }
+        />
+
+        {/*
+          Full history last. The digest above is what demands attention; this is
+          what someone investigating a competitor works through, including the
+          changes the materiality gate deliberately suppressed.
+        */}
+        <ActivityTimeline
+          projectId={projectId}
+          onOpenEvidence={(spanIds) =>
+            void dashboard.openEvidence(spanIds, 'Evidence for this change')
           }
         />
       </div>
