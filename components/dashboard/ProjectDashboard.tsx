@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
 import { SinceLastVisit } from './SinceLastVisit';
+import { ProjectCharts } from './ProjectCharts';
 import { EvidenceDrawer } from '@/components/artifacts/EvidenceDrawer';
 import { useProjectDashboard } from '@/hooks/useProjectDashboard';
 import type { DigestCandidate } from '@/lib/intelligence/digest';
@@ -101,6 +102,18 @@ export function ProjectDashboard({ projectId, onAskAbout }: ProjectDashboardProp
             void dashboard.openEvidence([spanId], 'Evidence for this change')
           }
           onAskAbout={onAskAbout ? askAbout : undefined}
+        />
+
+        {/*
+          Charts sit below the change list. What moved is the reason to return;
+          the series is the context for it. Every point traces to an evidence
+          span, which is why "show the excerpts behind this" resolves.
+        */}
+        <ProjectCharts
+          projectId={projectId}
+          onOpenEvidence={(spanIds) =>
+            void dashboard.openEvidence(spanIds, 'Evidence behind this chart')
+          }
         />
       </div>
 

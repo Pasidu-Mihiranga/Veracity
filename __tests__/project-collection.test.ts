@@ -170,3 +170,69 @@ describe('entity resolution', () => {
     expect(scopeArgs.every((s) => s === 'project:proj-abc')).toBe(true);
   });
 });
+
+describe('feed discovery', () => {
+  it('adds a discovered feed as its own source', async () => {
+    const { withDiscoveredFeeds } = await import('@/lib/intelligence/project-collection');
+    const discover = vi.fn(async () => 'https://vectoragents.ai/feed.xml');
+
+    const sources = await withDiscoveredFeeds(
+      [],
+      [{ entityId: 'ent-1', entityLabel: 'Vector Agents', url: 'https://vectoragents.ai' }],
+      [],
+      discover,
+    );
+
+    expect(sources).toHaveLength(1);
+    // Tagged as a feed so the structured parser runs instead of the model.
+    expect(sources[0].sourceType).toBe('feed');
+  });
+
+  it('adds nothing when no feed parses', async () => {
+    const { withDiscoveredFeeds } = await import('@/lib/intelligence/project-collection');
+    const sources = await withDiscoveredFeeds(
+      [],
+      [{ entityId: 'ent-1', entityLabel: 'Vector Agents', url: 'https://vectoragents.ai' }],
+      [],
+      async () => null,
+    );
+    expect(sources).toEqual([]);
+  });
+
+  it('honours the blocklist for a discovered feed', async () => {
+    const { withDiscoveredFeeds } = await import('@/lib/intelligence/project-collection');
+    const sources = await withDiscoveredFeeds(
+      [],
+      [{ entityId: 'ent-1', entityLabel: 'Vector Agents', url: 'https://vectoragents.ai' }],
+      ['vectoragents.ai/feed.xml'],
+      async () => 'https://vectoragents.ai/feed.xml',
+    );
+    expect(sources).toEqual([]);
+  });
+
+  it('does not duplicate a feed already in the source list', async () => {
+    const { withDiscoveredFeeds } = await import('@/lib/intelligence/project-collection');
+    const existing = [{
+      url: 'https://vectoragents.ai/feed.xml',
+      entityId: 'ent-1', entityLabel: 'Vector Agents',
+      sourceType: 'page', isTracked: true, sourceTrust: 'official' as const,
+    }];
+
+    const sources = await withDiscoveredFeeds(
+      existing,
+      [{ entityId: 'ent-1', entityLabel: 'Vector Agents', url: 'https://vectoragents.ai' }],
+      [],
+      async () => 'https://vectoragents.ai/feed.xml',
+    );
+    expect(sources).toHaveLength(1);
+  });
+
+  it('does no network work when there are no sites to discover', async () => {
+    // Derivation stays pure: folding discovery into it made a millisecond
+    // function take seconds and depend on whichever sites were up.
+    const { withDiscoveredFeeds } = await import('@/lib/intelligence/project-collection');
+    const discover = vi.fn();
+    await withDiscoveredFeeds([], [], [], discover);
+    expect(discover).not.toHaveBeenCalled();
+  });
+});

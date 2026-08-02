@@ -144,6 +144,49 @@ export async function buildSourceDefinitions(
 }
 
 /**
+ * Attach a discovered changelog feed to each entity that has a site.
+ *
+ * Kept out of `buildSourceDefinitions` deliberately. Derivation is pure
+ * database work — fast, deterministic, and testable without a network. Folding
+ * discovery into it made source derivation do up to eight HTTP requests per
+ * entity, which turned a millisecond function into a multi-second one and made
+ * its tests depend on whichever sites happened to be up.
+ *
+ * `discover` is injectable so the collection path can be exercised without
+ * reaching the internet.
+ */
+export async function withDiscoveredFeeds(
+  sources: SourceDefinition[],
+  entitySites: Array<{ entityId: string; entityLabel: string; url: string }>,
+  blocked: string[],
+  discover: (siteUrl: string) => Promise<string | null> = discoverFeed,
+): Promise<SourceDefinition[]> {
+  const extra: SourceDefinition[] = [];
+
+  for (const site of entitySites) {
+    // A real feed beats scraping a blog index: entries are dated and
+    // structured, so no model has to guess when something shipped.
+    const feedUrl = await discover(site.url);
+    if (!feedUrl || isBlocked(feedUrl, blocked)) continue;
+
+    extra.push({
+      url: feedUrl,
+      entityId: site.entityId,
+      entityLabel: site.entityLabel,
+      sourceType: 'feed',
+      isTracked: true,
+      sourceTrust: 'official',
+    });
+  }
+
+  const seen = new Set(sources.map((s) => s.url.toLowerCase().replace(/\/$/, '')));
+  return [
+    ...sources,
+    ...extra.filter((s) => !seen.has(s.url.toLowerCase().replace(/\/$/, ''))),
+  ];
+}
+
+/**
  * Structured extraction that runs *before* the model.
  *
  * A pricing page yields prices by regex against its own text, a GitHub URL
@@ -159,6 +202,13 @@ async function structuredSpans(
 
   if (source.sourceType === 'pricing') {
     spans.push(...pricesToSpans(extractPrices(normalizedContent), source.entityLabel));
+  }
+
+  if (source.sourceType === 'feed') {
+    const feed = await fetchFeed(source.url);
+    if (feed.ok) {
+      spans.push(...feedEntriesToSpans(feed.entries, source.entityLabel));
+    }
   }
 
   const repo = parseRepo(source.url);
@@ -274,7 +324,18 @@ export async function collectProject(params: {
 }): Promise<CollectionResult & { sourcesConsidered: number }> {
   const { userId, project } = params;
 
-  const sources = await buildSourceDefinitions(userId, project);
+  const derived = await buildSourceDefinitions(userId, project);
+
+  // Discovery is a separate, explicit step so the cost of it is visible at the
+  // call site rather than hidden inside derivation.
+  const entitySites = project.product_url
+    ? derived
+        .filter((s) => s.url.startsWith(project.product_url!))
+        .slice(0, 1)
+        .map((s) => ({ entityId: s.entityId, entityLabel: s.entityLabel, url: project.product_url! }))
+    : [];
+
+  const sources = await withDiscoveredFeeds(derived, entitySites, project.blocked_sources);
   const ports = createProjectPorts(userId, project.id);
 
   const result = await runCollection(sources, ports, {

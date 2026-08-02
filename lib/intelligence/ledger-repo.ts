@@ -12,7 +12,8 @@
  */
 
 import { pool, query } from '@/lib/db';
-import { validateChartSpec, type ChartSpec, type ChangeEvent } from './types';
+import { validateChartSpec, type ChartSpec, type ChangeEvent, type Claim, type EvidenceSpan, type MetricObservation } from './types';
+import { verifyClaims } from './claim-verifier';
 import type { PreparedSnapshot } from './snapshot-store';
 import type { ExtractedSpan } from './evidence-extractor';
 
@@ -136,6 +137,63 @@ export async function saveExtractedEvidence(params: {
   } finally {
     client.release();
   }
+}
+
+/**
+ * Persist claims, rejecting any the verifier will not pass.
+ *
+ * The verifier existed with no caller, which meant an unsupported numeric claim
+ * could still reach the ledger — the exact failure the ledger was built to
+ * prevent. Verification happens here rather than at the call site so no path
+ * can write around it.
+ *
+ * Rejections are returned rather than swallowed: "three claims were dropped
+ * because no source backed their numbers" is a more useful answer than a
+ * shorter list with no explanation.
+ */
+export async function saveVerifiedClaims(params: {
+  userId: string;
+  projectId?: string | null;
+  sessionId?: string | null;
+  claims: Claim[];
+  spans: Map<string, EvidenceSpan>;
+  observationsBySpan: Map<string, MetricObservation[]>;
+  agentId?: string;
+}): Promise<{
+  saved: Array<{ id: string; statement: string }>;
+  rejected: Array<{ statement: string; reasons: string[] }>;
+}> {
+  const { verified, rejected } = verifyClaims(params.claims, {
+    spans: params.spans,
+    observationsBySpan: params.observationsBySpan,
+  });
+
+  const saved: Array<{ id: string; statement: string }> = [];
+
+  for (const claim of verified) {
+    const { rows } = await query<{ id: string }>(
+      `INSERT INTO claims
+         (user_id, project_id, session_id, statement, claim_type, confidence,
+          supporting_span_ids, contradicting_span_ids, freshest_evidence_at, agent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id`,
+      [
+        params.userId, params.projectId ?? null, params.sessionId ?? null,
+        claim.statement, claim.claimType, claim.confidence,
+        claim.supportingSpanIds, claim.contradictingSpanIds,
+        claim.freshestEvidenceAt ?? null, params.agentId ?? claim.agentId ?? null,
+      ],
+    );
+    saved.push({ id: rows[0].id, statement: claim.statement });
+  }
+
+  return {
+    saved,
+    rejected: rejected.map((entry) => ({
+      statement: entry.claim.statement,
+      reasons: entry.rejections.map((r) => `${r.code}: ${r.detail}`),
+    })),
+  };
 }
 
 /** Load observations for a metric series, oldest first. */

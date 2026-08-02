@@ -1434,3 +1434,104 @@ read the wrong field and passed a truthy object check while proving nothing.
 MiroFish live testing is deliberately deferred at the product owner's request.
 The scenario routes and adapter are complete and unit-tested against a mocked
 worker; they have never run against the real service.
+
+## 2026-08-02 — Orphan sweep: connecting everything that had no caller
+
+### The audit
+
+After connecting project collection, I grepped every exported symbol in
+`lib/intelligence/` and the new components for callers outside their own module.
+The result was worse than expected:
+
+| Module | Callers before |
+|---|---:|
+| `ChartSpecView` | 0 |
+| `ScenarioLabCharts` | 0 |
+| `buildTurnContext` | 0 |
+| `requiresCollection` / `canAnswerFromStored` | 0 |
+| `planMetricChart` / `planEvidenceCoverageChart` | 0 |
+| `verifyClaims` | 0 |
+| `discoverFeed` | 0 |
+| `loadObservations` / `saveChartSpec` | 0 |
+
+Nine modules, all tested, none reachable. The same failure the ledger had:
+green tests describing behaviour nobody could invoke.
+
+### Built — measured charts, end to end
+
+- `GET /api/projects/[id]/charts` plans charts from stored observations. No
+  model is asked for rows: the planner decides whether observations can
+  legitimately be drawn and builds the spec. Refused charts return their reasons
+  rather than being dropped, because "observations use incompatible units" tells
+  a user something true about their data while a missing chart tells them the
+  product is broken.
+- `components/dashboard/ProjectCharts.tsx` renders them through `ChartSpecView`
+  and passes evidence span ids to the drawer, so "show the excerpts behind this"
+  resolves to actual excerpts.
+- Per-tier price keys stay distinct series. Collapsing them would make
+  "$49 → $499" look like a price rise when it is really two different plans.
+
+### Built — the cheap Explain path
+
+Turn modes previously only appended an instruction to the prompt while still
+running the full sweep, so "what did you mean by that?" cost the same as the
+original research.
+
+- `lib/intelligence/stored-answer.ts` loads relevant claims, builds a bounded
+  context, and makes exactly one model call over the ledger.
+- `POST /api/projects/[id]/explain` returns 409 with a reason when stored
+  evidence cannot answer, rather than silently escalating. A user who asked a
+  cheap question should not be billed for a sweep without being told, and "the
+  newest stored evidence is 40 days old" is actionable.
+- Citations are filtered to claim ids that actually exist. A hallucinated
+  citation is worse than none, because it looks verifiable.
+
+### Built — claim verification is now unavoidable
+
+`verifyClaims` had no caller, which meant an unsupported numeric claim could
+still reach the ledger — the exact failure the ledger exists to prevent.
+`saveVerifiedClaims` in `ledger-repo` runs the verifier inside the write, so no
+path can persist around it, and returns rejections rather than swallowing them.
+
+### Built — feed discovery, and a design fix it forced
+
+Wiring `discoverFeed` into `buildSourceDefinitions` made source derivation
+perform up to eight HTTP requests per entity. The test suite went from 15s to
+58s and six tests began failing, because a pure database function had quietly
+become a network function whose results depended on which sites were up.
+
+Discovery is now a separate `withDiscoveredFeeds` step with an injectable
+fetcher, called explicitly from `collectProject`. Derivation stays pure and
+fast; the cost of discovery is visible at the call site.
+
+### Built — stored scenarios are readable
+
+`components/dashboard/ScenarioView.tsx` reads a persisted scenario back and
+renders it through `ScenarioLabCharts`. Counts are recomputed from the stored
+rows rather than read from a stored summary, so a chart can never disagree with
+the responses behind it. It reuses the runner's reconciliation rule, so the live
+and stored paths cannot drift.
+
+### Tests added
+
+- `__tests__/stored-answer.test.ts` — 15 tests: mode gating, exactly one model
+  call, refusal with a reason instead of silent escalation, no answer
+  manufactured on model failure, and hallucinated citations dropped.
+- `__tests__/project-collection.test.ts` grew to 18 with five discovery tests,
+  including that derivation does no network work when there is nothing to
+  discover.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 65 files passed, 1 skipped; 714 tests passed,
+  1 skipped (up from 694). Suite is back to ~15s.
+- Production `next build`: PASS. `/charts`, `/collect`, `/explain` all register.
+- ESLint: zero errors.
+
+### Still not wired
+
+`saveVerifiedClaims` is reachable but nothing in the agent synthesis path calls
+it yet — claims are still produced by the orchestrator without passing through
+the verifier. That is the next connection, and it needs the shared evidence pack
+to exist first so agents have span ids to cite.
