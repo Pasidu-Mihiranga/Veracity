@@ -2275,3 +2275,57 @@ Removed it; outside a transaction a failed insert poisons nothing.
 - Full Vitest: PASS — 830 passed, 1 skipped.
 - Production `next build`: PASS.
 - ESLint: zero errors.
+
+## 2026-08-02 — Benchmark artifacts no longer dirty the tree on every test run
+
+### The papercut
+
+`__tests__/bench-executor-parity.test.ts` rewrote
+`docs/architecture/benchmark-langgraph-vs-current.md` and
+`scripts/benchmarks/results-executor-parity.json` on every run. Since the suite
+runs constantly, the working tree was permanently dirty with a diff that said
+nothing had changed — a new timestamp and a few microseconds of latency jitter
+(82.153ms → 82.14ms), identical verdict, identical 0 mismatches.
+
+This was restored by hand after nearly every commit this session. That is a
+signal the process was wrong, not the discipline.
+
+### Fixed
+
+File writes are now behind `BENCH_WRITE=1`, set only by
+`npm run bench:executors`. **The parity gates still run on every `npm test`** —
+only the writes are gated, so nothing about the verification changed.
+
+- `npm test` → gates run, files untouched
+- `npm run bench:executors` → gates run and the report refreshes
+
+Chosen over gitignoring them because the committed report is the evidence
+ADR-0007 gates on. Ignoring it would remove the record the ADR depends on;
+gating the write keeps the record and removes the noise.
+
+### On LangGraph, since it came up
+
+LangGraph is installed (`@langchain/langgraph ^1.4.8`) and wired at
+`lib/agents/workflow/index.ts`, but the flag defaults **off** and
+`CurrentExecutor` runs everything. That is deliberate and recorded three times:
+
+- **ADR-0007** — ships behind a flag; live accuracy, evidence, cost, and latency
+  gates required before default-on. "Failure → keep CurrentExecutor permanently."
+- **ADR-0008** — the live benchmark was never run, so CurrentExecutor remains
+  the production wave runner.
+- **Product roadmap §9.5** — "Keep the custom mission planner. Do not spend
+  product time deepening the current LangGraph wrapper. The product gap is
+  structured evidence and longitudinal state, not a missing graph library."
+
+The stub benchmark supports that: 0 accuracy difference across 97 runs, and
+LangGraph ~7% slower (88ms vs 82ms p50). No migration is warranted. The flag and
+benchmark exist so the option stays open with evidence attached.
+
+### Verification
+
+- `npm test` run twice: benchmark files untouched both times, tree clean.
+- `npm run bench:executors`: report refreshed as intended, gates PASS.
+- Full Vitest: PASS — 830 passed, 1 skipped.
+- ESLint: zero errors.
+- Documented the convention in `AGENTS.md`, and corrected its test counts, which
+  had drifted behind the last few commits.

@@ -19,7 +19,7 @@ Next.js 15 · React 19 · TypeScript 5.9 · PostgreSQL + pgvector · Gemini.
 ```bash
 npm run dev              # dev server on :3000
 npm run typecheck        # tsc --noEmit — run before every commit
-npm test                 # ~810 unit tests, ~15s
+npm test                 # ~830 unit tests, ~15s
 npx vitest run __tests__/foo.test.ts   # single file
 npm run build            # production build
 npx eslint components lib app          # zero errors expected
@@ -27,7 +27,7 @@ npx eslint components lib app          # zero errors expected
 # Database (needs `npm run db:local:start` first)
 npm run test:e2e:evidence-ledger    # DB invariants, 18 checks
 npm run test:e2e:swarm-scenarios    # scenario tables, 15 checks
-npm run test:e2e:dashboard          # full HTTP flow, 42 checks (needs dev server)
+npm run test:e2e:dashboard          # full HTTP flow, 47 checks (needs dev server)
 npm run test:e2e:live-research      # REAL PROVIDERS, COSTS MONEY — ask first
 ```
 
@@ -149,6 +149,29 @@ scripts/smoke-*.mjs    database and HTTP end-to-end checks
 | Remaining gaps, by id | `plans/GAP_CLOSURE_AND_FEATURE_PLAN.md` |
 | UI wording rules | `plans/PLAIN_LANGUAGE_PLAN.md` |
 | Demo script | `TOUR.md` |
+
+## Benchmark artifacts
+
+`docs/architecture/benchmark-langgraph-vs-current.md` and
+`scripts/benchmarks/results-executor-parity.json` are **generated**, and the
+committed copies are the evidence ADR-0007 gates on.
+
+The parity gates run on every `npm test`, but the files are only rewritten when
+you ask:
+
+```bash
+npm test                  # gates run, files untouched
+npm run bench:executors   # gates run AND the report is refreshed
+```
+
+Without that split, every test run rewrote both with a new timestamp and a few
+microseconds of latency jitter, so the working tree always looked dirty while
+nothing had actually changed.
+
+**LangGraph is installed but off.** `CurrentExecutor` runs everything in
+production; ADR-0007 and ADR-0008 require live accuracy, evidence, cost, and
+latency gates before that changes, and the stub benchmark shows LangGraph is
+~7% slower with zero accuracy difference. Do not migrate to it.
 
 ## Do not
 

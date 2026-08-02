@@ -46,7 +46,7 @@
     "db:migrate:conversation-summaries": "node scripts/apply-conversation-summaries-migration.mjs",
     "typecheck": "tsc --noEmit",
     "bench:recall": "npx tsx scripts/benchmark-recall.mjs",
-    "bench:executors": "vitest run __tests__/bench-executor-parity.test.ts",
+    "bench:executors": "BENCH_WRITE=1 vitest run __tests__/bench-executor-parity.test.ts",
     "bench:executors:live": "BENCH_LIVE=1 vitest run __tests__/bench-live-sample.test.ts",
     "build:analyze": "ANALYZE=true next build",
     "prepare": "husky"
