@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { compareSourceCoverage, extractProjectSnapshot } from '@/lib/project-snapshot-data';
+import { storeResearchClaims, type AgentClaimInput } from '@/lib/intelligence/claims-from-research';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -31,6 +33,31 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     [id],
   );
   return NextResponse.json({ messages: rows });
+}
+
+/**
+ * Pull each agent's statements out of the persisted orchestrator output.
+ *
+ * Reads the same `metadata.orchestratorOutput` the snapshot extractor uses, so
+ * the two stay consistent about what a research turn produced.
+ */
+function agentClaimInputs(metadata: unknown): AgentClaimInput[] {
+  if (!metadata || typeof metadata !== 'object') return [];
+  const output = (metadata as {
+    orchestratorOutput?: {
+      outputs?: Array<{ agentId?: string; facts?: string[]; interpretation?: string[] }>;
+    };
+  }).orchestratorOutput;
+
+  if (!Array.isArray(output?.outputs)) return [];
+
+  return output.outputs
+    .map((agent) => ({
+      agentId: agent.agentId ?? 'unknown',
+      facts: Array.isArray(agent.facts) ? agent.facts : [],
+      interpretation: Array.isArray(agent.interpretation) ? agent.interpretation : [],
+    }))
+    .filter((agent) => agent.facts.length > 0 || agent.interpretation.length > 0);
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
@@ -101,6 +128,41 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }
     } catch (error) {
       console.error('project snapshot persistence failed', error instanceof Error ? error.message : String(error));
+    }
+
+    // Persist the agents' statements as verified claims.
+    //
+    // Until this ran, agent output was rendered and forgotten: the Explain path
+    // had nothing to read and the evidence-coverage chart had nothing to count.
+    // Classification is re-derived here rather than trusted from the agent — a
+    // statement is stored as a fact only when a stored excerpt supports it, and
+    // is otherwise kept as interpretation.
+    //
+    // Deliberately non-fatal. The message is already saved and is what the user
+    // asked for; failing the request because a secondary write failed would
+    // lose their turn over bookkeeping.
+    try {
+      const agents = agentClaimInputs(metadata);
+      if (agents.length > 0) {
+        const stored = await storeResearchClaims({
+          userId: user.id,
+          projectId: owned.project_id,
+          sessionId: id,
+          agents,
+        });
+        logger.info('claims.stored', {
+          projectId: owned.project_id,
+          saved: stored.saved,
+          asFacts: stored.asFacts,
+          asInterpretation: stored.asInterpretation,
+          rejected: stored.rejected.length,
+        });
+      }
+    } catch (error) {
+      logger.error('claims.persistence_failed', {
+        projectId: owned.project_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

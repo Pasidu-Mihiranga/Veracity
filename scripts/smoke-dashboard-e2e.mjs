@@ -57,6 +57,14 @@ await client.query(
    VALUES ($1,$2,$3,'pricing_changed','$49/month','$59/month',$4,0.85,'Entry-tier price moved 20% on a tracked competitor','high',$5)`,
   [userId, projectId, ents[0].id, spans[0].id, randomUUID()]);
 
+// A price span carries a metric observation in the real pipeline
+// (pricesToSpans emits one). Without it the verifier correctly rejects any
+// numeric claim citing this span, because nothing measures the number.
+await client.query(
+  `INSERT INTO metric_observations (user_id, project_id, entity_id, evidence_span_id, metric_key, value, unit)
+   VALUES ($1,$2,$3,$4,'plan_price',59,'USD/month')`,
+  [userId, projectId, ents[0].id, spans[0].id]);
+
 // ── Collection route contract ───────────────────────────────────────────────
 // Exercised without depending on any external site being up: a project with no
 // sources must refuse with a specific instruction rather than returning an
@@ -110,6 +118,116 @@ const dash2 = await (await fetch(`${BASE}/api/projects/${projectId}/dashboard`, 
 check('immaterial change is withheld', dash2?.data?.digest?.itemCount === 1);
 check('withholding is explained', dash2?.data?.digest?.suppressed?.length >= 1,
   JSON.stringify(dash2?.data?.digest?.suppressed));
+
+// ── Research claims reach the ledger ────────────────────────────────────────
+// Posting an assistant message with orchestrator output must persist the
+// agents' statements as claims, classified by whether a stored excerpt
+// supports them.
+const session = await client.query(
+  `INSERT INTO chat_sessions (user_id, project_id, title) VALUES ($1, $2, 'Claims smoke') RETURNING id`,
+  [userId, projectId],
+);
+const sessionId = session.rows[0].id;
+
+const orchestratorOutput = {
+  product: 'Vector Agents',
+  competitor: 'Lilian',
+  synthesizedAnswer: 'Lilian repriced downward.',
+  generatedAt: new Date().toISOString(),
+  outputs: [
+    {
+      agentId: 'pricing',
+      // Supported by the span seeded earlier ("Team plan is $59 per month").
+      facts: ['Team plan is $59 per month'],
+      interpretation: ['They are competing on price.'],
+      sources: [{ url: 'https://lilian.example/pricing', title: 'Pricing' }],
+    },
+    {
+      agentId: 'market-trends',
+      // Nothing supports this, so it must be demoted to interpretation.
+      facts: ['The category is consolidating rapidly'],
+      interpretation: ['SYNTHESIS_ERROR: should be dropped'],
+      sources: [],
+    },
+  ],
+};
+
+const posted = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
+  method: 'POST', headers: jsonHeaders(),
+  body: JSON.stringify({
+    role: 'assistant',
+    content: 'Lilian repriced downward.',
+    metadata: { orchestratorOutput },
+  }),
+});
+check('assistant message accepted', posted.ok, String(posted.status));
+
+const stored = await client.query(
+  `SELECT statement, claim_type, confidence, cardinality(supporting_span_ids) AS spans
+     FROM claims WHERE user_id = $1 AND project_id = $2 ORDER BY claim_type, statement`,
+  [userId, projectId],
+);
+
+const facts = stored.rows.filter((r) => r.claim_type === 'fact');
+const interps = stored.rows.filter((r) => r.claim_type === 'interpretation');
+
+check('a supported statement is stored as a fact',
+  facts.length === 1 && facts[0].statement.includes('$59'),
+  JSON.stringify(stored.rows.map((r) => [r.claim_type, r.statement.slice(0, 40)])));
+check('the fact carries its supporting span', Number(facts[0]?.spans) > 0);
+check('a single-source fact is not labelled high', facts[0]?.confidence !== 'high', facts[0]?.confidence);
+check('an unsupported "fact" is demoted to interpretation',
+  interps.some((r) => r.statement.includes('consolidating')));
+check('synthesis-error markers are not stored',
+  !stored.rows.some((r) => r.statement.includes('SYNTHESIS_ERROR')));
+
+// A numeric claim whose cited span has no observation must be refused. This is
+// the ledger's core rule reaching all the way through the request path.
+const unbacked = await fetch(`${BASE}/api/sessions/${sessionId}/messages`, {
+  method: 'POST', headers: jsonHeaders(),
+  body: JSON.stringify({
+    role: 'assistant',
+    content: 'Unbacked numeric claim.',
+    metadata: {
+      orchestratorOutput: {
+        product: 'Vector Agents', generatedAt: new Date().toISOString(),
+        outputs: [{
+          agentId: 'pricing',
+          facts: ['Team plan is $59 per month and churn fell 87 percent'],
+          interpretation: [], sources: [],
+        }],
+      },
+    },
+  }),
+});
+check('unbacked numeric message still accepted', unbacked.ok);
+
+const afterUnbacked = await client.query(
+  `SELECT count(*)::int AS n FROM claims
+    WHERE user_id = $1 AND project_id = $2 AND statement LIKE '%87 percent%'`,
+  [userId, projectId],
+);
+check('a numeric claim with no matching observation never reaches the ledger',
+  afterUnbacked.rows[0].n === 0, String(afterUnbacked.rows[0].n));
+
+// ── Explain reads the ledger back ───────────────────────────────────────────
+const explain = await fetch(`${BASE}/api/projects/${projectId}/explain`, {
+  method: 'POST', headers: jsonHeaders(),
+  body: JSON.stringify({ question: 'What is the team plan price?', mode: 'explain' }),
+});
+// Without a live model key this returns 409 with a reason; with one it answers.
+// Either is correct — what must never happen is a silent full sweep.
+check('explain answers or explains why it cannot',
+  explain.status === 200 || explain.status === 409, String(explain.status));
+
+const explainBody = await explain.json();
+if (explain.status === 409) {
+  check('the refusal names a reason',
+    Boolean(explainBody?.error?.message), JSON.stringify(explainBody).slice(0, 120));
+} else {
+  check('the answer cites stored claims',
+    Array.isArray(explainBody?.data?.citedClaimIds));
+}
 
 await client.query(`DELETE FROM users WHERE id = $1`, [userId]);
 await client.end();

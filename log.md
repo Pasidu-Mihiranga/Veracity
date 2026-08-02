@@ -1535,3 +1535,72 @@ and stored paths cannot drift.
 it yet — claims are still produced by the orchestrator without passing through
 the verifier. That is the next connection, and it needs the shared evidence pack
 to exist first so agents have span ids to cite.
+
+## 2026-08-02 — Research claims now reach the ledger
+
+### The last named disconnection
+
+`saveVerifiedClaims` was reachable but nothing called it: agent output was
+rendered and forgotten. The Explain path had nothing to read and the
+evidence-coverage chart had nothing to count.
+
+### Built — `lib/intelligence/claims-from-research.ts`
+
+Agents emit `facts[]` and `interpretation[]`. The hard part is that an agent
+calling a line a "fact" is the model's own opinion of its own output. Trusting
+that label is how "the category is consolidating" ends up in the ledger as an
+established fact with a URL beside it.
+
+Classification is therefore **re-derived**: a statement is stored as a `fact`
+only when a stored excerpt actually supports it. Everything else becomes an
+`interpretation` — legitimate analyst output that does not require evidence.
+Nothing is dropped and nothing is promoted.
+
+`excerptSupports` requires both substantial content-word overlap **and**, when
+the statement asserts a number, that the same number appears in the excerpt.
+The numeric condition is the one that matters: "prices rose to $59" and "prices
+rose to $99" share nearly every word, and a purely lexical check would bind the
+first statement to the second excerpt.
+
+Confidence comes from the deterministic deriver rather than the agent, so a
+single-source fact can never be labelled high. Synthesis-failure markers are
+dropped rather than stored — they are diagnostics, and keeping them would
+pollute the Explain path with error text presented as findings.
+
+### Wired into the research-completion path
+
+`app/api/sessions/[id]/messages/route.ts` now persists claims when an assistant
+message carries orchestrator output for a project. Deliberately non-fatal: the
+message is already saved and is what the user asked for, so failing the request
+over a secondary write would lose their turn to bookkeeping.
+
+### A test failure worth recording
+
+The end-to-end run initially showed the supported `$59` statement vanishing
+rather than being stored as a fact. The cause was not a bug: the seeded span had
+no `metric_observation`, so the verifier correctly rejected a numeric claim
+whose number nothing measured. **The seed was unrealistic, not the code** — the
+real pipeline emits an observation alongside every price span.
+
+Fixed the seed to match reality, and added an explicit assertion for the
+rejection path: a numeric claim citing a span with no matching observation never
+reaches the ledger, proven through the full HTTP request rather than in a unit
+test.
+
+### Tests added
+
+- `__tests__/claims-from-research.test.ts` — 16 tests: excerpt support including
+  the differing-number case, fact/interpretation classification in both
+  directions, interpretation never promoted, synthesis markers dropped,
+  deterministic confidence, and rejection reporting.
+- `scripts/smoke-dashboard-e2e.mjs` grew to 25 checks covering claim
+  persistence, classification, and the Explain round trip.
+
+### Verification
+
+- `npm run test:e2e:dashboard`: PASS — 25 passed, 0 failed.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 66 files passed, 1 skipped; 730 tests passed,
+  1 skipped (up from 714).
+- Production `next build`: PASS.
+- ESLint: zero errors.
