@@ -478,6 +478,19 @@ export interface EvidenceClaimBinding {
   sourceUrls: string[];
   /** Best deterministic lexical/entity overlap score, 0–1. */
   matchScore: number;
+  /**
+   * How this binding was established.
+   *
+   * `span` means an excerpt from the cited page actually supports the claim.
+   * `lexical` means only that the claim's words overlap the source's title and
+   * URL — which is a hint that the source is topically related, not proof of
+   * anything. The two must stay distinguishable, because presenting a lexical
+   * match as evidence is precisely the "citations that don't prove the claim"
+   * problem the evidence ledger exists to fix.
+   */
+  bindingMethod?: 'span' | 'lexical';
+  /** Evidence spans backing the claim. Present only when `bindingMethod` is 'span'. */
+  evidenceSpanIds?: string[];
 }
 
 export interface FeedbackAppliedCounts {

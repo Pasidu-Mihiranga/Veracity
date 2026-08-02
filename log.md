@@ -501,3 +501,67 @@ drawer, and the migration of each artifact to render a validated `ChartSpec`.
 Shared evidence pack in the orchestrator, rewiring `lib/agents/bind-evidence.ts`
 from lexical URL matching to span ids, the evidence drawer, and migrating each
 artifact to render a validated `ChartSpec`.
+
+## 2026-08-02 — Wave 1 (part 3): evidence UI and honest claim binding
+
+### Built — evidence surfaces
+
+- `components/artifacts/EvidenceDrawer.tsx` — the "prove it" surface. Shows the
+  verbatim excerpt first, then the entity-match state, retrieval timestamp,
+  snapshot hash, and source link. The hash matters because it lets a reviewer
+  confirm the excerpt came from the snapshot we stored rather than from a page
+  that has since changed. Contradicting spans render alongside supporting ones
+  with an explicit note that certainty is reduced rather than one side being
+  chosen. When nothing backs a claim it says so outright, because an empty panel
+  reads as a loading state.
+- `components/artifacts/ChartSpecView.tsx` — one renderer for every decision
+  chart, so the methodology contract is structural rather than a per-chart
+  decision. Data class, unit, period, sample size, formula, limitations,
+  generated-at, evidence links, and a CSV of the exact rows are always present.
+  `connectNulls={false}` and a null-aware tooltip keep a missing observation a
+  visible gap instead of a line drawn through data we never collected. When the
+  planner refuses to build a chart, its reasons render verbatim —
+  "observations use incompatible units" tells a user something real.
+
+### Built — claim binding now distinguishes proof from topical overlap
+
+`lib/agents/bind-evidence.ts` scored a claim against a source's *title and URL
+tokens*. That measures whether a source is topically related; it does not
+establish that the page says what the claim says. Presenting the result as
+evidence is exactly the "citations that don't prove the claim" problem the
+ledger exists to fix.
+
+- `EvidenceClaimBinding` gained `bindingMethod: 'span' | 'lexical'` and
+  `evidenceSpanIds`.
+- `bindClaim` now takes an optional span index and prefers it: when an excerpt
+  supports the claim, the binding is `span` with full support. Otherwise it
+  falls back to the lexical score and labels itself `lexical`.
+- The lexical path was kept rather than removed because most agents do not
+  produce spans yet, and a related source is still worth showing — as a related
+  source.
+
+### Tests added
+
+- `__tests__/evidence-binding-method.test.ts` — 5 tests: a lexical overlap is
+  labelled lexical and never scores 1, a span wins when present, mixed claims
+  resolve per-claim, an empty span list does not fabricate support, and prose
+  bindings carry the label too.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 50 files passed, 1 skipped; 477 tests passed,
+  1 skipped (up from 472).
+- Production `next build`: PASS — compilation, type validation, and static
+  generation completed with the new components included.
+- ESLint over changed files: zero errors; the same two pre-existing
+  `react-hooks/exhaustive-deps` warnings remain in `ExecutionPlan.tsx` and
+  `ResultsInsightCharts.tsx`.
+
+### Wave 1 status
+
+The ledger, its modules, its database-level proof, and the evidence UI are in
+place. Remaining before Wave 1 closes: the shared evidence pack in the
+orchestrator (so the six agents collect once and read from one pack), and
+migrating the existing artifacts to render `ChartSpecView` rather than their own
+ad-hoc chart markup.
