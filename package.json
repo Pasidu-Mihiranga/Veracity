@@ -24,6 +24,7 @@
     "test:e2e:market-project": "node scripts/smoke-market-project.mjs",
     "test:e2e:live-research": "VERACITY_LIVE_RESEARCH=1 node scripts/smoke-market-project.mjs",
     "test:e2e:evidence-ledger": "node scripts/smoke-evidence-ledger.mjs",
+    "test:e2e:swarm-scenarios": "node scripts/smoke-swarm-scenarios.mjs",
     "test:monitoring-integration": "npx tsx scripts/validate-phase5-monitoring.ts",
     "test:continuous-integration": "npx tsx scripts/validate-phase5-monitoring.ts",
     "test:phase6": "vitest run __tests__/phase6-continuous-intelligence.test.ts",

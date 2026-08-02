@@ -1081,3 +1081,56 @@ agreement taken as evidence:
   1 skipped (up from 622).
 - Production `next build`: PASS.
 - ESLint: PASS, zero errors.
+
+## 2026-08-02 — Wave 4 (part 3): scenario persistence and a NULL-uniqueness bug
+
+### Built — `lib/intelligence/scenario-repo.ts`
+
+Ownership-scoped persistence for scenarios, rounds, and responses. Rounds and
+responses are written in one transaction: a scenario with round 1 stored and
+round 3 missing would render as a panel that mysteriously stopped answering,
+and a user would have no way to distinguish that from a panel that genuinely
+deadlocked.
+
+`loadScenarioResponses` orders by persona then round rather than round then
+persona, because the useful reading is "what did this persona think over time" —
+which is the question a follow-up is usually chasing. `loadScenarioLineage`
+returns every version of a lineage, since comparison is the entire point of
+branching; without it a branch is just another disposable run.
+
+### A real constraint bug the database smoke test caught
+
+The rounds table declared `UNIQUE (scenario_id, round, scope, scope_target)`,
+which does not do what it appears to. SQL treats every NULL as distinct for
+uniqueness purposes, and a panel-scoped round has `scope_target IS NULL` — so
+the same round could be inserted any number of times and the constraint would
+never fire. The dedupe protection was decorative.
+
+Replaced with a unique index on
+`(scenario_id, round, scope, COALESCE(scope_target, ''))`, which collapses the
+NULL to a real value so the constraint actually binds. The migration drops the
+old constraint first, so re-running it repairs an already-applied database
+rather than silently leaving the broken version in place.
+
+This is the second time a smoke test against real PostgreSQL caught something
+the TypeScript-level tests could not: the first was the read-after-write
+ordering in the collection run. Constraints that exist only in application code
+are assumptions; constraints in the database are facts.
+
+### Tests added
+
+- `scripts/smoke-swarm-scenarios.mjs` (`npm run test:e2e:swarm-scenarios`) —
+  15 checks: branch versioning without destroying the base, a branch that cannot
+  point at a later version, duplicate-round rejection, a segment follow-up
+  recorded as a further round rather than a new scenario, a failed persona
+  recorded rather than dropped, empty-body rejection, cascade deletion, and —
+  explicitly — that no synthetic response leaked into `evidence_spans`.
+
+### Verification
+
+- `npm run test:e2e:swarm-scenarios`: PASS — 15 passed, 0 failed.
+- Migration re-applied and verified; idempotent.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 60 files passed, 1 skipped; 639 tests passed,
+  1 skipped.
+- ESLint: PASS, zero errors.

@@ -77,10 +77,21 @@ CREATE TABLE IF NOT EXISTS swarm_rounds (
     CHECK (scope IN ('panel', 'segment', 'persona')),
   scope_target text,
 
-  created_at timestamptz NOT NULL DEFAULT now(),
-
-  UNIQUE (scenario_id, round, scope, scope_target)
+  created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Uniqueness has to survive a NULL scope_target.
+--
+-- A plain UNIQUE (scenario_id, round, scope, scope_target) does not: SQL treats
+-- every NULL as distinct, so a panel-scoped round (scope_target IS NULL) could
+-- be inserted any number of times and the same round would be recorded twice.
+-- COALESCE collapses the NULL to a real value so the constraint actually binds.
+DROP INDEX IF EXISTS swarm_rounds_scope_idx;
+ALTER TABLE swarm_rounds
+  DROP CONSTRAINT IF EXISTS swarm_rounds_scenario_id_round_scope_scope_target_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS swarm_rounds_scope_idx
+  ON swarm_rounds(scenario_id, round, scope, COALESCE(scope_target, ''));
 
 CREATE INDEX IF NOT EXISTS swarm_rounds_scenario_idx
   ON swarm_rounds(scenario_id, round);
