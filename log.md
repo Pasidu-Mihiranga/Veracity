@@ -1134,3 +1134,59 @@ are assumptions; constraints in the database are facts.
 - Full Vitest regression: PASS — 60 files passed, 1 skipped; 639 tests passed,
   1 skipped.
 - ESLint: PASS, zero errors.
+
+## 2026-08-02 — Wave 3 (part 3): wiring the dashboard and evidence drawer
+
+### Built — API routes
+
+- `GET /api/projects/[id]/dashboard` — assembles the returning-user digest
+  server-side. The materiality threshold and every send gate are applied here
+  rather than in the client, so a caller cannot request unfiltered changes; the
+  whole point of materiality is that noise never reaches the user. Source
+  coverage is returned separately from change, because "nothing changed" and
+  "we could not look" mean opposite things and collapsing them would let a
+  broken collector read as a quiet market.
+- `GET /api/evidence?ids=` — backs the drawer. Ownership-scoped through
+  `loadSpans`, so an id belonging to another user simply does not come back
+  rather than returning 403 and confirming it exists. Requested and found counts
+  are both returned, so the drawer can say "2 of 3 excerpts are no longer
+  available" instead of quietly showing fewer than the claim cited.
+
+Both routes repeat the `user_id` predicate on every query even though ownership
+is checked first, so a later refactor that loses the ownership check still
+cannot return another user's rows.
+
+### Built — client wiring
+
+- `hooks/useProjectDashboard.ts` — loads the dashboard and, on demand, the
+  evidence behind any item. The last-visit marker is advanced only once the
+  user has actually seen the dashboard, never on fetch: a monitoring product
+  that silently drops the week's changes because someone opened and closed a
+  tab is worse than one that repeats itself. Blocked `localStorage` (private
+  browsing) falls back to the server default rather than failing the screen.
+- `components/dashboard/ProjectDashboard.tsx` — composes the change list with
+  the evidence drawer, so "what changed?" and "prove it" are one click apart
+  rather than in two different places. That adjacency is most of the product's
+  claim to being more than a research bot. "Ask about this" carries the observed
+  before/after values into the question so the turn does not re-derive them.
+
+A render-loop hazard was fixed while writing it: the mark-as-seen effect
+originally depended on the hook's return object, which is rebuilt every render,
+so it would have run on every render rather than when data arrived.
+
+### Tests added
+
+- `__tests__/dashboard-api.test.ts` — 12 tests covering row mapping (including
+  that an unresolved entity is named rather than rendered blank, which reads as
+  a bug and destroys trust in the row), server-side gating, the unchanged-vs-
+  unreachable split, and evidence id parsing with its cap.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 61 files passed, 1 skipped; 651 tests passed,
+  1 skipped (up from 639).
+- Production `next build`: PASS. Both routes register: `/api/evidence` and
+  `/api/projects/[id]/dashboard`.
+- ESLint over the new routes, hook, and components: zero errors and zero
+  warnings. The 23 repo-wide warnings are pre-existing.
