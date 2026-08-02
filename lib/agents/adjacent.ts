@@ -133,8 +133,10 @@ Produce JSON:
       facts: factsFromRawSignals(rawContent, 3),
       interpretation: synthesisFailureInterpretation(err),
       threats: [],
-      overallRisk: 'medium',
-      timeToImpact: '12-18 months',
+      // Undefined, not 'medium' / '12-18 months': synthesis failed, so no
+      // risk level or impact horizon was assessed.
+      overallRisk: undefined,
+      timeToImpact: undefined,
       defensiveActions: [],
       synthesizedAnswer: 'Adjacent threat data collected but synthesis failed.',
       confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
@@ -158,8 +160,10 @@ Produce JSON:
     sources,
     generatedAt: new Date().toISOString(),
     threats: (parsed.threats ?? []) as AdjacentThreat[],
-    overallRisk: parsed.overallRisk ?? 'medium',
-    timeToImpact: parsed.timeToImpact ?? '12-18 months',
+    // No default: an unassessed judgment stays undefined so the artifact can
+    // render an explicit unavailable state instead of a plausible badge.
+    overallRisk: parsed.overallRisk,
+    timeToImpact: parsed.timeToImpact,
     defensiveActions: parsed.defensiveActions ?? [],
   };
 

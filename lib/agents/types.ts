@@ -160,9 +160,14 @@ export interface TrendDataPoint {
 export interface MarketTrendsOutput extends AgentOutput {
   artifactType: 'trend-chart';
   trends: TrendDataPoint[];
-  categoryOutlook: 'accelerating' | 'consolidating' | 'maturing' | 'emerging';
+  /**
+   * Undefined when synthesis failed. These are analyst *judgments*, so a
+   * default value would assert an assessment the system never made — the UI
+   * must render an explicit unavailable state instead of a plausible badge.
+   */
+  categoryOutlook?: 'accelerating' | 'consolidating' | 'maturing' | 'emerging';
   keySignals: string[];     // top 3 leading indicators
-  timeHorizon: string;      // e.g. "6-12 months"
+  timeHorizon?: string;     // e.g. "6-12 months"
 }
 
 export interface CompetitorFeature {
@@ -192,7 +197,8 @@ export interface WinLossOutput extends AgentOutput {
   competitor: string;
   competitorWins: WinReason[];
   competitorLosses: WinReason[];
-  buyerSentiment: 'positive' | 'mixed' | 'negative';
+  /** Undefined when synthesis failed — see MarketTrendsOutput.categoryOutlook. */
+  buyerSentiment?: 'positive' | 'mixed' | 'negative';
   topSwitchTriggers: string[];  // reasons buyers switch
 }
 
@@ -207,7 +213,8 @@ export interface PricingOutput extends AgentOutput {
   artifactType: 'pricing-table';
   competitorPricing: PricingTier[];
   yourPricing?: PricingTier[];
-  willingnessToPay: 'premium' | 'mid-market' | 'price-sensitive';
+  /** Undefined when synthesis failed — see MarketTrendsOutput.categoryOutlook. */
+  willingnessToPay?: 'premium' | 'mid-market' | 'price-sensitive';
   pricingSignals: string[];   // what buyers say about pricing
   recommendation: string;
 }
@@ -240,8 +247,9 @@ export interface AdjacentThreat {
 export interface AdjacentOutput extends AgentOutput {
   artifactType: 'threat-heatmap';
   threats: AdjacentThreat[];
-  overallRisk: 'high' | 'medium' | 'low';
-  timeToImpact: string;    // e.g. "6-18 months"
+  /** Undefined when synthesis failed — see MarketTrendsOutput.categoryOutlook. */
+  overallRisk?: 'high' | 'medium' | 'low';
+  timeToImpact?: string;   // e.g. "6-18 months"
   defensiveActions: string[];
 }
 

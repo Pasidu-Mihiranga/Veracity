@@ -134,7 +134,8 @@ Produce JSON:
       interpretation: synthesisFailureInterpretation(err),
       competitorPricing: [],
       yourPricing: [],
-      willingnessToPay: 'mid-market',
+      // Undefined, not 'mid-market': synthesis failed, so no WTP tier was assessed.
+      willingnessToPay: undefined,
       pricingSignals: [],
       recommendation: 'Could not synthesize pricing recommendation.',
       synthesizedAnswer: 'Pricing data collected but synthesis failed.',
@@ -160,7 +161,9 @@ Produce JSON:
     generatedAt: new Date().toISOString(),
     competitorPricing: (parsed.competitorPricing ?? []) as PricingTier[],
     yourPricing: (parsed.yourPricing ?? []) as PricingTier[],
-    willingnessToPay: parsed.willingnessToPay ?? 'mid-market',
+    // No default: an unassessed judgment stays undefined so the artifact can
+    // render an explicit unavailable state instead of a plausible badge.
+    willingnessToPay: parsed.willingnessToPay,
     pricingSignals: parsed.pricingSignals ?? [],
     recommendation: parsed.recommendation ?? '',
   };

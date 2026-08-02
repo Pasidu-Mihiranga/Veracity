@@ -5,6 +5,7 @@ import { buildToolResult } from './fallback';
 import { assessScrapeQuality } from './scrape-quality';
 import { getPolicyForDomain, computeRetryDelay } from './retry-policy';
 import { detectProviderFailure } from './provider-health';
+import { safeFetch, assertPublicUrl, OutboundPolicyError } from '@/lib/net/outbound-policy';
 
 const BASE_URL = 'https://api.firecrawl.dev/v1';
 
@@ -89,6 +90,26 @@ async function firecrwlFetch(
 
 export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> {
   return withToolLatency('firecrawl.scrapePage', async () => {
+    // Validate before spending anything — including before handing the URL to a
+    // third-party crawler, which would otherwise reach the endpoint on our
+    // behalf and return its contents.
+    try {
+      await assertPublicUrl(url);
+    } catch (err) {
+      const page: ScrapedPage = {
+        url,
+        title: url,
+        markdown: '',
+        excerpt: 'This URL is not a reachable public page and was not fetched.',
+      };
+      return buildToolResult<ScrapedPage>({
+        data: page,
+        status: 'failed',
+        source: `Blocked by outbound policy${err instanceof OutboundPolicyError ? ` (${err.reason})` : ''}`,
+        sourceUrl: url,
+      });
+    }
+
     const cacheKey = `scrape:${url}`;
     const cached = await getCached('firecrawl', cacheKey);
     if (cached) {
@@ -289,7 +310,10 @@ function stripHtmlToText(html: string): string {
 
 async function smartDirectFetch(url: string): Promise<{ markdown: string; title: string } | null> {
   try {
-    const res = await fetch(url, {
+    // Routed through the outbound policy: this URL originates from user input
+    // or model output, so every hop is re-validated against public-address
+    // rules and the response is size- and time-capped.
+    const res = await safeFetch(url, {
       headers: {
         'User-Agent': randomUA(),
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -302,8 +326,7 @@ async function smartDirectFetch(url: string): Promise<{ markdown: string; title:
         'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1',
       },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(15_000),
+      timeoutMs: 15_000,
     });
 
     if (!res.ok) return null;

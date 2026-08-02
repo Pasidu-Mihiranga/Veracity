@@ -199,20 +199,26 @@ Produce a JSON object with this exact shape:
       maxNewTokens: 1400,
       temperature: 0.2,
     });
-  } catch (_err) {
-    const rawFacts = factsFromRawSignals(rawContent);
+  } catch (err) {
+    // This agent previously invented a fact ("Market growth signals collected
+    // across web, news, and technical channels."), claimed the synthesis had
+    // succeeded ("Synthesis synthesized from live search and market signals."),
+    // asserted an 'emerging' outlook, and reported 0.5 confidence — all on a
+    // path where synthesis had just thrown. It was the only one of the six
+    // research agents not converted to the shared honest handler.
+    //
+    // Facts now come solely from raw signals the tools actually returned; when
+    // there were none, `facts` stays empty. Judgment fields stay undefined so
+    // the artifact renders an explicit unavailable state.
     parsed = {
-      facts: rawFacts.length > 0 ? rawFacts : ['Market growth signals collected across web, news, and technical channels.'],
-      interpretation: [
-        `Market trend data collected for ${product || query}.`,
-        'Synthesis synthesized from live search and market signals.',
-      ],
+      facts: factsFromRawSignals(rawContent, 3),
+      interpretation: synthesisFailureInterpretation(err),
       trends: [],
-      categoryOutlook: 'emerging',
-      keySignals: rawFacts.slice(0, 3),
-      timeHorizon: '6-12 months',
-      synthesizedAnswer: `Market trend indicators gathered for ${product || query}.`,
-      confidenceScore: 0.5,
+      categoryOutlook: undefined,
+      keySignals: [],
+      timeHorizon: undefined,
+      synthesizedAnswer: 'Market trend data was collected but synthesis failed.',
+      confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
     };
   }
 
@@ -248,9 +254,11 @@ Produce a JSON object with this exact shape:
     sources,
     generatedAt: new Date().toISOString(),
     trends: (parsed.trends ?? []) as TrendDataPoint[],
-    categoryOutlook: parsed.categoryOutlook ?? 'emerging',
+    // No `?? 'emerging'` / `?? '6-12 months'` defaults: an absent judgment must
+    // stay absent rather than becoming a plausible-looking assessment.
+    categoryOutlook: parsed.categoryOutlook,
     keySignals: parsed.keySignals ?? [],
-    timeHorizon: parsed.timeHorizon ?? '6-12 months',
+    timeHorizon: parsed.timeHorizon,
   };
 
   return output;

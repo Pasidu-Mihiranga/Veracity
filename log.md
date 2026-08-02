@@ -242,3 +242,123 @@ Repair dependencies, rerun typecheck/tests/build, then implement server-first me
 - Rendered UI journey: PASS — local signup, Market Project creation, overview metrics, all five research actions, and selection of Ask synthetic panel; browser console contained zero errors. Temporary UI test data was removed.
 - Provider configuration presence was verified without printing values: Gemini, SerpAPI, Firecrawl, and Apify are configured; MiroFish URL is absent and remains optional/off by default.
 - Added `npm run test:e2e:live-research` for a bounded one-agent live-provider proof. It was not executed in this run because the execution environment reached its external-action allowance; no provider success is claimed.
+
+## 2026-08-02 — Wave 0: product-level honesty sweep
+
+### Scope decision
+
+The product owner set the build order explicitly: **a functional, tested product
+first; enterprise concerns after.** Enterprise identity (SAML/SCIM), fine-grained
+RBAC, compliance dashboards, audit exports, and the enterprise observability
+programme are deferred to a phase that begins only once the MVP and the
+research-derived features are shipped and tested. They are recorded in
+`plans/GAP_CLOSURE_AND_FEATURE_PLAN.md` §5.6, not cancelled.
+
+Wave 0 therefore contains only fixes that determine whether the **product
+itself** is correct and trustworthy. Sequencing for the rest of the build is
+Waves 1–3 (MVP) → Wave 4 (Swarm Decision Lab) → Wave 5 (UI) → end-to-end tests →
+enterprise phase.
+
+### Planning
+
+- Added `plans/GAP_CLOSURE_AND_FEATURE_PLAN.md`: a 30-item gap register in six
+  groups, 14 research-derived features, and a six-wave sequence with per-wave
+  exit criteria. It consolidates the unfinished Slices, roadmap Milestone 1, and
+  the open audit findings into one order of work.
+- Verified the register against the working tree rather than against checkboxes.
+  Milestone 1 (evidence ledger) is 0% started: there is no `evidence_spans`,
+  `metric_observations`, `change_events`, `ChartSpec`, or `lib/intelligence/`.
+  `source_snapshots` exists with a `content_hash`, but nothing diffs it.
+
+### Built — fabricated output removed (the core MVP trust claim)
+
+- `lib/agents/market-trends.ts` was the one research agent the earlier truth
+  reset missed. On synthesis failure it asserted the fact "Market growth signals
+  collected across web, news, and technical channels.", claimed "Synthesis
+  synthesized from live search and market signals." while synthesis had just
+  thrown, set a `categoryOutlook` of `emerging`, a `timeHorizon` of
+  `6-12 months`, and reported 0.5 confidence — with zero data behind any of it.
+  It now uses the same `synthesisFailureInterpretation` /
+  `SYNTHESIS_FAILURE_CONFIDENCE` handler as the other five agents, and its facts
+  come only from raw signals the tools actually returned.
+- Four analyst *judgment* fields defaulted to plausible values whenever
+  synthesis failed: `categoryOutlook` → `emerging`, `buyerSentiment` → `mixed`,
+  `willingnessToPay` → `mid-market`, `overallRisk` → `medium`, plus
+  `timeHorizon` and `timeToImpact` strings. Each rendered as a confident badge
+  describing an assessment the system never made. All six are now optional in
+  `lib/agents/types.ts`, stay `undefined` on failure, and are no longer
+  re-defaulted when the output object is constructed.
+- Added `components/artifacts/UnassessedBadge.tsx` and wired it into
+  `TrendChart`, `WinLossScorecard`, `PricingTable`, and `ThreatHeatmap` so an
+  absent judgment renders as "<label> unavailable" in neutral styling.
+
+### Built — outbound URL policy
+
+- Added `lib/net/outbound-policy.ts`. Research tools resolve competitor and
+  product URLs originating from user input and model output; the previous guard
+  (`lib/tools/source-validator.ts`) rejected the literal string `localhost` and
+  nothing else.
+- The policy parses, restricts to http/https on ports 80/443, rejects non-public
+  IP literals in every encoding the URL parser accepts (dotted-quad, 32-bit
+  decimal, octal, hex, IPv6, IPv4-mapped IPv6), resolves DNS and rejects if *any*
+  returned record is non-public, then re-runs the whole check on every redirect
+  hop. Redirects, response bytes, and wall-clock time are capped. Unresolvable
+  hosts fail closed.
+- Writing the tests surfaced a bypass in the first implementation: `new URL()`
+  re-serialises `[::ffff:127.0.0.1]` to `[::ffff:7f00:1]`, so a dotted-quad regex
+  never matched. Replaced with full IPv6 group expansion, which makes every
+  notation converge on the same numeric value.
+- `lib/tools/firecrawl.ts` now validates before spending anything — including
+  before handing a URL to a third-party crawler, which would otherwise fetch the
+  endpoint on our behalf — and its direct-fetch path goes through `safeFetch`.
+
+### Built — feature-flag correctness
+
+- `lib/feature-flags.ts` read flags through a dynamic `process.env[name]` lookup.
+  Next.js only inlines *statically referenced* `NEXT_PUBLIC_*` variables into
+  browser bundles, so client code silently used hardcoded defaults while the
+  server used deployed values: the two disagreed at runtime. Every flag is now a
+  literal `process.env.NEXT_PUBLIC_FF_*` read.
+- Deferred enterprise and knowledge-graph surfaces are grouped and documented as
+  default-off, with SAML called out: its assertion signatures are unverified, so
+  it stays unreachable until the enterprise phase replaces the implementation.
+
+### Tests added
+
+- `__tests__/no-fabrication-on-failure.test.ts` — 48 tests. Forces every provider
+  *and* synthesis to fail, then runs all six research agents and asserts each
+  returns an output rather than crashing the sweep, states that synthesis failed,
+  reports low confidence, and produces no facts, no sources, no numeric claims,
+  no analyst judgment, and no populated artifact collections. Parameterised over
+  the agent list so a newly regressed agent is caught here.
+- `__tests__/outbound-policy.test.ts` — 16 tests covering IP encodings, private
+  and metadata ranges, protocol/port rules, split-horizon DNS, fail-closed
+  resolution, public→private redirect hops, redirect budget, and byte caps.
+- `__tests__/feature-flags.test.ts` — 17 tests covering value parsing, a static
+  assertion that no dynamic `process.env[...]` read returns to the file, and that
+  every deferred surface still defaults off.
+
+### Verification
+
+- Anti-vacuity check: the original `market-trends` fabrication was temporarily
+  reintroduced and the forced-failure suite failed on exactly the four expected
+  assertions, then passed again once reverted.
+- Full Vitest regression: PASS — 47 files passed, 1 skipped; 405 tests passed,
+  1 skipped (up from 324; +81 from the three new suites).
+- `npm run typecheck`: PASS.
+- ESLint over every changed file: PASS, zero errors. Two pre-existing
+  `react-hooks/exhaustive-deps` warnings remain in `ExecutionPlan.tsx` and
+  `ResultsInsightCharts.tsx`, neither of which was touched.
+
+### Remaining in Wave 0
+
+- Real multimodal image analysis: the model still receives image metadata rather
+  than image bytes.
+- README and homepage claims still predate the truth reset.
+
+### Next
+
+Wave 1 — the evidence ledger and `ChartSpec` foundation. It is the load-bearing
+milestone: the change engine, materiality, the digest, every remaining chart, and
+the Swarm Decision Lab scenario brief all read from it, so building any of them
+first means building them twice.

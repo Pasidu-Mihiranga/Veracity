@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/theme-provider';
 import { buildTrendChartData } from '@/lib/trend-chart-data';
 import { Download } from 'lucide-react';
 import { downloadCsv, rowsToCsv } from '@/lib/csv-download';
+import { UnassessedBadge } from './UnassessedBadge';
 
 interface TrendChartProps {
   output: MarketTrendsOutput;
@@ -47,7 +48,7 @@ export function TrendChart({ output }: TrendChartProps) {
   const keySignals = output.keySignals ?? [];
   const categoryOutlook = output.categoryOutlook;
   const timeHorizon = output.timeHorizon;
-  const outlook = OUTLOOK_STYLE[categoryOutlook] ?? OUTLOOK_STYLE.emerging;
+  const outlook = categoryOutlook ? OUTLOOK_STYLE[categoryOutlook] : null;
   const tickFill = isDark ? '#C5D6E8' : '#334155';
 
   const chartData = buildTrendChartData(trends);
@@ -68,15 +69,21 @@ export function TrendChart({ output }: TrendChartProps) {
           Market Trend Analysis
         </div>
         <div className="flex items-center gap-2">
-          <span
-            className="text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider"
-            style={{ color: outlook.color, background: outlook.bg, borderColor: outlook.border }}
-          >
-            {categoryOutlook}
-          </span>
-          <span className="text-[10px] font-mono" style={{ color: textSubtle }}>
-            {timeHorizon}
-          </span>
+          {outlook && categoryOutlook ? (
+            <span
+              className="text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider"
+              style={{ color: outlook.color, background: outlook.bg, borderColor: outlook.border }}
+            >
+              {categoryOutlook}
+            </span>
+          ) : (
+            <UnassessedBadge label="Outlook" />
+          )}
+          {timeHorizon ? (
+            <span className="text-[10px] font-mono" style={{ color: textSubtle }}>
+              {timeHorizon}
+            </span>
+          ) : null}
           {chartData.length > 0 ? (
             <button type="button" onClick={downloadData} className="inline-flex items-center gap-1 text-[10px] font-mono text-accent hover:opacity-80">
               <Download size={11} /> CSV

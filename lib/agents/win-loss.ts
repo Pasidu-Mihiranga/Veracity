@@ -163,7 +163,8 @@ Produce JSON:
       interpretation: synthesisFailureInterpretation(err),
       competitorWins: [],
       competitorLosses: [],
-      buyerSentiment: 'mixed',
+      // Undefined, not 'mixed': synthesis failed, so no sentiment was assessed.
+      buyerSentiment: undefined,
       topSwitchTriggers: [],
       synthesizedAnswer: 'Buyer sentiment data collected but synthesis failed.',
       confidenceScore: SYNTHESIS_FAILURE_CONFIDENCE,
@@ -189,7 +190,9 @@ Produce JSON:
     competitor: competitorName ?? 'category alternatives',
     competitorWins: (parsed.competitorWins ?? []) as WinReason[],
     competitorLosses: (parsed.competitorLosses ?? []) as WinReason[],
-    buyerSentiment: parsed.buyerSentiment ?? 'mixed',
+    // No default: an unassessed judgment stays undefined so the artifact can
+    // render an explicit unavailable state instead of a plausible badge.
+    buyerSentiment: parsed.buyerSentiment,
     topSwitchTriggers: parsed.topSwitchTriggers ?? [],
   };
 
