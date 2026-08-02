@@ -977,3 +977,52 @@ from "dead".
 Wiring the brief into the run path, persisting rounds and responses through the
 repo, the segment/persona follow-up UI, and the dissent, objection, sensitivity,
 and transition charts.
+
+## 2026-08-02 — Wave 0 closed: real multimodal input and honest README
+
+### Built — image bytes actually reach the model
+
+`ImageAttachment` has carried base64 image data all along, but only the *count*
+reached the model: the classifier prompt read "Attached images: 2. Metadata
+only." while the product's copy implied it had examined the screenshot. That
+line was accurate about the implementation and dishonest about the product,
+which is precisely why it had to change rather than be deleted.
+
+- `lib/agents/gemini.ts` gained a `buildContents` helper that emits
+  `inline_data` parts alongside the text prompt, wired into both the text and
+  JSON generation paths.
+- Unsupported types, oversized payloads, and empty data are skipped rather than
+  failing the whole request — a text answer without one screenshot beats no
+  answer. Images per request are capped, since an oversized inline payload fails
+  the entire call rather than being ignored.
+- `lib/agents/classify.ts` now passes the real bytes and tells the model to read
+  them rather than guess from the count.
+
+### Built — README states what is true
+
+The header claimed multi-agent intelligence with a closed feedback loop and said
+nothing about maturity. It now leads with the product promise and carries a
+claim-by-claim reality table: which charts are genuinely measured, which are
+model-derived, that enterprise SSO is unavailable and why, and that synthetic
+panel output never enters the evidence ledger. Status is stated plainly as
+advanced prototype / private beta.
+
+### Tests added
+
+- `__tests__/multimodal-images.test.ts` — 9 tests: the bytes travel, the text
+  prompt survives alongside them, both generation paths attach images, and each
+  rejection path (unsupported type, oversized, over-cap, empty) drops the image
+  without failing the request. A source-level check keeps the old
+  "Metadata only" wording from returning.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 59 files passed, 1 skipped; 622 tests passed,
+  1 skipped (up from 613).
+- ESLint: PASS, zero errors.
+
+**Wave 0 is now complete.** Every item in the product-level honesty sweep is
+done: fabricated output removed and locked by tests, the outbound URL policy in
+place, feature flags agreeing across client and server, real multimodal input,
+and a README that does not overstate the product.

@@ -1,6 +1,27 @@
 # Veracity
 
-> Multi-agent growth & competitive intelligence — live research, execution assets, closed feedback loop, and executive PDF export.
+> **Know what changed, prove it, and decide what to do next.**
+>
+> A living competitive decision workspace. Veracity monitors the competitors and
+> sources a team chooses, turns what it finds into a traceable evidence ledger,
+> and builds charts whose every value can be traced back to the exact excerpt it
+> came from.
+
+**Status: advanced prototype, private beta.** Not enterprise-ready — identity,
+tenancy, and governance are deliberately deferred until the core loop retains
+users. See [`plans/GAP_CLOSURE_AND_FEATURE_PLAN.md`](./plans/GAP_CLOSURE_AND_FEATURE_PLAN.md) §5.6.
+
+### What is actually true today
+
+| Claim | Reality |
+|---|---|
+| Evidence-backed claims | Real: `metric_observations` cannot be stored without an evidence span, enforced by the database |
+| Measured charts | Real for GitHub releases, SEC filings, changelogs, and pricing pages. Other domains still produce model-derived output, and are labelled `derived` |
+| Change detection | Real: content-hash diffing, deterministic dedupe, explainable materiality |
+| No fabrication on provider failure | Enforced by `__tests__/no-fabrication-on-failure.test.ts` across all six research agents |
+| Synthetic scenario panel | Model-generated personas. Not survey data, not calibrated, never enters the evidence ledger |
+| Enterprise SSO / SCIM / RBAC | **Not available.** SAML routes exist but do not verify assertion signatures and are off by default |
+| Image analysis | Real — image bytes are sent as multimodal parts |
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
 ![Gemini](https://img.shields.io/badge/Gemini-AI-blue?logo=google)

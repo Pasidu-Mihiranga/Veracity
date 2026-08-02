@@ -35,7 +35,69 @@ type GeminiOptions = {
   maxNewTokens?: number;
   temperature?: number;
   thinkingBudget?: number; // override per-call; 0 disables, -1 = dynamic
+  /**
+   * Images to send as multimodal parts.
+   *
+   * Previously an attached image contributed only its count to the prompt
+   * ("Attached images: 2. Metadata only."), so the product implied it had
+   * looked at a screenshot it had never seen. Passing them here sends the
+   * actual bytes.
+   */
+  images?: GeminiImagePart[];
 };
+
+export type GeminiImagePart = {
+  /** Base64 image data with no `data:` prefix. */
+  data: string;
+  mimeType: string;
+};
+
+/**
+ * Gemini accepts roughly 7 MB of inline data per request, and an oversized part
+ * fails the whole call rather than being ignored. Cap conservatively and drop
+ * the overflow rather than losing the text prompt with it.
+ */
+const MAX_INLINE_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_IMAGES_PER_REQUEST = 4;
+
+const SUPPORTED_IMAGE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+/**
+ * Build the `contents` payload, attaching images as `inline_data` parts.
+ *
+ * Unsupported or oversized images are skipped rather than failing the request:
+ * a text answer without one screenshot beats no answer at all. What must never
+ * happen is the reverse — claiming to have read an image that was dropped —
+ * which is why the caller is told how many were accepted.
+ */
+function buildContents(
+  prompt: string,
+  images?: GeminiImagePart[],
+): { contents: unknown[]; imagesAttached: number } {
+  const parts: Array<Record<string, unknown>> = [{ text: prompt }];
+  let attached = 0;
+
+  for (const image of images ?? []) {
+    if (attached >= MAX_IMAGES_PER_REQUEST) break;
+    if (!SUPPORTED_IMAGE_TYPES.has(image.mimeType)) continue;
+    if (!image.data) continue;
+
+    // Base64 expands the payload by ~4/3; compare against the decoded size.
+    const approximateBytes = Math.floor((image.data.length * 3) / 4);
+    if (approximateBytes > MAX_INLINE_IMAGE_BYTES) continue;
+
+    parts.push({ inline_data: { mime_type: image.mimeType, data: image.data } });
+    attached += 1;
+  }
+
+  return { contents: [{ parts }], imagesAttached: attached };
+}
 
 function safePreview(value: string, maxLength = 300): string {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
@@ -182,7 +244,7 @@ export async function generateHuggingFaceText(
         method: 'POST',
         headers: geminiAuthHeaders(apiKey),
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: buildContents(prompt, options.images).contents,
           generationConfig: buildGenerationConfig(options, DEFAULT_TEXT_MAX_OUTPUT),
         }),
       });
@@ -303,7 +365,7 @@ export async function generateHuggingFaceJson<T = Record<string, unknown>>(
         method: 'POST',
         headers: geminiAuthHeaders(apiKey),
         body: JSON.stringify({
-          contents: [{ parts: [{ text: combined }] }],
+          contents: buildContents(combined, options.images).contents,
           generationConfig: buildGenerationConfig(options, DEFAULT_JSON_MAX_OUTPUT, 'application/json'),
         }),
       });
