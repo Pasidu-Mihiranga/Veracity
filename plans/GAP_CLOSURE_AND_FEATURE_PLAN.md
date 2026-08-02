@@ -242,7 +242,7 @@ Where the honest charts get real data and the product starts answering "what cha
 
 Turns the accumulated state into the surface users return to.
 
-- [ ] **F-8** Project dashboard becomes the default screen; chat becomes "Ask this market" beside it
+- [~] **F-8** Project dashboard becomes the default screen; chat becomes "Ask this market" beside it
 - [x] "Since your last visit" material-change strip
 - [ ] **F-6** Competitor activity timeline
 - [ ] Pricing history + release cadence charts (from Wave 2 observations)

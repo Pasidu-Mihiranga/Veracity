@@ -71,7 +71,9 @@ Last updated: 2026-08-02
 
 - [x] Digest assembly with the five send gates and disclosed suppression.
 - [x] `SinceLastVisit` returning-user surface.
-- [ ] Wire the dashboard into the project route as the default screen.
+- [x] Dashboard and evidence API routes with server-side gating.
+- [x] `useProjectDashboard` hook and `ProjectDashboard` composition.
+- [ ] Mount `ProjectDashboard` as the project's default screen in the app shell.
 - [ ] Activity timeline, pricing history, and release cadence on the dashboard.
 - [ ] Feature verification matrix with per-cell evidence.
 - [ ] Rolling conversation summary and artifact references on turns.
