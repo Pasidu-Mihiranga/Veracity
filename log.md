@@ -362,3 +362,78 @@ Wave 1 — the evidence ledger and `ChartSpec` foundation. It is the load-bearin
 milestone: the change engine, materiality, the digest, every remaining chart, and
 the Swarm Decision Lab scenario brief all read from it, so building any of them
 first means building them twice.
+
+## 2026-08-02 — Wave 1 (part 1): evidence ledger schema and chart contract
+
+### Built — migration `0009_evidence_ledger.sql`
+
+Five tables plus three `source_snapshots` columns. The chain previously stopped
+at a source URL: a snapshot recorded that a page was fetched and hashed, but
+nothing recorded *which words* supported a claim, and no numeric value in any
+chart had an origin outside model output.
+
+- `evidence_spans` — verbatim excerpt, offsets into the snapshot's normalized
+  content, extraction type, and an entity-match state so an excerpt about a
+  similarly named company cannot silently support a claim.
+- `metric_observations` — value, unit, period, method, estimated flag. The
+  foreign key to `evidence_spans` is `NOT NULL`, which is the load-bearing
+  decision in the migration: a number with no excerpt behind it cannot be
+  stored at all.
+- `change_events` — the ten normalized event types, before/after, effective vs
+  observed dates, deterministic materiality with a human-readable reason, and a
+  `dedupe_key` under a unique index so a re-run cannot report the same change
+  twice. Distinct from `project_research_events`, which stays scoped to source
+  *coverage* changes.
+- `claims` — statement, `fact` / `interpretation` / `assumption` discriminator,
+  and supporting and contradicting span arrays held separately so disagreement
+  can be shown rather than silently resolved.
+- `chart_specs` — validated spec JSON with `data_class` lifted into a column so
+  charts can be filtered by trust class without deserialising every row.
+- `source_snapshots` gained `normalized_content` (spans carry offsets into it,
+  so it must be retained), `retrieval_status`, and `project_id`.
+
+### Built — `lib/intelligence/types.ts`
+
+Zod schemas for all five records plus the `ChartSpec` contract, and
+`validateChartSpec`, which enforces what a shape check cannot:
+
+- a measured chart must cite at least one source and one evidence span;
+- a derived chart must state its formula;
+- a synthetic chart must state its limitations;
+- a chart with no rows is an empty state, not a chart;
+- a declared series that is missing from every row, or null all the way down, is
+  rejected — a gap drawn as data is the failure mode the schema exists to stop;
+- a real zero stays a valid observation, and a null gap alongside real values is
+  allowed through.
+
+`canPresentAsMeasured` is deliberately blunt: no evidence span means no, however
+confident the model was.
+
+### Tests added
+
+- `__tests__/evidence-ledger-types.test.ts` — 26 tests covering the evidence-span
+  rules, the no-orphan-number rule, fact-requires-evidence, change-event
+  validity and materiality bounds, and every chart validation branch including
+  the zero and null-gap cases.
+
+### Verification
+
+- Migration applied against the isolated local PostgreSQL database and verified:
+  all five tables, all three new `source_snapshots` columns, and the
+  `change_events` dedupe index exist. Re-running the script is idempotent and
+  succeeded a second time with no error.
+- Added `npm run db:migrate:evidence-ledger`, the Supabase mirror
+  `supabase/migrations/013_evidence_ledger.sql`, and the same DDL in
+  `db/schema.sql` so fresh local setups match.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 48 files passed, 1 skipped; 431 tests passed,
+  1 skipped (up from 405).
+- ESLint over the new module, test, and script: PASS with zero errors.
+
+### Remaining in Wave 1
+
+The schema and contract are in place; nothing writes to them yet. Still to
+build: `snapshot-store`, `evidence-extractor`, `metric-normalizer`,
+`chart-planner`, `claim-verifier`, the shared evidence pack in the orchestrator,
+rewiring `bind-evidence` from lexical URL matching to span ids, the evidence
+drawer, and the migration of each artifact to render a validated `ChartSpec`.
