@@ -637,3 +637,68 @@ rows than another specialist agent would.
 Changelog/RSS, pricing-page extraction, GDELT and FRED connectors; wiring
 detection into a per-project scheduled collection with the no-change short
 circuit; and the shared evidence pack in the orchestrator.
+
+## 2026-08-02 — Wave 2 (part 2): the collection run and no-change short circuit
+
+### Built — `lib/intelligence/collection-run.ts`
+
+The loop that makes the product worth returning to: fetch the approved sources,
+compare each against what was stored last time, and do expensive work only where
+something moved.
+
+The no-change short circuit is the economic heart of the product. A general
+chatbot re-researches the market from scratch on every ask. Here, a week in
+which three tracked pages are untouched costs three HTTP requests and no model
+calls at all — no duplicate snapshot, no extraction, no synthesis, no event.
+That is what makes a scheduled refresh affordable, and it is how the >90%
+no-change-skip target is met.
+
+Behaviour worth recording:
+
+- A first sighting is not a change, so creating a project does not fire a burst
+  of false events.
+- An empty page is recorded as unreachable rather than stored. Storing a failed
+  fetch as an empty page makes the real content look like a change when it
+  returns.
+- Extraction failure keeps the snapshot — it is still a record of what the page
+  said — but claims no evidence from it.
+- Sources are processed independently. One unreachable page must not abort the
+  run: a returning user's dashboard is more useful with four of five sources
+  refreshed than with an error.
+- Dependencies are injected as ports, so the orchestration logic is testable
+  without network or database.
+
+### Two real bugs the tests caught
+
+Both would have produced a product that silently detected nothing.
+
+1. **Read-after-write ordering.** The baseline metrics were loaded *after* the
+   new observations were saved, so the value just written became its own
+   predecessor and every comparison comes out equal. The baseline is now read
+   before the write.
+2. **Baseline aliasing.** `previousMetrics` could hand back a live map that
+   `saveEvidence` then mutated, moving the baseline to the new value mid-
+   comparison. The pipeline now copies the map rather than aliasing it.
+
+### Tests added
+
+- `__tests__/collection-run.test.ts` — 12 tests encoding the Wave 2 exit
+  criterion: change a controlled page and exactly one traceable event appears
+  with before/after and an explained materiality score; run again unchanged and
+  extraction is never called. Also covers cosmetic-difference tolerance, the
+  short-circuit rate across a mixed run, no duplicate across runs, first
+  sighting, an immaterial change being recorded but kept out of the digest, and
+  four degradation paths.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 54 files passed, 1 skipped; 534 tests passed,
+  1 skipped (up from 522).
+- ESLint: PASS, zero errors.
+
+### Remaining in Wave 2
+
+Changelog/RSS, pricing-page extraction, GDELT and FRED connectors; scheduling
+the run per project through Inngest; and the shared evidence pack in the
+orchestrator.
