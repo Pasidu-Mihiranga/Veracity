@@ -43,6 +43,7 @@ const VIZ_PRIORITY = [
   'win-loss-scorecard',
   'positioning-gap',
   'threat-heatmap',
+  'scenario-distribution',
   'forecast-chart',
 ] as const;
 
@@ -61,9 +62,12 @@ function hasUsefulVisual(output: AgentOutput): boolean {
     case 'win-loss-scorecard':
       return Array.isArray(o.factors) && (o.factors as unknown[]).length > 0
         || Array.isArray(o.scorecard) && (o.scorecard as unknown[]).length > 0;
+    case 'scenario-distribution':
     case 'forecast-chart':
-      return Array.isArray(o.points) && (o.points as unknown[]).length > 0
-        || Array.isArray(o.forecast) && (o.forecast as unknown[]).length > 0;
+      return typeof o.swarmSize === 'number' && o.swarmSize > 0
+        && (Array.isArray(o.distribution) && (o.distribution as unknown[]).length > 0
+          || Array.isArray(o.scenarioObservations) && (o.scenarioObservations as unknown[]).length > 0
+          || Array.isArray(o.perspectives) && (o.perspectives as unknown[]).length > 0);
     case 'threat-heatmap':
       return Array.isArray(o.threats) && (o.threats as unknown[]).length > 0
         || Array.isArray(o.cells) && (o.cells as unknown[]).length > 0;
@@ -381,6 +385,7 @@ export function IntelligenceResults({
       <DecisionSupportPack
         output={currentResult.orchestratorOutput}
         viewMode={viewMode}
+        sessionId={currentSessionId}
       />
 
       {/* Level 2: Actionable Recommendations */}
@@ -877,4 +882,3 @@ export function IntelligenceResults({
     </div>
   );
 }
-

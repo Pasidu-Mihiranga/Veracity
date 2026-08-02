@@ -154,7 +154,7 @@ export function DashboardHeader({
             ) : null}
             {mirofishRunning ? (
               <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
-                forecast live
+                scenario running
               </span>
             ) : null}
           </div>

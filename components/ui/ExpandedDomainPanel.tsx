@@ -103,7 +103,7 @@ export function ExpandedDomainPanel({
               {meta.short} details are loading
             </p>
             <p className="text-[13px] leading-relaxed" style={{ color: textMuted }}>
-              This agent is still running or returned no structured artifact yet. Try rerunning with MiroFish enabled and a forecast-style prompt.
+              This agent is still running or returned no structured artifact yet. Try enabling the Swarm Decision Lab and ask a concrete decision or objection-testing question.
             </p>
           </div>
         )}

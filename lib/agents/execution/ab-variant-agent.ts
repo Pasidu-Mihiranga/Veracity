@@ -125,57 +125,10 @@ Produce a JSON object with this exact shape:
   "confidenceScore": number
 }`;
 
-  let parsed: any = {};
-  try {
-    parsed = await generateHuggingFaceJson<any>(systemPrompt, userPrompt, {
-      maxNewTokens: 1800,
-      temperature: 0.25,
-    });
-  } catch {
-    parsed = {
-      variants: [
-        {
-          id: 'V1-ROI',
-          angle: 'ROI-focused',
-          hypothesis: `ROI messaging outperforms competitor-gap for VP Sales at Series B because budget pressure is the primary buying signal for ${product}`,
-          successMetric: 'reply rate > 4% within 72h',
-          variable: 'opening hook angle',
-          channels: {
-            email: { subject: `What if ${product} paid for itself in 30 days?`, body: `Most teams spend 60% of selling time on manual research. ${product} flips that ratio — your reps get live-sourced intelligence in minutes, not days.\n\nWorth a 20-minute call to show you the math?`, followUps: [`Following up — did the ROI angle land?`] },
-            linkedin: { hook: `Your top reps are losing deals to intel lag.`, post: `${product} surfaces live competitor, pricing, and buyer signals before the call even starts. Happy to share what that looks like for a team your size.` },
-          },
-          groundedSignals: ['Budget pressure identified in research signals', 'Competitor ad messaging focuses on speed'],
-        },
-        {
-          id: 'V2-COMPETITOR-GAP',
-          angle: 'Competitor gap',
-          hypothesis: `Highlighting a specific competitor weakness increases curiosity opens for buyers already evaluating alternatives`,
-          successMetric: 'click-through on demo link > 8%',
-          variable: 'competitive framing vs ROI framing',
-          channels: {
-            email: { subject: `What ${competitor ?? 'your current tool'} doesn't show you`, body: `${competitor ?? 'Most intelligence tools'} gives you static reports. ${product} pulls live signals — funding moves, job postings, ad shifts — in real time.\n\nCurious what that difference looks like for your team?`, followUps: [`Still thinking it over? Happy to share a side-by-side.`] },
-            linkedin: { hook: `Static research is a competitive liability in 2025.`, post: `${product} vs ${competitor ?? 'legacy tools'}: one surfaces live signals before the call, one summarises what happened last quarter. Reach out if you want to see the gap in action.` },
-          },
-          groundedSignals: ['Competitor ads emphasise static reports', 'HN sentiment shows frustration with lagging intel'],
-        },
-        {
-          id: 'V3-INSIGHT-LED',
-          angle: 'Insight-led',
-          hypothesis: `Opening with a specific, non-obvious insight about the prospect's market increases reply rates among analytical buyers`,
-          successMetric: 'reply rate > 5% for VP-level prospects',
-          variable: 'personalised insight hook vs generic value prop',
-          channels: {
-            email: { subject: `One signal your team is probably missing`, body: `I ran ${product} against your category this morning — three competitors increased ad spend in the last 30 days while pulling back on pricing pages. That's usually a pivot signal.\n\nWant me to walk you through what it means for your Q3 positioning?`, followUps: [`Wanted to check — did the market signal angle resonate?`] },
-            linkedin: { hook: `I found something interesting about your market this morning.`, post: `Using ${product} I spotted a pattern: three of your top competitors shifted ad messaging this week. Curious what that might mean for your positioning? Happy to share the breakdown.` },
-          },
-          groundedSignals: ['Market trend agent detected competitor ad spend shifts', 'Positioning agent identified untapped messaging angles'],
-        },
-      ],
-      facts: rawContent.slice(0, 3).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['A/B variant synthesis temporarily unavailable — default variants generated.'],
-      confidenceScore: 0.4,
-    };
-  }
+  const parsed = await generateHuggingFaceJson<any>(systemPrompt, userPrompt, {
+    maxNewTokens: 1800,
+    temperature: 0.25,
+  });
 
   const rawScore: number = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0.65;
   const toolResults = extractToolResults([metaAdsResult, hnResult, webResult]);

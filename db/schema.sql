@@ -133,6 +133,24 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
 
 ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS folder_name text;
 
+CREATE TABLE IF NOT EXISTS market_projects (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name             text NOT NULL,
+  product          text NOT NULL,
+  product_url      text,
+  competitors      text[] NOT NULL DEFAULT '{}',
+  geography        text,
+  decision_context text,
+  approved_sources text[] NOT NULL DEFAULT '{}',
+  blocked_sources  text[] NOT NULL DEFAULT '{}',
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id, name)
+);
+
+ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS user_folders (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -152,6 +170,39 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 CREATE INDEX IF NOT EXISTS chat_sessions_user_id_idx ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS chat_sessions_updated_at_idx ON chat_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS chat_sessions_project_id_idx ON chat_sessions(project_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS market_projects_user_id_idx ON market_projects(user_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS project_research_snapshots (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id     uuid NOT NULL REFERENCES market_projects(id) ON DELETE CASCADE,
+  session_id     uuid REFERENCES chat_sessions(id) ON DELETE SET NULL,
+  message_id     uuid REFERENCES chat_messages(id) ON DELETE SET NULL,
+  product        text NOT NULL,
+  competitor     text,
+  summary        text NOT NULL DEFAULT '',
+  source_urls    jsonb NOT NULL DEFAULT '[]',
+  source_count   integer NOT NULL DEFAULT 0,
+  evidence_score real,
+  generated_at   timestamptz NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(message_id)
+);
+
+CREATE TABLE IF NOT EXISTS project_research_events (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id  uuid NOT NULL REFERENCES market_projects(id) ON DELETE CASCADE,
+  snapshot_id uuid REFERENCES project_research_snapshots(id) ON DELETE CASCADE,
+  event_type  text NOT NULL CHECK (event_type IN ('coverage_changed')),
+  title       text NOT NULL,
+  details     jsonb NOT NULL DEFAULT '{}',
+  observed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS project_research_snapshots_project_idx
+  ON project_research_snapshots(project_id, generated_at DESC);
+CREATE INDEX IF NOT EXISTS project_research_events_project_idx
+  ON project_research_events(project_id, observed_at DESC);
 CREATE INDEX IF NOT EXISTS chat_messages_session_id_idx ON chat_messages(session_id);
 
 -- ── User memory ──────────────────────────────────────────────────────────────
@@ -368,6 +419,7 @@ CREATE TABLE IF NOT EXISTS decision_memory (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   session_id uuid REFERENCES chat_sessions(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
   title text NOT NULL,
   rationale text NOT NULL DEFAULT '',
   decision text NOT NULL
@@ -385,6 +437,7 @@ CREATE TABLE IF NOT EXISTS decision_memory (
 );
 CREATE INDEX IF NOT EXISTS decision_memory_user_idx ON decision_memory(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS decision_memory_key_idx ON decision_memory(user_id, source_recommendation_key);
+CREATE INDEX IF NOT EXISTS decision_memory_project_idx ON decision_memory(project_id, created_at DESC);
 
 -- Phase 6: Enterprise tenancy
 CREATE TABLE IF NOT EXISTS workspaces (

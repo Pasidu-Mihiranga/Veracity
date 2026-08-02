@@ -38,7 +38,7 @@ export const REPORT_TEMPLATES: Record<ReportTemplateId, ReportTemplateConfig> = 
     name: 'Pricing & Monetization Breakdown',
     badge: 'Pricing Template',
     description: 'Tier-by-tier pricing, value metrics, ROI models, and discount risks.',
-    primaryVisuals: ['pricing-table', 'forecast-chart'],
+    primaryVisuals: ['pricing-table', 'scenario-distribution'],
     recommendedSections: ['Pricing Overview', 'Tier Breakdown Table', 'Value Metric Comparison', 'Monetization Risks', 'Recommendations'],
   },
   strategy: {

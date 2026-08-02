@@ -18,6 +18,7 @@ artifacts/evals/
 # Environment
 .env*
 !.env.example
+.local/
 
 # OS
 .DS_Store

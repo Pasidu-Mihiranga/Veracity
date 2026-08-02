@@ -1,12 +1,14 @@
 'use client';
 
 import type { RefObject } from 'react';
+import Image from 'next/image';
 import {
   ArrowUpRight, ChevronDown, ChevronRight, Layers, MessageSquarePlus, Paperclip,
   RefreshCw, Search, Send, X,
 } from 'lucide-react';
 import type { AttachedImage, FollowUp } from '@/types/chat-ui';
 import { DEMO_QUERIES } from '@/lib/domain-meta';
+import { RESEARCH_TURN_MODE_COPY, type ResearchTurnMode } from '@/lib/research-turn-mode';
 
 export type ChatPanelProps = {
   /** Empty-state + suggestions (when no messages). */
@@ -32,6 +34,8 @@ export type ChatPanelProps = {
   onTextareaInput: () => void;
   viewMode?: import('@/types/chat-ui').ProductViewMode;
   onViewModeChange?: (mode: import('@/types/chat-ui').ProductViewMode) => void;
+  turnMode?: ResearchTurnMode;
+  onTurnModeChange?: (mode: ResearchTurnMode) => void;
   headerBg: string;
   cardBg: string;
   cardBg2: string;
@@ -65,6 +69,8 @@ export function ChatPanel({
   onTextareaInput,
   viewMode = 'executive',
   onViewModeChange,
+  turnMode = 'verify',
+  onTurnModeChange,
   headerBg,
   cardBg,
   cardBg2,
@@ -83,7 +89,7 @@ export function ChatPanel({
       {showEmptyState && (
         <div className="flex flex-col lg:flex-row items-center lg:items-center justify-center gap-10 lg:gap-14 min-h-[58vh] px-2 w-full max-w-5xl mx-auto">
           <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-md">
-            <img
+            <Image
               src="/robot.avif"
               alt=""
               width={140}
@@ -181,9 +187,12 @@ export function ChatPanel({
               <div className="flex flex-wrap gap-2 mb-2 px-1">
                 {attachedImages.map((img, i) => (
                   <div key={i} className="relative group">
-                    <img
+                    <Image
                       src={img.dataUrl}
                       alt={img.name}
+                      width={40}
+                      height={40}
+                      unoptimized
                       className="h-10 w-10 object-cover rounded-lg"
                       style={{ border: 'none', boxShadow: neuExtrudedSm }}
                     />
@@ -249,6 +258,22 @@ export function ChatPanel({
                         <option value="developer">Mode: Developer</option>
                       </select>
                       <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-accent shrink-0 opacity-80" />
+                    </div>
+                  ) : null}
+                  {onTurnModeChange ? (
+                    <div className="relative inline-flex items-center">
+                      <select
+                        aria-label="Select research action"
+                        value={turnMode}
+                        onChange={(event) => onTurnModeChange(event.target.value as ResearchTurnMode)}
+                        className="appearance-none ui-mono text-[10.5px] font-medium pl-3 pr-7 py-1.5 rounded-xl bg-muted/60 hover:bg-muted text-foreground border border-border cursor-pointer outline-none transition-colors"
+                        disabled={composerBusy}
+                      >
+                        {(Object.keys(RESEARCH_TURN_MODE_COPY) as ResearchTurnMode[]).map((mode) => (
+                          <option key={mode} value={mode}>{RESEARCH_TURN_MODE_COPY[mode].label}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-muted-foreground" />
                     </div>
                   ) : null}
                   <button

@@ -1,5 +1,7 @@
 # Veracity AI — Master Improvement Plan
 
+> **Scope clarification (2026-08-01):** This remains the detailed AI-quality engineering backlog and acceptance framework. Product scope and build order are governed by [`PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md`](./PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md). When priorities conflict, use the product-first roadmap and reuse quality gates from this document.
+
 **Document type:** Living engineering source of truth for AI intelligence quality  
 **Scope:** AI research quality, decision support, evidence, trust, enterprise intelligence workflows, and the two-developer execution / QA process required to ship them  
 **Out of scope:** Landing page redesign, styling, animations, visual polish, UI work that does not improve AI reasoning  
@@ -8,7 +10,7 @@
 **Created:** 2026-07-29  
 **Last updated:** 2026-07-29 — Phase 5 implemented and evaluated; structured material events, signal collectors, cadence/cost controls, alert budgets, email/Slack egress, B5 integration, and B4 regression recorded
 
-> **Single source of truth.** Do not create parallel roadmaps. Update this file when new weaknesses, issues, or acceptance criteria are discovered.
+> **AI-quality source of truth.** Update this file when new reasoning/evidence weaknesses or acceptance criteria are discovered. Use the product-first roadmap for feature priority and release sequencing.
 
 ---
 

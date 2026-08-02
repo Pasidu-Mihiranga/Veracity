@@ -1,9 +1,11 @@
 # Veracity AI — Definitive Product Engineering & Competition Master Plan
 
+> **Product-priority reset (2026-08-01):** This document remains the detailed historical engineering tracker and task library. Current market positioning and release order are governed by [`PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md`](./PRODUCT_FIRST_MARKET_RESEARCH_AND_ROADMAP_2026-08-01.md). When priorities conflict, follow the product-first roadmap and reuse applicable acceptance criteria from this file.
+
 > **Document Version:** 2.0.1 (Execution polish — 2026-07-23)  
 > **Authoritative Reviewing Body:** Engineering Leadership Board  
 > *(CTO · Chief AI Architect · Chief Product Officer · Principal Backend / Frontend / UX / DevOps / Security / Database / Cloud Engineers · Senior AI Research Engineer · Technical Program Manager · Competition Judge)*  
-> **Single Source of Truth:** This file — `docs/phase_by_phase_improvement_plan.md` (repo root: `Veracity/`)  
+> **Engineering task archive/source:** This file — `docs/phase_by_phase_improvement_plan.md` (repo root: `Veracity/`)
 > **Codebase Scope:** `/Users/oneionei/MyProjects/Veracity/Veracity`  
 > **Policy:** Living execution plan. Mark `[x]` only when work exists in the codebase. Never delete completed checklists.  
 > **V1 Backup:** `doc/phase_by_phase_improvement_plan.v1.backup.md`

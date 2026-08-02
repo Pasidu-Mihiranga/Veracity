@@ -157,22 +157,9 @@ Reply with ONLY a JSON array of {num_personas} persona objects.  No markdown, no
         if isinstance(personas, list) and personas:
             return personas[:num_personas]
     except Exception as e:
-        print(f"[MiroFish] persona Gemini failed, using template personas: {e}")
+        raise RuntimeError(f"Persona generation failed; no scenario was prepared: {e}") from e
 
-    # Fallback: minimal persona set (works offline / when free-tier quota is exhausted)
-    stances = ["positive", "neutral", "negative", "sceptical"]
-    return [
-        {
-            "id": i,
-            "name": f"Persona {i}",
-            "role": "Market Participant",
-            "company_type": "enterprise",
-            "background": f"Experienced professional in the {product} space.",
-            "stance": stances[i % 4],
-            "platform_preference": "twitter" if i % 2 == 0 else "reddit",
-        }
-        for i in range(num_personas)
-    ]
+    raise RuntimeError("Persona generation returned no valid personas; no scenario was prepared")
 
 
 # ── Graph / project endpoints ─────────────────────────────────────────────────
@@ -515,8 +502,17 @@ Answer in first person (2-4 sentences) to:
 """
     try:
         response_text = gemini(batch_prompt).strip()
-    except Exception:
-        response_text = f"As a {persona.get('role','professional')}, I see this as {persona.get('stance','neutral')}."
+    except Exception as exc:
+        return jsonify({
+            "success": False,
+            "error": f"Interview failed for agent {agent_id}: {exc}",
+        }), 502
+
+    if not response_text:
+        return jsonify({
+            "success": False,
+            "error": f"Interview returned an empty response for agent {agent_id}",
+        }), 502
 
     return jsonify({
         "success": True,
@@ -583,6 +579,7 @@ def interview_all():
     # Batched interview: 5 personas per Gemini call for speed + quality
     BATCH = 5
     all_results: dict[str, dict] = {}
+    failures: list[dict] = []
     deadline = time.time() + timeout_sec
 
     persona_batches = [personas[i:i+BATCH] for i in range(0, len(personas), BATCH)]
@@ -619,15 +616,17 @@ Reply with ONLY a JSON object (no markdown) mapping persona ID to response strin
         try:
             raw = gemini(batch_prompt, json_mode=True)
             batch_responses = json.loads(strip_code_fences(raw))
-        except Exception:
-            # Per-persona fallback if batch parse fails
-            batch_responses = {}
+        except Exception as exc:
             for p in batch:
-                batch_responses[str(p["id"])] = f"As a {p.get('role','professional')}, I see this as {p.get('stance','neutral')}."
+                failures.append({"agent_id": p.get("id"), "error": str(exc)})
+            continue
 
         for p in batch:
             pid = p["id"]
-            response_text = batch_responses.get(str(pid), f"No strong view from {p.get('role','?')}.")
+            response_text = str(batch_responses.get(str(pid), "")).strip()
+            if not response_text:
+                failures.append({"agent_id": pid, "error": "empty persona response"})
+                continue
             plat = p.get("platform_preference", "twitter")
             key = f"{plat}_{pid}"
             all_results[key] = {
@@ -640,7 +639,14 @@ Reply with ONLY a JSON object (no markdown) mapping persona ID to response strin
                 "timestamp": now_iso(),
             }
 
-    # Save interview to history
+    if not all_results:
+        return jsonify({
+            "success": False,
+            "error": "All persona interviews failed; no synthetic fallback was generated",
+            "data": {"failures": failures},
+        }), 502
+
+    # Save the complete interview so later scenario turns can be reconstructed.
     history_path = s_dir_path / "interview_history.json"
     history = []
     if history_path.exists():
@@ -652,6 +658,8 @@ Reply with ONLY a JSON object (no markdown) mapping persona ID to response strin
         "prompt": prompt,
         "timestamp": now_iso(),
         "responses_count": len(all_results),
+        "responses": all_results,
+        "failures": failures,
     })
     history_path.write_text(json.dumps(history[-100:], indent=2))  # keep last 100
 
@@ -659,6 +667,7 @@ Reply with ONLY a JSON object (no markdown) mapping persona ID to response strin
         "success": True,
         "data": {
             "interviews_count": len(all_results),
+            "failures": failures,
             "result": {
                 "interviews_count": len(all_results),
                 "results": all_results,

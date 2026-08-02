@@ -2,9 +2,11 @@
 
 import React from 'react';
 import dynamic from 'next/dynamic';
-import type { AgentOutput, MarketTrendsOutput, CompetitiveOutput, WinLossOutput, PricingOutput, PositioningOutput, AdjacentOutput, MindMapOutput, ExecutionPlanOutput, ForecastOutput, OrchestratorOutput, RefinementDelta } from '@/lib/agents/types';
+import type { AgentOutput, MarketTrendsOutput, CompetitiveOutput, WinLossOutput, PricingOutput, PositioningOutput, AdjacentOutput, MindMapOutput, ExecutionPlanOutput, ForecastOutput, SwarmScenarioOutput, OrchestratorOutput, RefinementDelta } from '@/lib/agents/types';
 import { EmptyArtifact } from './EmptyArtifact';
 import { PanelSkeleton } from '@/components/ui/PanelSkeleton';
+import { legacyForecastToScenario } from '@/lib/swarm-scenario';
+import { ARTIFACT_DATA_CLASS_COPY, getArtifactDataClass } from '@/lib/artifact-truth';
 
 const TrendChart = dynamic(() => import('./TrendChart').then((m) => m.TrendChart), {
   loading: () => <PanelSkeleton label="Loading trend chart" rows={4} height={200} />,
@@ -38,8 +40,8 @@ const ExecutionPlan = dynamic(() => import('./ExecutionPlan').then((m) => m.Exec
   loading: () => <PanelSkeleton label="Loading execution plan" rows={5} height={240} />,
   ssr: false,
 });
-const ForecastChart = dynamic(() => import('./ForecastChart').then((m) => m.ForecastChart), {
-  loading: () => <PanelSkeleton label="Loading forecast" rows={4} height={200} />,
+const SwarmScenarioChart = dynamic(() => import('./SwarmScenarioChart').then((m) => m.SwarmScenarioChart), {
+  loading: () => <PanelSkeleton label="Loading scenario" rows={4} height={200} />,
   ssr: false,
 });
 
@@ -62,6 +64,25 @@ function withArrayDefaults<T extends Record<string, any>>(output: T, fields: (ke
   return patched ?? output;
 }
 
+function ArtifactTruthFrame({ output, children }: { output: AgentOutput; children: React.ReactNode }) {
+  const dataClass = getArtifactDataClass(output);
+  const copy = ARTIFACT_DATA_CLASS_COPY[dataClass];
+  const tone = dataClass === 'synthetic'
+    ? 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-300'
+    : dataClass === 'observed'
+      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
+      : 'border-sky-400/40 bg-sky-400/10 text-sky-700 dark:text-sky-300';
+
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <div className={`self-start rounded-full border px-2.5 py-1 text-[10px] font-mono ${tone}`} title={copy.detail}>
+        {copy.label} · {copy.detail}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function ArtifactRendererInner({ output, product, sessionId, messageId, onRefined }: Props) {
   if (!output) return <EmptyArtifact label="Artifact" reason="No agent output to render." />;
 
@@ -71,63 +92,70 @@ function ArtifactRendererInner({ output, product, sessionId, messageId, onRefine
       if (!o.trends.length && !o.keySignals.length) {
         return <EmptyArtifact label="Market Trend Analysis" reason="No measurable trends surfaced from this run." />;
       }
-      return <TrendChart output={o} />;
+      return <ArtifactTruthFrame output={output}><TrendChart output={o} /></ArtifactTruthFrame>;
     }
     case 'competitive-matrix': {
       const o = withArrayDefaults(output as CompetitiveOutput, ['matrix', 'hiringSignals', 'recentMoves']);
       if (!o.matrix.length && !o.competitorSummary) {
         return <EmptyArtifact label="Feature Comparison Matrix" reason="No comparable feature data was found." />;
       }
-      return <CompetitiveMatrix output={o} product={product} />;
+      return <ArtifactTruthFrame output={output}><CompetitiveMatrix output={o} product={product} /></ArtifactTruthFrame>;
     }
     case 'win-loss-scorecard': {
       const o = withArrayDefaults(output as WinLossOutput, ['competitorWins', 'competitorLosses', 'topSwitchTriggers']);
       if (!o.competitorWins.length && !o.competitorLosses.length) {
         return <EmptyArtifact label="Win / Loss Analysis" reason="No buyer-side wins or losses surfaced." />;
       }
-      return <WinLossScorecard output={o} competitor={o.competitor} product={product} />;
+      return <ArtifactTruthFrame output={output}><WinLossScorecard output={o} competitor={o.competitor} product={product} /></ArtifactTruthFrame>;
     }
     case 'pricing-table': {
       const o = withArrayDefaults(output as PricingOutput, ['competitorPricing', 'pricingSignals']);
       if (!o.competitorPricing.length && !o.pricingSignals.length) {
         return <EmptyArtifact label="Pricing Intelligence" reason="No competitor pricing or willingness-to-pay signals found." />;
       }
-      return <PricingTable output={o} />;
+      return <ArtifactTruthFrame output={output}><PricingTable output={o} /></ArtifactTruthFrame>;
     }
     case 'positioning-gap': {
       const o = withArrayDefaults(output as PositioningOutput, ['gaps', 'adThemes']);
       if (!o.gaps.length && !o.yourPositioning) {
         return <EmptyArtifact label="Positioning Gap Analysis" reason="No positioning gaps detected in this run." />;
       }
-      return <PositioningGap output={o} product={product} competitor={o.competitor} />;
+      return <ArtifactTruthFrame output={output}><PositioningGap output={o} product={product} competitor={o.competitor} /></ArtifactTruthFrame>;
     }
     case 'threat-heatmap': {
       const o = withArrayDefaults(output as AdjacentOutput, ['threats', 'defensiveActions']);
       if (!o.threats.length && !o.defensiveActions.length) {
         return <EmptyArtifact label="Adjacent Threat Heatmap" reason="No adjacent-market threats detected." />;
       }
-      return <ThreatHeatmap output={o} />;
+      return <ArtifactTruthFrame output={output}><ThreatHeatmap output={o} /></ArtifactTruthFrame>;
     }
     case 'mind-map': {
       const o = withArrayDefaults(output as MindMapOutput, ['branches']);
       if (!o.branches.length) {
         return <EmptyArtifact label="Strategy map" reason="Synthesis produced no usable strategy pillars." />;
       }
-      return <MindMap output={o} />;
+      return <ArtifactTruthFrame output={output}><MindMap output={o} /></ArtifactTruthFrame>;
     }
     case 'execution-plan': {
       const o = withArrayDefaults(output as ExecutionPlanOutput, ['variants', 'deployment']);
       if (!o.variants.length && !o.brief?.objective) {
         return <EmptyArtifact label="Execution Plan" reason="Execution Engine returned no variants or brief." />;
       }
-      return <ExecutionPlan output={o} product={product} sessionId={sessionId} messageId={messageId} onRefined={onRefined} />;
+      return <ArtifactTruthFrame output={output}><ExecutionPlan output={o} product={product} sessionId={sessionId} messageId={messageId} onRefined={onRefined} /></ArtifactTruthFrame>;
     }
     case 'forecast-chart': {
       const o = output as ForecastOutput;
       if (!o.question || !o.swarmSize) {
-        return <EmptyArtifact label="Swarm Forecast" reason="MiroFish simulation unavailable or not yet bootstrapped for this product." />;
+        return <EmptyArtifact label="Swarm Decision Lab" reason="MiroFish scenario unavailable or not yet prepared for this product." />;
       }
-      return <ForecastChart output={o} product={product} />;
+      return <ArtifactTruthFrame output={output}><SwarmScenarioChart output={legacyForecastToScenario(o)} product={product} /></ArtifactTruthFrame>;
+    }
+    case 'scenario-distribution': {
+      const o = output as SwarmScenarioOutput;
+      if (!o.question || !o.swarmSize) {
+        return <EmptyArtifact label="Swarm Decision Lab" reason="No configured synthetic panel responses were returned." />;
+      }
+      return <ArtifactTruthFrame output={output}><SwarmScenarioChart output={o} product={product} /></ArtifactTruthFrame>;
     }
     default:
       return <EmptyArtifact label="Artifact" reason="Unknown artifact type." />;

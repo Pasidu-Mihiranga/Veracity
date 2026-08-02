@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import {
   upsertDecision,
   listDecisions,
+  listProjectDecisions,
   setDecisionOutcome,
   type DecisionOutcome,
 } from '@/lib/decisions';
@@ -11,14 +12,17 @@ import { requireWorkspaceAccess, resolveTenantFromCookies } from '@/lib/workspac
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ decisions: [] });
   }
 
   try {
-    const decisions = await listDecisions(user.id, 20);
+    const projectId = req.nextUrl.searchParams.get('projectId');
+    const decisions = projectId
+      ? await listProjectDecisions(user.id, projectId, 20)
+      : await listDecisions(user.id, 20);
     return NextResponse.json({ decisions });
   } catch (err) {
     return NextResponse.json({ decisions: [], error: err instanceof Error ? err.message : String(err) });
@@ -79,6 +83,10 @@ export async function POST(req: NextRequest) {
 
     if (!body.title?.trim() || !body.decision?.trim()) {
       return NextResponse.json({ ok: false, error: 'Missing title or decision action' }, { status: 400 });
+    }
+    const allowedActions = ['accepted', 'rejected', 'refined', 'deferred'];
+    if (!allowedActions.includes(body.decision)) {
+      return NextResponse.json({ ok: false, error: 'Invalid decision action' }, { status: 400 });
     }
 
     const record = await upsertDecision({

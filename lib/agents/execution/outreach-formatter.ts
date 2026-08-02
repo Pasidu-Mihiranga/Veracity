@@ -129,29 +129,10 @@ Produce a JSON object with this exact shape:
   "confidenceScore": number
 }`;
 
-  let parsed: any = {};
-  try {
-    parsed = await generateHuggingFaceJson<any>(systemPrompt, userPrompt, {
-      maxNewTokens: 1800,
-      temperature: 0.25,
-    });
-  } catch {
-    // Fallback: return input variants unchanged + default deployment
-    parsed = {
-      enrichedVariants: inputVariants,
-      deployment: [
-        { day: 0, action: 'Send Variant A cold email', channel: 'email', audience: 'VP Sales at Series B SaaS' },
-        { day: 0, action: 'Send Variant B cold email', channel: 'email', audience: 'Head of Growth at Series B SaaS' },
-        { day: 3, action: 'Send Variant A follow-up 1', channel: 'email', audience: 'Non-responders from Day 0' },
-        { day: 5, action: 'Publish Variant A LinkedIn post', channel: 'linkedin', audience: 'VP Sales network' },
-        { day: 5, action: 'Publish Variant B LinkedIn post', channel: 'linkedin', audience: 'Head of Growth network' },
-        { day: 8, action: 'Send final follow-up (insight angle)', channel: 'email', audience: 'All non-responders' },
-      ],
-      facts: rawContent.slice(0, 2).map(s => s.replace(/^\[[^\]]+\]\s*/, '')).filter(s => s.length > 15),
-      interpretation: ['Outreach formatting temporarily unavailable — input variants returned unchanged.'],
-      confidenceScore: 0.4,
-    };
-  }
+  const parsed = await generateHuggingFaceJson<any>(systemPrompt, userPrompt, {
+    maxNewTokens: 1800,
+    temperature: 0.25,
+  });
 
   const rawScore: number = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0.65;
   const toolResults = extractToolResults([bestPracticesResult, landingResult]);
