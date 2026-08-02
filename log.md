@@ -1246,3 +1246,46 @@ following the drop-then-recreate pattern from `0010`. Flagged as follow-up work.
   1 skipped.
 - Production `next build`: PASS.
 - ESLint over the changed components: zero errors, zero warnings.
+
+## 2026-08-02 — Closing the loop on MiroFish auth, and a Node version pin
+
+### Fixed — the hardening had broken every existing MiroFish call
+
+Adding the shared secret to the worker was only half the change. The two
+TypeScript clients still sent bare `Content-Type` headers, so with the hardened
+service every panel would have returned 401.
+
+Worse, five of the nine call sites were readiness and config GETs that swallow
+failures and return `false` or `[]`. A 401 on those does not surface as an
+error — it looks exactly like "the simulation is not ready", which is the kind
+of silent outage that takes a day to diagnose.
+
+- Added `MIROFISH_SERVICE_TOKEN` to the config schema.
+- Added a shared `mirofishHeaders()` builder in both `lib/tools/mirofish.ts` and
+  `lib/tools/mirofish-live.ts`, and routed all nine fetches through it.
+- The header is omitted rather than sent empty when unconfigured, so a missing
+  secret fails as "missing" rather than as "wrong".
+
+### Tests added
+
+- `__tests__/mirofish-auth-header.test.ts` — 11 tests. Beyond checking the
+  header is sent, it asserts that the number of `mirofish Headers()` uses equals
+  the number of `await fetch(` calls in each client, so a new call site cannot
+  quietly reintroduce an unauthenticated request. That count assertion is what
+  caught the five GETs I had missed.
+- Also asserts `.env.example` documents the token, origin, and host, and that
+  the documented host stays on loopback.
+
+### Fixed — Node version pin
+
+A fresh shell defaulted to Node 18, where Vitest will not start at all
+(`node:util` has no `styleText` export before 20.12). The repo had no pin, so
+this presents as a confusing startup crash rather than as a version problem.
+Added `.nvmrc` (22) and `engines.node >= 20.12` to `package.json`.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 62 files passed, 1 skipped; 662 tests passed,
+  1 skipped (up from 651).
+- ESLint over the changed clients, config, and test: zero errors.
