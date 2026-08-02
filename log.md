@@ -702,3 +702,56 @@ Both would have produced a product that silently detected nothing.
 Changelog/RSS, pricing-page extraction, GDELT and FRED connectors; scheduling
 the run per project through Inngest; and the shared evidence pack in the
 orchestrator.
+
+## 2026-08-02 — Wave 2 (part 3): changelog and pricing connectors
+
+### Built — `connectors/changelog-rss.ts`
+
+Cheap, structured, high signal. A competitor's changelog says what shipped and
+when, in their own words, with no search credit and no model call. The parser is
+deliberately small and dependency-free: feeds in the wild are inconsistent
+enough that a strict XML parser rejects a meaningful share of them, and a
+rejected feed reads as a competitor that stopped shipping.
+
+- Handles both RSS 2.0 and Atom, including CDATA, escaped entities, and Atom's
+  `href`-attribute links.
+- Undated entries are dropped rather than dated to now. An undated item placed
+  at today's date looks like a brand-new release and can fire a false alert.
+- Entries carry no metric. A changelog entry is a dated event, not a
+  measurement; attaching a number here would invent one the feed never stated.
+  Monthly counting is a separate, explicit step.
+
+### Built — `connectors/pricing-extractor.ts`
+
+The highest-value recurring question in the research, and the hardest connector
+to do honestly: a pricing page is prose and a price is a number, which is exactly
+the gap where a model invents a plausible figure.
+
+Nothing here trusts a model. Prices are matched against the page's own text and
+every price keeps its surrounding sentence as the excerpt.
+
+- Requires a currency marker. A bare "49" on a pricing page could be a seat
+  count, a percentage, or a feature limit.
+- Discount language ("save $100", "was $99") disqualifies the sentence.
+- The billing interval is read from the number or, failing that, from the
+  sentence around it.
+- The metric key includes the plan (`plan_price:pro`). Without that, "$49 →
+  $499" reads as a 10x price rise when it is really the Pro and Enterprise
+  tiers being compared to each other.
+- An unattributed price is marked `probable` rather than `confirmed`, because a
+  wrong plan name silently attaches a price to the wrong tier.
+
+### Tests added
+
+- `__tests__/connectors-feed-pricing.test.ts` — 20 tests. Feed parsing for both
+  formats, undated-entry handling, quiet-month emission, and for pricing: the
+  property that every extracted figure is locatable in the input, plus discount
+  rejection, non-price number rejection, plan attribution, interval inference,
+  non-dollar currency, duplicate suppression, and per-tier series separation.
+
+### Verification
+
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 55 files passed, 1 skipped; 554 tests passed,
+  1 skipped (up from 534).
+- ESLint: PASS, zero errors.
