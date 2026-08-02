@@ -181,33 +181,33 @@ This is Milestone 1 of the roadmap and the highest-leverage wave in the plan. It
 
 **Data layer** — migration `0009_evidence_ledger.sql` (+ Supabase `013`)
 
-- [ ] `evidence_spans` — snapshot_id, exact excerpt, start/end offsets, extraction type, entity match, created_at
-- [ ] `metric_observations` — entity, metric key, value, unit, period start/end, evidence_span_id, method, is_estimated
-- [ ] `change_events` — entity, event type, before/after, observed + effective dates, materiality, confidence, dedupe key
-- [ ] `claims` — statement, type, confidence, supporting + contradicting evidence ids, freshness
-- [ ] `chart_specs` — project/run, validated spec JSON, generated_at
-- [ ] Extend `source_snapshots` with normalized content and retrieval status
+- [x] `evidence_spans` — snapshot_id, exact excerpt, start/end offsets, extraction type, entity match, created_at
+- [x] `metric_observations` — entity, metric key, value, unit, period start/end, evidence_span_id, method, is_estimated
+- [x] `change_events` — entity, event type, before/after, observed + effective dates, materiality, confidence, dedupe key
+- [x] `claims` — statement, type, confidence, supporting + contradicting evidence ids, freshness
+- [x] `chart_specs` — project/run, validated spec JSON, generated_at
+- [x] Extend `source_snapshots` with normalized content and retrieval status
 
 **Module layer** — new `lib/intelligence/`
 
-- [ ] `types.ts` — Zod schemas for every record above and for `ChartSpec` (§8.3 of the research: id, kind, dataClass, unit, period, dimensions, series, rows, sourceIds, sampleSize, formula, isEstimated, limitations, generatedAt)
-- [ ] `snapshot-store.ts` — URL canonicalization, content hashing, size limits, typed collection errors
-- [ ] `evidence-extractor.ts` — schema-constrained extraction of facts + exact spans; never fills a missing number
+- [x] `types.ts` — Zod schemas for every record above and for `ChartSpec` (§8.3 of the research: id, kind, dataClass, unit, period, dimensions, series, rows, sourceIds, sampleSize, formula, isEstimated, limitations, generatedAt)
+- [x] `snapshot-store.ts` — URL canonicalization, content hashing, size limits, typed collection errors
+- [x] `evidence-extractor.ts` — schema-constrained extraction of facts + exact spans; never fills a missing number
 - [ ] `metric-normalizer.ts` — units, dates, comparison eligibility
-- [ ] `chart-spec.ts` + `chart-planner.ts` — **deterministic**; selects a visualization from stored observations, never asks the LLM for rows
-- [ ] `claim-verifier.ts` — entailment, contradiction, freshness, entity match; **rejects any numeric claim lacking a `metric_observation` id**
+- [x] `chart-spec.ts` + `chart-planner.ts` — **deterministic**; selects a visualization from stored observations, never asks the LLM for rows
+- [x] `claim-verifier.ts` — entailment, contradiction, freshness, entity match; **rejects any numeric claim lacking a `metric_observation` id**
 
 **Agent layer**
 
 - [ ] **G-A5** Shared evidence pack: collect once per run, all six agents read from it
 - [ ] Agents return claim + evidence ids instead of independent source lists
-- [ ] Rework `lib/agents/bind-evidence.ts` from lexical URL/title matching to span ids
+- [x] Rework `lib/agents/bind-evidence.ts` from lexical URL/title matching to span ids
 - [ ] `lib/agents/output-quality.ts` rejects unsupported numerics and incomparable series
 - [ ] `lib/agents/market-trends.ts` stops requesting `changePercent`; consumes metric observations
 
 **UI layer**
 
-- [ ] **F-5** Evidence drawer: exact excerpt, URL, retrieval timestamp, snapshot hash, entity match, freshness, supporting + contradicting items
+- [x] **F-5** Evidence drawer: exact excerpt, URL, retrieval timestamp, snapshot hash, entity match, freshness, supporting + contradicting items
 - [ ] **G-A3** Migrate every artifact in `components/artifacts/` to render a validated `ChartSpec` — carries the trend/scenario methodology + CSV contract to competitive, pricing, win/loss, positioning, threat
 - [ ] Data-class badge, unit, period, sample size, formula, source links, CSV/JSON download on all charts
 - [ ] Insufficient-data empty states replace every remaining decorative default
@@ -220,16 +220,16 @@ This is Milestone 1 of the roadmap and the highest-leverage wave in the plan. It
 
 Where the honest charts get real data and the product starts answering "what changed?".
 
-- [ ] **F-2** GitHub Releases connector → `metric_observations` (release cadence). Start here: cheapest path to a measured chart
-- [ ] **F-1** SEC EDGAR connector → XBRL company facts → `metric_observations`
+- [x] **F-2** GitHub Releases connector → `metric_observations` (release cadence). Start here: cheapest path to a measured chart
+- [x] **F-1** SEC EDGAR connector → XBRL company facts → `metric_observations`
 - [ ] **F-4** Changelog/RSS collector → `change_events`
 - [ ] **F-3** Pricing-page snapshot extractor → dated plan/price/currency/interval records
 - [ ] **F-9** GDELT connector with a *fixed, disclosed* query set → signal-volume trend with sample denominator
 - [ ] **F-10** FRED connector for adjacent-market context
 - [ ] **G-B2** Content diffing over `source_snapshots.content_hash` → normalized before/after
-- [ ] **G-B1** `change-detector.ts` — the ten normalized event types from research §10.4
-- [ ] **G-B4** `dedupe` — deterministic dedupe key; target <2% duplicates across adjacent runs
-- [ ] **G-B3** `materiality.ts` — deterministic score from event type, source trust, magnitude, novelty, and the project's current decision. **Not** model confidence
+- [x] **G-B1** `change-detector.ts` — the ten normalized event types from research §10.4
+- [x] **G-B4** `dedupe` — deterministic dedupe key; target <2% duplicates across adjacent runs
+- [x] **G-B3** `materiality.ts` — deterministic score from event type, source trust, magnitude, novelty, and the project's current decision. **Not** model confidence
 - [ ] **G-B5** Per-project scheduled collection in Inngest, split into idempotent steps
 - [ ] **G-B6** No-change short circuit: identical hash → heartbeat only, skip extraction and synthesis
 - [ ] Track collection success, freshness, and stale/broken monitored sources

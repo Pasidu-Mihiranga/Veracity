@@ -32,6 +32,26 @@ Last updated: 2026-08-02
 - [ ] Add a reviewable ScenarioBrief and continuing panel/persona/assumption branches.
 - [ ] Add rolling structured research summary and direct claim/chart references in follow-up turns.
 
+## Wave 1 — evidence ledger (2026-08-02)
+
+- [x] Migration `0009`: evidence_spans, metric_observations, change_events, claims, chart_specs.
+- [x] Zod schemas and the validated `ChartSpec` contract.
+- [x] snapshot-store, evidence-extractor, claim-verifier, chart-planner, ledger-repo.
+- [x] Database-level proof (`npm run test:e2e:evidence-ledger`, 18 checks).
+- [x] Evidence drawer and the shared `ChartSpecView` renderer.
+- [x] Claim binding distinguishes a real span from lexical overlap.
+- [ ] Shared evidence pack in the orchestrator (collect once, all agents read it).
+- [ ] Migrate existing artifacts to render `ChartSpecView`.
+
+## Wave 2 — connectors and change detection (2026-08-02)
+
+- [x] GitHub releases connector (measured release cadence).
+- [x] SEC EDGAR connector (measured filed financials).
+- [x] Change detection, deterministic dedupe key, materiality scoring.
+- [x] End-to-end proof: connector → spans → observations → measured chart.
+- [ ] Changelog/RSS, pricing-page extractor, GDELT, FRED connectors.
+- [ ] Per-project scheduled collection with the no-change short circuit.
+
 ## Wave 0 — product-level honesty sweep (2026-08-02)
 
 - [x] Remove the market-trends synthesis-failure fabrication.
