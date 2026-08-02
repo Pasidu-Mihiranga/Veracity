@@ -76,8 +76,8 @@ being listed twice.
 - [x] Authenticated end-to-end proof (`npm run test:e2e:dashboard`, 11 checks).
 - [ ] Activity timeline, pricing history, and release cadence on the dashboard.
 - [ ] Feature verification matrix with per-cell evidence.
-- [ ] Rolling conversation summary and artifact references on turns.
-- [ ] Make Explain genuinely cheap (answer from stored evidence, no collection).
+- [~] Rolling conversation summary and artifact references — the context builder and Explain route accept both; the chat UI does not attach artifacts yet.
+- [x] Make Explain genuinely cheap — `stored-answer` + `POST /api/projects/[id]/explain`, one model call over the ledger, 409 with a reason instead of silent escalation.
 
 ## Wave 0 — product-level honesty sweep (2026-08-02) — COMPLETE
 
