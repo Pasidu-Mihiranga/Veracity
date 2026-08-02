@@ -24,9 +24,12 @@ Last updated: 2026-08-02
 - [x] Assumption branching that versions rather than overwrites.
 - [x] Scenario/round/response persistence (migration `0010`).
 - [x] Harden the MiroFish service: auth, restricted CORS, loopback bind, path safety.
-- [ ] Wire the brief into the run path and persist rounds through the repo.
-- [ ] Segment and persona follow-up UI.
-- [ ] Dissent, objection, sensitivity, and round-transition charts.
+- [x] Three-round scenario runner with honest aggregation and failure counting.
+- [x] Scenario/round/response repository with transactional writes.
+- [x] Dissent, objection, distribution, and round-transition surfaces.
+- [x] Database-level proof (`npm run test:e2e:swarm-scenarios`, 15 checks).
+- [ ] Wire the brief review and run into an API route and the chat surface.
+- [ ] Segment and persona follow-up UI (the data model supports it already).
 
 ## Next
 

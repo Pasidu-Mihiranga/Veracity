@@ -169,7 +169,7 @@ Five waves. Each ends in a demoable vertical slice. Do not start a wave before t
 - [x] **G-E5** Send real image bytes to Gemini multimodal parts so image analysis is genuine
 - [x] **G-F3** Rewrite README + homepage claims to the product promise: *Know what changed, prove it, and decide what to do next*
 - [x] **G-E1** SAML stays **off by default** and unreachable in the functional product. No rebuild now — see §5.6
-- [ ] **G-E2** MiroFish binds loopback with a shared-secret header. Done as part of Wave 4 when the service is properly implemented, not as separate security work
+- [x] **G-E2** MiroFish binds loopback with a shared-secret header. Done as part of Wave 4 when the service is properly implemented, not as separate security work
 
 **Exit:** a forced-failure test suite proves no agent fabricates a source, quote, persona, number, or interval; flags agree across client and server.
 
@@ -267,11 +267,11 @@ The differentiator, built only once the evidence base it draws from is real.
 - [x] **G-C6** Configure and smoke-test the MiroFish path end to end; keep it private per Wave 0
 - [x] **G-C1** `ScenarioBrief` — versioned, generated from verified project state (decision question, alternatives, segments, observed facts by claim id, assumptions, uncertainties, exclusions). User reviews and edits **before** the expensive run
 - [x] **G-C2** Persist `swarm_sessions`, `swarm_turns`, `swarm_responses` — full persona text, round, segment, structured choice
-- [ ] **G-C3** Three rounds: independent reaction → challenge with verified evidence → decision with blocking objection and missing information
+- [x] **G-C3** Three rounds: independent reaction → challenge with verified evidence → decision with blocking objection and missing information
 - [ ] Follow-ups scoped to full panel, one segment, or one persona, carrying prior swarm turns
 - [x] **G-C4** Assumption branching creates a versioned branch, never an overwrite
-- [ ] **G-C5** Charts: alternative distribution by segment, round-to-round position transitions, objection frequency by stakeholder type, assumption sensitivity matrix, dissent map
-- [ ] Cache key includes scenario version, panel version, model, and evidence hash
+- [x] **G-C5** Charts: alternative distribution by segment, round-to-round position transitions, objection frequency by stakeholder type, assumption sensitivity matrix, dissent map
+- [x] Cache key includes scenario version, panel version, model, and evidence hash
 - [ ] Synthesis renders three visually separate blocks: **observed evidence** / **analyst inference** / **synthetic scenario**. Synthetic consensus never raises the confidence of an observed claim
 - [ ] Invoke the lab directly from a saved decision
 
