@@ -36,6 +36,7 @@
     "db:migrate:project-history": "node scripts/apply-project-history-migration.mjs",
     "db:migrate:project-decisions": "node scripts/apply-project-decisions-migration.mjs",
     "db:migrate:evidence-ledger": "node scripts/apply-evidence-ledger-migration.mjs",
+    "db:migrate:swarm-scenarios": "node scripts/apply-swarm-scenarios-migration.mjs",
     "typecheck": "tsc --noEmit",
     "bench:recall": "npx tsx scripts/benchmark-recall.mjs",
     "bench:executors": "vitest run __tests__/bench-executor-parity.test.ts",

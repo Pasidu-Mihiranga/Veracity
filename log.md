@@ -881,3 +881,99 @@ section is added.
 - Full Vitest regression: PASS — 57 files passed, 1 skipped; 590 tests passed,
   1 skipped (up from 571).
 - ESLint: PASS, zero errors.
+
+## 2026-08-02 — Wave 4 (part 1): ScenarioBrief and MiroFish hardening
+
+### Built — `lib/intelligence/scenario-brief.ts`
+
+The rule this module exists to enforce: **an arbitrary user prompt must never go
+straight to a persona pool.** A synthetic panel answers whatever it is asked,
+confidently, and if the question smuggled in an assumption then the answer
+inherits it invisibly. The brief is therefore built from verified project state,
+shown to the user, and versioned before anything expensive runs.
+
+- **Facts require evidence span ids.** A "fact" with no evidence is an
+  assumption wearing a disguise, and the panel would be told it is established.
+- **Assumptions are rendered to the panel as explicitly unproven**, so a
+  persona does not treat a premise as settled and have its answer read back as
+  evidence for it.
+- **Branching creates a new version** rather than mutating. Overwriting the base
+  case destroys the only thing that makes a branch interesting — the comparison.
+- **The cache key includes the evidence hash, panel version, and model version.**
+  Two runs of "the same" scenario against different evidence are different runs;
+  colliding them serves a stale panel result as though it reflected current facts.
+- **Round 1 withholds other personas' responses.** Showing them produces
+  artificial consensus: personas converge on whatever they read first, and the
+  resulting agreement measures the prompt rather than the segments.
+- **Limitations are non-negotiable and not caller-supplied.** Every scenario
+  output carries that it is synthetic, that persona agreement has no statistical
+  weight, that it is uncalibrated and not a prediction, and the real panel size.
+  The whole risk of this feature is a user reading synthetic output as market
+  research, and that disclosure is the only thing between the two readings.
+
+Validation warns without blocking when a brief rests entirely on assumptions —
+a thought experiment is legitimate, it just has to be labelled — and when *no*
+assumptions are stated alongside facts, which usually means an unproven premise
+is hiding inside the decision question.
+
+### Built — migration `0010_swarm_scenarios.sql`
+
+`swarm_scenarios`, `swarm_rounds`, `swarm_responses`. The existing path ran a
+panel, streamed a result, and forgot it, which made the lab a novelty: no
+follow-up, no per-persona inspection, no branch comparison.
+
+Persona responses are stored verbatim so the panel is inspectable rather than
+only summarised — a user must be able to read what was actually said instead of
+trusting a distribution chart. Per-persona failures are recorded, so a partial
+panel is reported as partial and never silently becomes a smaller panel that
+looks complete. Nothing in these tables is evidence: synthetic responses never
+join `evidence_spans` and are never cited as sources.
+
+### Built — MiroFish service hardening
+
+The service holds a model API key and does unbounded model work per request.
+Left open it is a quota drain and a cross-tenant read waiting to happen. It is
+now treated as a private worker:
+
+- CORS restricted to the configured app origin instead of every origin.
+- Every route except health requires `X-MiroFish-Token`, compared with
+  `hmac.compare_digest` — a plain `==` leaks the token a byte at a time to
+  anyone willing to measure.
+- **An unset token fails closed** (503 on every API route). A silent open
+  default is how a service ends up exposed in the one environment nobody checked.
+- Simulation and project directories resolve under a fixed root and reject
+  traversal. The character check would suffice today, but the resolve-and-compare
+  stays correct if the id format is relaxed, and on a filesystem with symlinks
+  only the resolved comparison is authoritative.
+- Binds `127.0.0.1` by default, with a warning when overridden.
+
+Health stays unauthenticated so a supervisor can distinguish "misconfigured"
+from "dead".
+
+### Tests added
+
+- `__tests__/scenario-brief.test.ts` — 23 tests covering validation, the
+  unproven-premise and thought-experiment warnings, branch versioning, cache-key
+  sensitivity, round-prompt separation of facts from assumptions, round-1
+  isolation, and every mandatory limitation.
+- `mirofish-service/test_server_guards.py` — 17 tests covering auth accept and
+  reject, the fail-closed path, nine hostile identifiers against both directory
+  helpers, and that generated ids match the safe pattern.
+
+### Verification
+
+- Migration applied and verified against local PostgreSQL; re-running is
+  idempotent. Supabase mirror `014` and `db/schema.sql` updated.
+- `python3 -m py_compile mirofish-service/server.py`: PASS.
+- MiroFish guard tests: PASS — 17 passed. Created `mirofish-service/.venv`
+  (already git-ignored) and installed the declared requirements plus pytest.
+- `npm run typecheck`: PASS.
+- Full Vitest regression: PASS — 58 files passed, 1 skipped; 613 tests passed,
+  1 skipped (up from 590).
+- ESLint: PASS, zero errors.
+
+### Remaining in Wave 4
+
+Wiring the brief into the run path, persisting rounds and responses through the
+repo, the segment/persona follow-up UI, and the dissent, objection, sensitivity,
+and transition charts.
