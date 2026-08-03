@@ -2329,3 +2329,325 @@ benchmark exist so the option stays open with evidence attached.
 - ESLint: zero errors.
 - Documented the convention in `AGENTS.md`, and corrected its test counts, which
   had drifted behind the last few commits.
+
+## 2026-08-03 — Seeded development login
+
+### Why
+
+There was no way into the app without signing up by hand first. The only
+account in the local database was a leftover from the dashboard smoke test, and
+its two projects are minimal fixtures — five claims, zero chart specs — so it
+shows the shell of the product rather than the product.
+
+### Added
+
+`scripts/seed-dev-user.mjs` creates `admin@local.com` / `admin1234`, wired into
+`npm run dev:local` (which already started the database) and available on its
+own as `npm run dev:seed`. Overridable via `DEV_SEED_EMAIL` /
+`DEV_SEED_PASSWORD`.
+
+Idempotent by `ON CONFLICT (email) DO UPDATE` rather than an existence check —
+two starts racing on the same database should not leave one in an error state,
+and a forgotten local password is then one command from working.
+
+### The part that matters
+
+A weak, publicly documented admin account is a straightforward takeover if it
+ever reaches a shared database. It is only safe because it cannot get there, so
+two independent guards must both pass before anything is written:
+
+1. `NODE_ENV` must not be `production`.
+2. `DATABASE_URL` must resolve to a loopback host.
+
+Both exit non-zero without opening a connection. The host check parses the URL
+and compares the hostname exactly — a substring match would accept
+`localhost.evil.com`, which is tested below. **There is deliberately no `--force`
+flag**, and the README and the script header both say not to add one; the sole
+security property here is that this cannot be pointed somewhere it does not
+belong.
+
+The script also verifies the hash it just wrote actually authenticates. A column
+rename or a changed bcrypt cost would otherwise report a successful seed and
+fail at the login screen.
+
+### Verified
+
+- First run creates, second run resets — both exit 0.
+- `NODE_ENV=production` → refused, exit 1, nothing written.
+- `DATABASE_URL` at `db.prod.example.com` → refused.
+- `DATABASE_URL` at `localhost.evil.com` → refused (exact-hostname check).
+- `POST /api/auth/signin` with the seeded pair → **200**; wrong password → **401**.
+- Full suite: 830 passed, 1 skipped. Typecheck and ESLint clean.
+
+### Also fixed
+
+The README's migration list omitted `db:migrate:conversation-summaries`, added
+in the previous commit. A fresh install following the README would have had no
+`conversation_summaries` table and lost the rolling summary silently. Added.
+
+## 2026-08-03 — AUTH_SECRET: the published placeholder was in use
+
+### How it surfaced
+
+A sweep of all 53 tracked `.md` files for real secrets came back clean — no API
+keys, no tokens, no private keys, and `.env` has never been committed. But
+cross-checking the documented values against the live `.env` showed
+`AUTH_SECRET` set to `change-me-to-a-long-random-string`: the literal
+placeholder from `.env.example`, which is published in this repository.
+
+### Why it mattered
+
+`AUTH_SECRET` signs session cookies (`lib/auth-session.ts:14`). A known value is
+not a weak-password problem — it is the ability to mint a valid session for any
+user id without a password. In production that is a complete authentication
+bypass.
+
+The existing validation made this worse rather than better. `lib/config.ts`
+required 16+ characters; the placeholder is 33 and passed cleanly. A check that
+reads as "the secret was validated" while accepting the one value every reader
+of the repo knows is more dangerous than no check, because it stops anyone
+looking again.
+
+Impact here was low — localhost only, no deployment — but the value would have
+travelled with the first deploy, which is exactly how this normally ships.
+
+### Fixed
+
+Two things, because either alone leaves the hole open.
+
+1. **`lib/config.ts` now rejects published placeholders when
+   `NODE_ENV=production`**, via `superRefine` on the schema so no caller can
+   bypass it. Compared trimmed and lowercased — a stray newline from a CI secret
+   store must not be what stands between a deployment and forged sessions. The
+   error states the consequence and gives the command, because "invalid
+   AUTH_SECRET" just gets the value swapped for another guessable one.
+
+   Deliberately **not** enforced in development. Local is where the placeholder
+   is harmless, and failing there teaches people to delete the check instead of
+   fixing the deployment.
+
+2. **Rotated the local secret** to 32 random bytes. `.env` was backed up first
+   and all 25 other keys verified unchanged and in order.
+
+### Verified
+
+- 7 new tests in `__tests__/config-published-secret.test.ts`: placeholder
+  rejected in production, accepted in development and test, casing and trailing
+  newline still caught, a real secret accepted, length rule still enforced.
+- Message content asserted, not just the throw.
+- Dev server restarted on the rotated secret: signin **200**, wrong password
+  **401**.
+- Full suite 837 passed, 1 skipped. Typecheck and ESLint clean.
+
+### Still true and worth stating
+
+The `.md` files themselves contain no real secrets. `.env` is ignored by
+`.gitignore:19` and appears in zero commits. The only values matching real
+config were `GEMINI_MODEL` and `GEMINI_EMBEDDING_MODEL` — model names, not
+credentials.
+
+## 2026-08-03 — Tab views were centred twice; mobile form grids stacked
+
+### The "two sidebars"
+
+Every tab except Intelligence showed empty vertical bands down both sides, and
+the pages visibly disagreed about where the edge of the content was.
+
+`DashboardWorkspace` already owns page width and gutters: a `max-w-[1400px]
+mx-auto` column inside `clamp(16px, 3vw, 32px)` padding. Four views then applied
+`max-w-5xl mx-auto` plus their own `p-4 sm:p-6 md:p-8` on top of it.
+
+At 1920px that centres a 1024px column inside a 1400px one:
+
+```
+shell column   1400px   <- what the Intelligence tab uses
+view re-centre 1024px
+dead space      188px each side
+```
+
+188px of background down each edge, present on Watchlists, API usage, Steal
+strategy, and Profile & Settings, absent on Intelligence. Not two sidebars — one
+container centring inside another that had already centred it.
+
+Fixed by deleting the inner `max-w-5xl mx-auto` and the duplicated horizontal
+padding from all four view roots. Width and gutters belong to the shell.
+
+`ChatPanel:90` keeps its `max-w-5xl mx-auto` — that is the deliberate centred
+hero for the empty state, not a page container.
+
+### Regression guard
+
+`__tests__/workspace-layout-alignment.test.ts` asserts no tab-view root sets
+`max-w-`, `mx-auto`, or horizontal padding, and that the shell still sets the
+width that makes removing them safe.
+
+Two things worth noting about how it is written:
+
+- It anchors on `export function <Name>` and then the first `return (` at the
+  function body's indentation. Taking the first `return (` in the file picked up
+  a private helper declared above the export, whose padding is legitimate — the
+  first version of this test failed for that reason.
+- Comments are stripped before matching, because the doc comment names the
+  anti-pattern it greps for. That has bitten this repo before.
+
+The guard was verified by re-introducing the exact original className and
+confirming both assertions fail, then restoring. A guard that cannot fail is
+worthless.
+
+### Mobile
+
+Audited rather than assumed. Already correct:
+
+- `viewport` meta — Next.js App Router injects
+  `width=device-width, initial-scale=1` with no export needed. Confirmed in the
+  served HTML, not from the docs.
+- Sidebar is already an overlay below `md` with a backdrop and a hamburger.
+- Header tabs already `overflow-x-auto`.
+- Both wide tables (`min-w-[640px]`, `min-w-[720px]`) already sit in
+  `overflow-x-auto` parents, so neither causes page-level horizontal scroll.
+- `/auth` at 375×812: no horizontal overflow, `scrollWidth === innerWidth`.
+
+Genuinely broken and fixed: three `<select>` controls in a hard `grid-cols-3`
+land at ~109px each on a 375px screen, which truncates the option text and is
+awkward to hit. Those now stack below `sm` (two in `WatchlistsView`, one
+`grid-cols-2` pair in `ProfileSettingsView`).
+
+Compact stat readouts left multi-column on purpose — `grid-cols-4` at
+`text-[10px]` is designed to be small and reads fine.
+
+### Verified
+
+- 846 passed, 1 skipped (9 new).
+- Guard proven to fail on the reintroduced regression.
+- Typecheck clean; ESLint 0 errors.
+- `npm run build` exit 0, 46/46 static pages. An earlier failure
+  (`Failed to collect page data`) was the dev server holding `.next`
+  concurrently, not a code fault — it reproduces and clears on that basis alone.
+
+### Not verified by me
+
+The four corrected tabs were not viewed logged-in; I did not authenticate. The
+change is deterministic CSS and the maths is above, but the visual confirmation
+is a page reload away in an already-signed-in browser.
+
+## 2026-08-03 — Sign-in page pinned to dark
+
+Requested: the sign-in screen always dark, the rest of the app still defaulting
+to light.
+
+### The part that needed care
+
+Forcing dark is easy. Forcing dark *without hijacking the user's preference* is
+the requirement that is easy to miss. If the sign-in page had simply called
+`setThemeMode('dark')`, every light-mode user would sign in and land in a dark
+workspace with nothing to explain what changed it — and it would persist across
+sessions.
+
+So `ThemeProvider` now tracks two values:
+
+- `theme` — what the user chose. Persisted. Never altered by a route.
+- `forced` — what the current route demands. Never persisted.
+
+`effective = forced ?? theme` drives rendering; `localStorage` only ever sees
+`theme`. `useForcedTheme(mode)` applies the lock on mount and releases it on
+unmount, so leaving `/auth` restores the user's own theme.
+
+`setForcedTheme` is wrapped in `useCallback` deliberately — `useForcedTheme`
+depends on it, and an unstable identity would release and re-apply the lock
+every render.
+
+### Also
+
+- Removed the theme toggle from the sign-in page. It could no longer change the
+  page it sat on, and a control that does nothing is worse than no control. The
+  header toggle still governs the app.
+- Removed the four now-dead `.auth-theme-toggle` CSS blocks, and the unused
+  `Sun` / `Moon` imports.
+
+Worth noting for anyone changing this later: `.auth-page` is styled with
+hardcoded hex values, not design tokens, so setting the root class alone does
+nothing. It works because a complete `.dark .auth-page` variant already existed
+in `globals.css` (~line 1266). A test asserts that variant still exists.
+
+### Verified
+
+- Rendered `/auth` in the browser: dark, no toggle, unchanged layout.
+- `localStorage['veracity-theme']` reads **light** while the page renders dark —
+  the forced theme does not leak into the saved preference.
+- 5 new tests in `__tests__/forced-theme.test.ts`, proven to fail: persisting
+  the forced value inside `setForcedTheme` trips the storage-write assertion.
+- 851 passed, 1 skipped. Typecheck clean, ESLint 0 errors.
+
+There is no jsdom or Testing Library in this project, so the unmount-release
+path is asserted at source level rather than by mounting the hook. Adding both
+dependencies to test one hook was not proportionate; the regression that
+actually threatens this is someone persisting the forced value, and that is
+caught.
+
+## 2026-08-03 — One command to migrate; the eight-step README was the bug
+
+### Report
+
+A second developer pulled `dev`, ran `npm run dev`, and the app started cleanly
+before failing on every request:
+
+```
+error: relation "market_projects" does not exist        GET /api/projects 500
+error: column "project_id" does not exist               GET /api/sessions 500  (x9)
+```
+
+### What was actually wrong
+
+Not a code fault, and not a missing migration file. `db/schema.sql` already
+contains `market_projects` (line 136) and `chat_sessions.project_id` (line 152),
+and it is fully idempotent — 47 of 47 tables use `CREATE TABLE IF NOT EXISTS`.
+Their database had simply never been brought up to date.
+
+The second error is the instructive one. `chat_sessions` *did* exist, from an
+older schema. `CREATE TABLE IF NOT EXISTS` therefore skipped it, and the newer
+`project_id` column was never added. The table looks present and is quietly
+behind the code. Nothing warns about it.
+
+The root cause is the README: it asked for eight separate commands in the right
+order (`db:schema:apply` plus seven `db:migrate:*`), with nothing verifying the
+result. Missing any one produced a working dev server that broke at the first
+request. That is a process defect, not a user error.
+
+### Fixed
+
+`scripts/db-migrate.mjs`, wired as `npm run db:migrate`. Applies `db/schema.sql`
+then every numbered migration in filename order, each in its own transaction so
+a failure cannot half-apply. Afterwards it verifies the five objects the app
+requests on first load actually exist — including the two that broke here —
+because a migration that runs without producing what it promised is exactly the
+failure this is meant to catch.
+
+Also added to `dev:local`, which now runs start → migrate → seed login → dev. It
+costs 0.4s on an already-current database, which is cheap for making this class
+of bug unable to reach a running app.
+
+The seven per-migration scripts stay for targeted use; the docs no longer point
+at them.
+
+### Verified against a reproduction, not a fresh database
+
+Fresh-database tests would have passed while the reported bug survived, so I
+rebuilt their exact state first: `chat_sessions` from an older schema with no
+`project_id`, and no `market_projects` at all.
+
+- Repaired that database: 12 files applied, 47 tables, all 5 required objects.
+- The two failing queries from their log both run afterwards.
+- Idempotent: second run on the now-current database is clean.
+- Empty database: same result.
+- Missing `DATABASE_URL` → points at README step 4.
+- Refused connection → names host and port and suggests `db:local:start`.
+  A refused connection carries an empty `message` and only a `code`, so the
+  first version of this printed a blank line and explained nothing.
+- Scratch databases dropped. 851 tests pass, ESLint clean.
+
+### Docs
+
+README now teaches one command, states **run it after every `git pull`**, quotes
+both errors verbatim so they are searchable, and explains why the column one
+looks so strange. `AGENTS.md` and the script table updated. No references to
+`db:schema:apply` remain in any doc.

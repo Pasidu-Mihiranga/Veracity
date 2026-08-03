@@ -17,14 +17,18 @@ Next.js 15 · React 19 · TypeScript 5.9 · PostgreSQL + pgvector · Gemini.
 ## Commands
 
 ```bash
-npm run dev              # dev server on :3000
+npm run dev:local        # local Postgres + seeded dev login + dev server
+npm run dev              # dev server only, on :3000
 npm run typecheck        # tsc --noEmit — run before every commit
 npm test                 # ~830 unit tests, ~15s
 npx vitest run __tests__/foo.test.ts   # single file
 npm run build            # production build
 npx eslint components lib app          # zero errors expected
 
-# Database (needs `npm run db:local:start` first)
+# Database
+npm run db:migrate                  # schema + all migrations, idempotent, run after every pull
+
+# (need `npm run db:local:start` first)
 npm run test:e2e:evidence-ledger    # DB invariants, 18 checks
 npm run test:e2e:swarm-scenarios    # scenario tables, 15 checks
 npm run test:e2e:dashboard          # full HTTP flow, 47 checks (needs dev server)

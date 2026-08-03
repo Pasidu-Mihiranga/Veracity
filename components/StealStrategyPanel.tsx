@@ -58,7 +58,7 @@ export function StealStrategyPanel() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+    <div className="w-full flex flex-col gap-8">
       <div className="text-center max-w-2xl mx-auto">
         <h2 className="ui-heading flex items-center justify-center gap-3" style={{ fontSize: 24, color: text }}>
           <span

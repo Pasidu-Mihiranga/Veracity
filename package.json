@@ -7,8 +7,10 @@
   },
   "scripts": {
     "dev": "next dev",
-    "dev:local": "npm run db:local:start && npm run dev",
+    "dev:seed": "node scripts/seed-dev-user.mjs",
+    "dev:local": "npm run db:local:start && npm run db:migrate && npm run dev:seed && npm run dev",
     "db:setup": "psql -U postgres -h localhost -c \"CREATE DATABASE veracity;\" || true && psql -U postgres -h localhost -d veracity -f db/schema.sql",
+    "db:migrate": "node scripts/db-migrate.mjs",
     "db:schema:apply": "node scripts/apply-local-schema.mjs",
     "db:local:start": "node scripts/local-postgres.mjs start",
     "db:local:stop": "node scripts/local-postgres.mjs stop",

@@ -63,7 +63,7 @@ so it cannot collide with anything else you already run.
 
 ```bash
 npm run db:local:start     # starts it
-npm run db:schema:apply    # creates all tables
+npm run db:migrate         # creates every table, column, and index
 npm run db:local:status    # confirms it is up
 ```
 
@@ -86,25 +86,39 @@ docker run -d --name veracity-db \
   -p 5432:5432 \
   pgvector/pgvector:pg17
 
-npm run db:schema:apply
+npm run db:migrate
 ```
 
 ### Option C — a hosted database
 
 Any PostgreSQL 14+ with pgvector works (Supabase, Neon, RDS). Put its
-connection string in `DATABASE_URL` and run `npm run db:schema:apply`.
+connection string in `DATABASE_URL` and run `npm run db:migrate`.
 
-### Apply the migrations
+### Keeping the database up to date
 
-After the schema, run these once. Each is safe to re-run.
+`npm run db:migrate` is the only database command you need. It applies the
+schema and every migration in order, and it is safe to run as often as you
+like — a database that is already current comes out unchanged.
+
+**Run it after every `git pull`.** `npm run dev:local` runs it for you.
+
+If you skip it, the app still starts cleanly and then fails on the first
+request with a raw Postgres error:
+
+```
+error: relation "market_projects" does not exist
+error: column "project_id" does not exist
+```
+
+That second one is the confusing case. Your `chat_sessions` table already
+existed, so `CREATE TABLE IF NOT EXISTS` skipped it and the newer column was
+never added. The table is there; it is just older than the code. `db:migrate`
+repairs it in place without touching your data.
+
+Both errors mean the same thing every time:
 
 ```bash
-npm run db:migrate:market-projects
-npm run db:migrate:project-history
-npm run db:migrate:project-decisions
-npm run db:migrate:evidence-ledger
-npm run db:migrate:swarm-scenarios
-npm run db:migrate:entity-ownership
+npm run db:migrate
 ```
 
 ## 4. Configure your keys
@@ -145,12 +159,52 @@ Reddit, and RSS/changelog feeds. Those work out of the box.
 
 ## 5. Start it
 
+If you used **Option A** (the repo's own PostgreSQL), one command starts the
+database, seeds a development login, and runs the app:
+
+```bash
+npm run dev:local
+```
+
+Otherwise start the app on its own — your database is already running:
+
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:3000**, create an account, and you are in. Nothing is
-sent anywhere on signup — the account lives in your own database.
+Open **http://localhost:3000**.
+
+### The development login
+
+`npm run dev:local` creates a ready-made account so you do not sign up by hand
+every time:
+
+| | |
+|---|---|
+| Email | `admin@local.com` |
+| Password | `admin1234` |
+
+Re-running the command resets that password, so a forgotten local login is one
+command away from working. To seed it without restarting anything:
+
+```bash
+npm run dev:seed
+```
+
+Override the values with `DEV_SEED_EMAIL` and `DEV_SEED_PASSWORD` in `.env` if
+you prefer your own.
+
+> **This account cannot be created anywhere but your own machine.** The seed
+> script refuses to run when `NODE_ENV=production`, and refuses when
+> `DATABASE_URL` points at anything other than a loopback address — it exits
+> without touching the database. A weak, publicly documented admin login is
+> only safe because it is impossible to point at a shared or hosted database,
+> so please do not add a way to force it.
+
+If you started with plain `npm run dev`, or you are on a hosted database, use
+**Sign up** on the login page instead. Any email works and there is no
+verification step — the account lives in your own database and nothing is sent
+anywhere.
 
 ## 6. First five minutes in the product
 
@@ -339,12 +393,9 @@ This checkout can use its own PostgreSQL 17 + pgvector cluster under the git-ign
 ```bash
 npm run db:local:status
 npm run db:local:start
-npm run db:schema:apply
-npm run db:migrate:market-projects
-npm run db:migrate:project-history
-npm run db:migrate:project-decisions
+npm run db:migrate      # schema + every migration, idempotent
 npm run db:local:stop
-npm run dev:local             # start the local DB if needed, then start Next.js
+npm run dev:local       # start + migrate + seed login + dev server             # start the local DB if needed, then start Next.js
 ```
 
 The active `.env` must point `DATABASE_URL` at that cluster. The database files and credentials are local development state and must never be committed.
@@ -352,10 +403,15 @@ The active `.env` must point `DATABASE_URL` at that cluster. The database files 
 ### 4. Run
 
 ```bash
+npm run dev:local           # local Postgres + dev login + Next.js  ← usual
 npm run dev                 # Next.js only → http://localhost:3000
 npm run dev:full            # Next.js + local MiroFish (Python venv)
 npm run mirofish:bootstrap  # seed a local MiroFish simulation map
 ```
+
+`dev:local` seeds `admin@local.com` / `admin1234` so you are not signing up by
+hand each time. It refuses to run against a non-loopback `DATABASE_URL` or with
+`NODE_ENV=production`.
 
 ### 5. Quality checks
 
@@ -381,6 +437,9 @@ npm run test:e2e:live-research
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Next.js dev server |
+| `npm run dev:local` | Local Postgres + migrate + seeded dev login + dev server |
+| `npm run db:migrate` | Apply schema and every migration in order. Idempotent — run after each `git pull` |
+| `npm run dev:seed` | Create/reset the `admin@local.com` dev login (loopback databases only) |
 | `npm run dev:full` | App + MiroFish side-by-side |
 | `npm run mirofish` | MiroFish Flask service only |
 | `npm run build` / `start` | Production build & serve |
