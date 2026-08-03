@@ -222,6 +222,23 @@ async function structuredSpans(
   return spans;
 }
 
+/**
+ * What kind of page this is, for structured extraction.
+ *
+ * The caller's declared type wins. Only when nothing was declared do we fall
+ * back to reading the URL, and then against the words companies actually use —
+ * a pricing page is served at `/tariffs`, `/plans`, `/rates` or `/packages` far
+ * more often than at `/pricing`. Getting this wrong is silent and expensive:
+ * the page is still stored and still read by the model, but no price is ever
+ * recorded as a metric, so no price change can ever be *measured*.
+ */
+function resolveSourceType(sourceUrl: string, declared?: string): string {
+  if (declared) return declared;
+  return /\/(pricing|prices|tariffs?|plans|rates|packages|fares|wholesale|trade)\b/i.test(sourceUrl)
+    ? 'pricing'
+    : 'page';
+}
+
 /** Ports backed by real HTTP and the real ledger. */
 /**
  * Exported so the prototype seed can reuse the real persistence path and
@@ -285,10 +302,10 @@ export function createProjectPorts(userId: string, projectId: string): Collectio
       return stored.id;
     },
 
-    async extract({ normalizedContent, entityName, sourceUrl }) {
+    async extract({ normalizedContent, entityName, sourceUrl, sourceType }) {
       const source = { url: sourceUrl, entityLabel: entityName } as SourceDefinition;
       const structured = await structuredSpans(
-        { ...source, sourceType: sourceUrl.includes('/pricing') ? 'pricing' : 'page' } as SourceDefinition,
+        { ...source, sourceType: resolveSourceType(sourceUrl, sourceType) } as SourceDefinition,
         normalizedContent,
       );
 
