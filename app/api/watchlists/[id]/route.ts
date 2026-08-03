@@ -98,6 +98,7 @@ export async function PATCH(
     max_competitors: body.maxCompetitors,
     weekly_alert_budget: body.weeklyAlertBudget,
     alert_channels: body.alertChannels,
+    last_sweep_at: body.runNow ? new Date().toISOString() : undefined,
   });
 
   if (body.runNow && featureFlags.alerts) {

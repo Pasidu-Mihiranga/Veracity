@@ -141,7 +141,7 @@ export async function upsertAlertEventWithinBudget(
 
 export async function listAlerts(
   userId: string,
-  filters: { unread?: boolean; severity?: string; competitor?: string; limit?: number } = {},
+  filters: { unread?: boolean; severity?: string; competitor?: string; watchlistId?: string; limit?: number } = {},
 ): Promise<AlertEventRow[]> {
   const clauses = ['user_id = $1'];
   const vals: unknown[] = [userId];
@@ -156,6 +156,10 @@ export async function listAlerts(
   if (filters.competitor) {
     clauses.push(`lower(competitor) = lower($${i++})`);
     vals.push(filters.competitor);
+  }
+  if (filters.watchlistId) {
+    clauses.push(`watchlist_id = $${i++}::uuid`);
+    vals.push(filters.watchlistId);
   }
   const limit = Math.min(Math.max(filters.limit ?? 40, 1), 100);
   vals.push(limit);

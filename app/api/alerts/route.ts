@@ -17,6 +17,7 @@ export async function GET(req: Request) {
       unread: url.searchParams.get('unread') === '1',
       severity: url.searchParams.get('severity') ?? undefined,
       competitor: url.searchParams.get('competitor') ?? undefined,
+      watchlistId: url.searchParams.get('watchlistId') ?? undefined,
     });
     return NextResponse.json({ alerts });
   } catch (err) {
