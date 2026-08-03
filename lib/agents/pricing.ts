@@ -26,7 +26,7 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || `${product} category pricing`;
@@ -85,7 +85,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
 
   // ── Gemini synthesis ───────────────────────────────────────────────────────
   const systemPrompt = `You are a pricing strategist who analyses SaaS pricing models, buyer willingness-to-pay signals, and competitive pricing dynamics. You extract concrete pricing data and identify strategic opportunities.
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
@@ -134,7 +134,8 @@ Produce JSON:
       interpretation: synthesisFailureInterpretation(err),
       competitorPricing: [],
       yourPricing: [],
-      willingnessToPay: 'mid-market',
+      // Undefined, not 'mid-market': synthesis failed, so no WTP tier was assessed.
+      willingnessToPay: undefined,
       pricingSignals: [],
       recommendation: 'Could not synthesize pricing recommendation.',
       synthesizedAnswer: 'Pricing data collected but synthesis failed.',
@@ -160,7 +161,9 @@ Produce JSON:
     generatedAt: new Date().toISOString(),
     competitorPricing: (parsed.competitorPricing ?? []) as PricingTier[],
     yourPricing: (parsed.yourPricing ?? []) as PricingTier[],
-    willingnessToPay: parsed.willingnessToPay ?? 'mid-market',
+    // No default: an unassessed judgment stays undefined so the artifact can
+    // render an explicit unavailable state instead of a plausible badge.
+    willingnessToPay: parsed.willingnessToPay,
     pricingSignals: parsed.pricingSignals ?? [],
     recommendation: parsed.recommendation ?? '',
   };

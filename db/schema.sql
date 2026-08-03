@@ -655,3 +655,457 @@ CREATE TABLE IF NOT EXISTS agent_memory_entries (
   UNIQUE (workspace_id, scope, key)
 );
 CREATE INDEX IF NOT EXISTS agent_memory_expires_idx ON agent_memory_entries (workspace_id, expires_at);
+-- Evidence ledger.
+--
+-- Everything the product claims must be traceable to something a collector
+-- actually retrieved. Before this migration the chain stopped at a source URL:
+-- `source_snapshots` recorded that a page was fetched and hashed, but nothing
+-- recorded *which words* supported a claim, and no numeric value in any chart
+-- had an origin outside model output.
+--
+-- The five tables below close that gap:
+--
+--   evidence_spans      exact excerpt + offsets inside a snapshot
+--   metric_observations a number, its unit, its period, and the span proving it
+--   change_events       normalized before/after between two snapshots
+--   claims              a statement bound to supporting and contradicting spans
+--   chart_specs         a validated, reproducible chart definition
+--
+-- Rule enforced by the schema: a metric observation cannot exist without an
+-- evidence span, and an evidence span cannot exist without a snapshot. That is
+-- what makes "reproduce this number from its sources" a query rather than a
+-- hope.
+
+-- ── Evidence spans ──────────────────────────────────────────────────────────
+-- An exact excerpt inside a stored snapshot. Offsets are into the snapshot's
+-- normalized content so the excerpt can be re-located and re-verified later.
+
+CREATE TABLE IF NOT EXISTS evidence_spans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  snapshot_id uuid NOT NULL REFERENCES source_snapshots(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
+
+  -- The verbatim text. Never paraphrased — this is what the user is shown when
+  -- they ask "prove it".
+  excerpt text NOT NULL,
+  start_offset integer,
+  end_offset integer,
+
+  -- What kind of extraction produced this span: 'price', 'feature', 'release',
+  -- 'positioning', 'quote', 'metric', 'other'.
+  extraction_type text NOT NULL DEFAULT 'other',
+
+  -- Whether the span was confirmed to describe the intended entity, so an
+  -- excerpt about a similarly-named company cannot silently support a claim.
+  entity_match text NOT NULL DEFAULT 'unverified'
+    CHECK (entity_match IN ('confirmed', 'probable', 'unverified', 'mismatch')),
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT evidence_spans_offsets_ordered
+    CHECK (start_offset IS NULL OR end_offset IS NULL OR end_offset >= start_offset),
+  CONSTRAINT evidence_spans_excerpt_present
+    CHECK (length(trim(excerpt)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS evidence_spans_snapshot_idx ON evidence_spans(snapshot_id);
+CREATE INDEX IF NOT EXISTS evidence_spans_project_idx ON evidence_spans(project_id, created_at DESC);
+
+-- ── Metric observations ─────────────────────────────────────────────────────
+-- One measured value. The NOT NULL foreign key to evidence_spans is the whole
+-- point: a number with no excerpt behind it cannot be stored at all.
+
+CREATE TABLE IF NOT EXISTS metric_observations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
+  entity_id uuid REFERENCES canonical_entities(id) ON DELETE SET NULL,
+
+  evidence_span_id uuid NOT NULL REFERENCES evidence_spans(id) ON DELETE CASCADE,
+
+  -- Stable identifier, e.g. 'plan_price', 'release_count', 'headcount'.
+  metric_key text NOT NULL,
+  value numeric NOT NULL,
+  unit text NOT NULL,
+
+  -- The interval the value describes, not when it was collected.
+  period_start timestamptz,
+  period_end timestamptz,
+
+  -- How the value was obtained: 'extracted' (read from the page), 'counted'
+  -- (computed from records), 'reported' (stated by the source).
+  method text NOT NULL DEFAULT 'extracted',
+
+  -- True when the source itself presents the figure as approximate. Estimated
+  -- values must be visibly labelled and never presented as measured.
+  is_estimated boolean NOT NULL DEFAULT false,
+
+  observed_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT metric_observations_period_ordered
+    CHECK (period_start IS NULL OR period_end IS NULL OR period_end >= period_start)
+);
+
+CREATE INDEX IF NOT EXISTS metric_observations_series_idx
+  ON metric_observations(project_id, metric_key, period_start);
+CREATE INDEX IF NOT EXISTS metric_observations_entity_idx
+  ON metric_observations(entity_id, metric_key, observed_at DESC);
+
+-- ── Change events ───────────────────────────────────────────────────────────
+-- A normalized difference between two snapshots of the same source.
+--
+-- Distinct from `project_research_events`, which records source *coverage*
+-- changes (a source appeared or stopped responding). These record that the
+-- world changed: a price moved, a feature shipped, positioning was rewritten.
+
+CREATE TABLE IF NOT EXISTS change_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
+  entity_id uuid REFERENCES canonical_entities(id) ON DELETE SET NULL,
+
+  event_type text NOT NULL CHECK (event_type IN (
+    'pricing_changed',
+    'feature_launched',
+    'feature_removed',
+    'positioning_changed',
+    'segment_changed',
+    'integration_announced',
+    'hiring_signal',
+    'funding_or_filing',
+    'review_theme',
+    'documentation_changed'
+  )),
+
+  before_value text,
+  after_value text,
+
+  -- When the change happened in the world, versus when we noticed it. They are
+  -- different, and conflating them makes a timeline wrong.
+  effective_at timestamptz,
+  observed_at timestamptz NOT NULL DEFAULT now(),
+
+  from_snapshot_id uuid REFERENCES source_snapshots(id) ON DELETE SET NULL,
+  to_snapshot_id uuid REFERENCES source_snapshots(id) ON DELETE SET NULL,
+  evidence_span_id uuid REFERENCES evidence_spans(id) ON DELETE SET NULL,
+
+  -- Deterministic score, explained in a human-readable string. Explicitly not
+  -- model confidence: materiality answers "does this matter to this project's
+  -- current decision", which a model score does not.
+  materiality numeric NOT NULL DEFAULT 0
+    CHECK (materiality >= 0 AND materiality <= 1),
+  materiality_reason text NOT NULL DEFAULT '',
+
+  confidence text NOT NULL DEFAULT 'low'
+    CHECK (confidence IN ('high', 'medium', 'low')),
+
+  -- Stable hash of (entity, type, normalized before/after). The unique index
+  -- below is what keeps a re-run from reporting the same change twice.
+  dedupe_key text NOT NULL,
+
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS change_events_dedupe_idx
+  ON change_events(project_id, dedupe_key);
+CREATE INDEX IF NOT EXISTS change_events_timeline_idx
+  ON change_events(project_id, observed_at DESC);
+CREATE INDEX IF NOT EXISTS change_events_material_idx
+  ON change_events(project_id, materiality DESC, observed_at DESC);
+
+-- ── Claims ──────────────────────────────────────────────────────────────────
+-- A statement the product makes, with its supporting and contradicting spans
+-- held separately. Contradiction is first-class: when sources disagree the
+-- brief must show both and lower certainty rather than silently picking one.
+
+CREATE TABLE IF NOT EXISTS claims (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
+  session_id uuid REFERENCES chat_sessions(id) ON DELETE CASCADE,
+
+  statement text NOT NULL,
+
+  -- 'fact' must be supported by evidence. 'interpretation' is analyst
+  -- synthesis. 'assumption' is explicitly unproven. Keeping them in one table
+  -- with a discriminator stops interpretation from drifting into the fact list.
+  claim_type text NOT NULL DEFAULT 'fact'
+    CHECK (claim_type IN ('fact', 'interpretation', 'assumption')),
+
+  confidence text NOT NULL DEFAULT 'low'
+    CHECK (confidence IN ('high', 'medium', 'low')),
+
+  supporting_span_ids uuid[] NOT NULL DEFAULT '{}',
+  contradicting_span_ids uuid[] NOT NULL DEFAULT '{}',
+
+  -- Oldest supporting evidence, so a stale claim can be surfaced as stale.
+  freshest_evidence_at timestamptz,
+
+  agent_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT claims_statement_present CHECK (length(trim(statement)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS claims_project_idx ON claims(project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS claims_session_idx ON claims(session_id, created_at DESC);
+
+-- ── Chart specs ─────────────────────────────────────────────────────────────
+-- A rendered chart, stored as a validated spec rather than as loose component
+-- props, so the exact rows and methodology behind a picture remain reproducible
+-- after the fact.
+
+CREATE TABLE IF NOT EXISTS chart_specs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
+  session_id uuid REFERENCES chat_sessions(id) ON DELETE CASCADE,
+
+  -- Validated against the Zod ChartSpec schema in lib/intelligence/types.ts
+  -- before it is written. The application, not the database, owns that shape.
+  spec jsonb NOT NULL,
+
+  -- Duplicated out of the JSON so charts can be filtered by trust class
+  -- without deserialising every row.
+  data_class text NOT NULL
+    CHECK (data_class IN ('measured', 'derived', 'synthetic')),
+
+  generated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS chart_specs_project_idx ON chart_specs(project_id, generated_at DESC);
+CREATE INDEX IF NOT EXISTS chart_specs_session_idx ON chart_specs(session_id, generated_at DESC);
+
+-- ── Snapshot content ────────────────────────────────────────────────────────
+-- Evidence spans carry offsets into normalized content, so the content has to
+-- be retained rather than discarded after extraction.
+
+ALTER TABLE source_snapshots
+  ADD COLUMN IF NOT EXISTS normalized_content text;
+
+ALTER TABLE source_snapshots
+  ADD COLUMN IF NOT EXISTS retrieval_status text NOT NULL DEFAULT 'ok';
+
+ALTER TABLE source_snapshots
+  ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS source_snapshots_project_idx
+  ON source_snapshots(project_id, observed_at DESC);
+-- Swarm Decision Lab persistence.
+--
+-- The existing MiroFish path runs a panel, streams a result, and forgets it.
+-- That makes the lab a novelty: a user cannot ask the panel a follow-up, cannot
+-- see which persona said what, and cannot compare a branch against its base.
+--
+-- These tables make a scenario a durable object with rounds and responses, so
+-- the panel can be questioned again and the result can be audited.
+--
+-- The hard rule enforced by the separation: nothing in these tables is
+-- evidence. Synthetic responses never join `evidence_spans`, are never cited as
+-- sources, and consensus among personas raises no confidence about the real
+-- world. They live apart from the ledger for exactly that reason.
+
+-- ── Scenario sessions ───────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS swarm_scenarios (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  project_id uuid REFERENCES market_projects(id) ON DELETE SET NULL,
+  session_id uuid REFERENCES chat_sessions(id) ON DELETE SET NULL,
+
+  -- Links a scenario to the decision it stress-tests, so a recorded outcome can
+  -- later be compared against what the panel expected. That comparison is the
+  -- only route to ever calibrating this feature.
+  decision_id uuid,
+
+  -- The reviewed, versioned ScenarioBrief. Validated by the Zod schema in
+  -- lib/intelligence/scenario-brief.ts before it is written.
+  brief jsonb NOT NULL,
+  version integer NOT NULL DEFAULT 1,
+  parent_version integer,
+  branch_reason text,
+
+  -- Model and panel identity, so a result is reproducible and two runs under
+  -- different models are never confused for each other.
+  model_version text NOT NULL DEFAULT '',
+  panel_version text NOT NULL DEFAULT '',
+  evidence_hash text NOT NULL DEFAULT '',
+
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'running', 'complete', 'failed')),
+  failure_reason text,
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT swarm_scenarios_version_positive CHECK (version > 0),
+  -- A branch must point at an earlier version, never itself or a later one.
+  CONSTRAINT swarm_scenarios_parent_earlier
+    CHECK (parent_version IS NULL OR parent_version < version)
+);
+
+CREATE INDEX IF NOT EXISTS swarm_scenarios_project_idx
+  ON swarm_scenarios(project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS swarm_scenarios_decision_idx
+  ON swarm_scenarios(decision_id, version DESC);
+
+-- ── Rounds ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS swarm_rounds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scenario_id uuid NOT NULL REFERENCES swarm_scenarios(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+
+  -- 1 independent reaction, 2 challenge, 3 decision. A follow-up question to
+  -- the panel is recorded as a further round rather than as a new scenario, so
+  -- the thread stays intact.
+  round integer NOT NULL CHECK (round >= 1),
+  purpose text NOT NULL DEFAULT '',
+
+  -- What was introduced this round: a challenge, a new piece of evidence, or a
+  -- user follow-up. Null for round 1, which introduces nothing by design.
+  intervention text,
+  -- Scope of a follow-up: the whole panel, one segment, or one persona.
+  scope text NOT NULL DEFAULT 'panel'
+    CHECK (scope IN ('panel', 'segment', 'persona')),
+  scope_target text,
+
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Uniqueness has to survive a NULL scope_target: SQL treats every NULL as
+-- distinct, so a plain UNIQUE would let the same panel-scoped round be
+-- inserted repeatedly. COALESCE collapses the NULL so the constraint binds.
+CREATE UNIQUE INDEX IF NOT EXISTS swarm_rounds_scope_idx
+  ON swarm_rounds(scenario_id, round, scope, COALESCE(scope_target, ''));
+
+CREATE INDEX IF NOT EXISTS swarm_rounds_scenario_idx
+  ON swarm_rounds(scenario_id, round);
+
+-- ── Persona responses ───────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS swarm_responses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  round_id uuid NOT NULL REFERENCES swarm_rounds(id) ON DELETE CASCADE,
+  scenario_id uuid NOT NULL REFERENCES swarm_scenarios(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+
+  persona_id text NOT NULL,
+  segment_id text NOT NULL,
+
+  -- The persona's full answer, stored verbatim so the panel is inspectable
+  -- rather than only summarised. A user must be able to read what was actually
+  -- said instead of trusting a distribution chart.
+  response text NOT NULL,
+
+  -- Round 3 structured fields. Null in earlier rounds.
+  chosen_alternative_id text,
+  blocking_objection text,
+  missing_information text,
+
+  -- Set when a persona changed position, so round-to-round transitions can be
+  -- charted rather than inferred.
+  changed_from_alternative_id text,
+
+  -- Per-persona failure. A partial panel is reported as partial; it never
+  -- silently becomes a smaller panel that looks complete.
+  status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok', 'failed')),
+  failure_reason text,
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT swarm_responses_body_present
+    CHECK (status = 'failed' OR length(trim(response)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS swarm_responses_round_idx
+  ON swarm_responses(round_id);
+CREATE INDEX IF NOT EXISTS swarm_responses_scenario_idx
+  ON swarm_responses(scenario_id, segment_id);
+CREATE INDEX IF NOT EXISTS swarm_responses_persona_idx
+  ON swarm_responses(scenario_id, persona_id, created_at);
+-- Scope canonical entity uniqueness to its owner.
+--
+-- The original constraint was UNIQUE (scope_key, entity_type, entity_key) with
+-- no owner column. Two different users tracking the same competitor under the
+-- same scope key collide: the second user's INSERT fails with a 23505, even
+-- though the rows belong to different people and neither can see the other's.
+--
+-- It surfaced when a smoke run collided with a leftover row created by a
+-- different test user. In production the same shape means one user's entity
+-- keys can deny another user the ability to create theirs — a cross-tenant
+-- failure that presents as an unexplained error during project setup.
+--
+-- Every other table in the schema scopes by user_id (market_projects,
+-- evidence_spans, change_events, claims). This brings entities in line.
+--
+-- Written drop-then-create so re-running repairs a database that already has
+-- the broken constraint, rather than silently leaving it in place — the same
+-- pattern used for the NULL-uniqueness fix in 0010.
+
+ALTER TABLE canonical_entities
+  DROP CONSTRAINT IF EXISTS canonical_entities_scope_key_entity_type_entity_key_key;
+
+DROP INDEX IF EXISTS canonical_entities_owner_scope_idx;
+
+CREATE UNIQUE INDEX IF NOT EXISTS canonical_entities_owner_scope_idx
+  ON canonical_entities(user_id, scope_key, entity_type, entity_key);
+
+-- Lookups are always owner-scoped, so the index above already serves them.
+-- This one supports listing a project's entities without scanning.
+CREATE INDEX IF NOT EXISTS canonical_entities_user_scope_idx
+  ON canonical_entities(user_id, scope_key);
+-- Rolling conversation summaries.
+--
+-- `partitionTurns` already decides which turns stay verbatim and which should
+-- fold into a summary, and `buildTurnContext` already accepts a summary. But
+-- nothing generated or stored one, so the older half of a long conversation was
+-- simply dropped: a project with sixty turns behaved as though it had ten.
+--
+-- One row per session, replaced as the conversation grows. History of the
+-- summary itself is not kept — the transcript is the history, and versioning a
+-- derived artefact would mean storing many near-identical paragraphs to answer
+-- a question nobody asks.
+
+CREATE TABLE IF NOT EXISTS conversation_summaries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+
+  -- The last message folded in. Everything after it is still shown verbatim, so
+  -- this is what stops a turn being summarised and repeated at the same time.
+  through_message_id uuid REFERENCES chat_messages(id) ON DELETE SET NULL,
+  -- How many turns this covers. Used to decide when regenerating is worthwhile
+  -- rather than re-summarising on every single message.
+  turns_covered integer NOT NULL DEFAULT 0,
+
+  summary text NOT NULL,
+  open_questions text[] NOT NULL DEFAULT '{}',
+  assumptions text[] NOT NULL DEFAULT '{}',
+
+  -- Claim and evidence ids the summary refers to, preserved verbatim. A
+  -- summarised claim that loses its ids becomes an unsourced assertion, which
+  -- is exactly what the ledger exists to prevent.
+  cited_ids text[] NOT NULL DEFAULT '{}',
+
+  -- Which assembly rules produced this. If the context contract changes, an old
+  -- summary can be identified and regenerated rather than silently mixed with
+  -- text built under different rules.
+  context_version text NOT NULL DEFAULT 'ctx-v1',
+
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT conversation_summaries_body_present
+    CHECK (length(trim(summary)) > 0)
+);
+
+-- One summary per session. The upsert path depends on this.
+CREATE UNIQUE INDEX IF NOT EXISTS conversation_summaries_session_idx
+  ON conversation_summaries(session_id);
+
+CREATE INDEX IF NOT EXISTS conversation_summaries_user_idx
+  ON conversation_summaries(user_id, updated_at DESC);

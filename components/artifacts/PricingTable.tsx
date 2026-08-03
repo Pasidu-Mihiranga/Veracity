@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
+import { UnassessedBadge } from './UnassessedBadge';
 import type { PricingOutput } from '@/lib/agents/types';
 
 interface Props {
@@ -18,15 +20,19 @@ export function PricingTable({ output }: Props) {
   const willingnessToPay = output.willingnessToPay;
   const pricingSignals = output.pricingSignals ?? [];
   const recommendation = output.recommendation;
-  const wtp = WTP_CONFIG[willingnessToPay] ?? WTP_CONFIG['mid-market'];
+  const wtp = willingnessToPay ? WTP_CONFIG[willingnessToPay] : null;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Pricing Intelligence</div>
-        <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${wtp.class}`}>
-          {wtp.label}
-        </span>
+        {wtp ? (
+          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${wtp.class}`}>
+            {wtp.label}
+          </span>
+        ) : (
+          <UnassessedBadge label="Willingness to pay" />
+        )}
       </div>
 
       {/* Competitor pricing tiers */}
@@ -73,6 +79,16 @@ export function PricingTable({ output }: Props) {
           <p className="text-sm text-foreground leading-relaxed">{recommendation}</p>
         </div>
       )}
+
+      <ArtifactMethodology
+        output={output}
+        method="Tiers were read from the competitor pricing pages retrieved for this run."
+        limitations={[
+          'Advertised list prices only — negotiated, regional, and annual-commit pricing is not visible.',
+          'A page captured at one moment; pricing may have changed since.',
+        ]}
+        csv={{ filename: 'veracity-pricing.csv', headers: ['tier', 'price', 'target_segment', 'features'], rows: competitorPricing.map((t) => [t.tierName, t.price, t.targetSegment, t.features.join('; ')]) }}
+      />
     </div>
   );
 }

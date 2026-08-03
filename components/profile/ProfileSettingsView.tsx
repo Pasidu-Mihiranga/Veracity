@@ -83,7 +83,7 @@ export function ProfileSettingsView({
   const isProfileIncomplete = !company || !role || competitors.length === 0;
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
+    <div className="w-full flex flex-col gap-6 animate-fadeIn pb-24">
       {/* Top Header Card */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
@@ -204,7 +204,7 @@ export function ProfileSettingsView({
               <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Select Preferred Theme
               </label>
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setThemeMode('light')}

@@ -159,7 +159,7 @@ export function ApiUsagePanel({
   }, [queryCacheStats]);
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+    <div className="w-full flex flex-col gap-8">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 text-center sm:text-left">
         <div className="max-w-2xl mx-auto sm:mx-0">
           <h2 className="ui-heading" style={{ fontSize: 24, color: text }}>

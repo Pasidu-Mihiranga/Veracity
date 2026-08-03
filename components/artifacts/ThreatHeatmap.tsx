@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { ArtifactMethodology } from './ArtifactMethodology';
+import { UnassessedBadge } from './UnassessedBadge';
 import type { AdjacentOutput, AdjacentThreat } from '@/lib/agents/types';
 
 interface Props {
@@ -46,7 +48,7 @@ function ThreatCard({ threat }: { threat: AdjacentThreat }) {
 
 export function ThreatHeatmap({ output }: Props) {
   const threats = output.threats ?? [];
-  const overallRisk = output.overallRisk ?? 'low';
+  const overallRisk = output.overallRisk;
   const timeToImpact = output.timeToImpact;
   const defensiveActions = output.defensiveActions ?? [];
 
@@ -61,10 +63,16 @@ export function ThreatHeatmap({ output }: Props) {
       <div className="flex items-center justify-between">
         <div className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Adjacent Threat Heatmap</div>
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${OVERALL_RISK_CONFIG[overallRisk]}`}>
-            Overall: {overallRisk} risk
-          </span>
-          <span className="text-[10px] font-mono text-muted-foreground">{timeToImpact}</span>
+          {overallRisk ? (
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${OVERALL_RISK_CONFIG[overallRisk]}`}>
+              Overall: {overallRisk} risk
+            </span>
+          ) : (
+            <UnassessedBadge label="Overall risk" />
+          )}
+          {timeToImpact ? (
+            <span className="text-[10px] font-mono text-muted-foreground">{timeToImpact}</span>
+          ) : null}
         </div>
       </div>
 
@@ -103,6 +111,16 @@ export function ThreatHeatmap({ output }: Props) {
           ))}
         </div>
       )}
+
+      <ArtifactMethodology
+        output={output}
+        method="Adjacent companies were identified from funding, patent, and platform signals, then rated by how plausibly they could enter this category."
+        limitations={[
+          'Risk levels are model judgments about plausibility, not observed intent.',
+          'A company absent here may still be a threat — this covers only what the retrieved signals surfaced.',
+        ]}
+        csv={{ filename: 'veracity-adjacent-threats.csv', headers: ['company', 'category', 'threat_vector', 'risk_level', 'evidence'], rows: threats.map((t) => [t.company, t.category, t.threatVector, t.riskLevel, t.evidence]) }}
+      />
     </div>
   );
 }

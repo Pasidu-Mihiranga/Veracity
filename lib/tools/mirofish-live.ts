@@ -16,6 +16,21 @@ import { getConfig } from '../config';
 import type { ToolResult } from './types';
 import type { SwarmInterviewBundle, SwarmInterviewResponse } from './mirofish';
 
+/**
+ * Headers for every call to the MiroFish worker.
+ *
+ * The service now requires a shared secret on all API routes, so omitting it
+ * turns every panel into a 401. Centralised here rather than repeated at each
+ * call site, because a single missed header is a silent feature outage.
+ */
+function mirofishHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getConfig().MIROFISH_SERVICE_TOKEN;
+  if (token) headers['X-MiroFish-Token'] = token;
+  return headers;
+}
+
+
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 /** Resolves MiroFish Live base URL from env — throws if unset (no IP default). */
@@ -118,7 +133,7 @@ export async function isLiveSimulationReady(simulationId: string): Promise<boole
   try {
     const res = await fetch(
       `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/run-status`,
-      { signal: AbortSignal.timeout(5_000) },
+      { headers: mirofishHeaders(), signal: AbortSignal.timeout(5_000) },
     );
     if (!res.ok) return false;
     const json = await res.json() as { data?: { status?: string; runner_status?: string }; status?: string };
@@ -135,7 +150,7 @@ export async function isLiveSimulationReady(simulationId: string): Promise<boole
 async function fetchLiveAgentIds(simulationId: string, maxAgents = 6): Promise<number[]> {
   const res = await fetch(
     `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/config`,
-    { signal: AbortSignal.timeout(8_000) },
+    { headers: mirofishHeaders(), signal: AbortSignal.timeout(8_000) },
   );
   if (!res.ok) throw new Error(`Live VPS config fetch failed: HTTP ${res.status}`);
   const json = await res.json() as { data?: { agent_configs?: { agent_id: number }[] } };
@@ -155,7 +170,7 @@ async function fetchLivePostResponses(
   try {
     const res = await fetch(
       `${getLiveBaseUrl()}/api/simulation/${encodeURIComponent(simulationId)}/posts?limit=${limit}&offset=0&platform=${platform}`,
-      { signal: AbortSignal.timeout(8_000) },
+      { headers: mirofishHeaders(), signal: AbortSignal.timeout(8_000) },
     );
     if (!res.ok) return [];
     const json = await res.json() as {
@@ -224,7 +239,7 @@ async function interviewLiveAgent(
     const safePrompt = trimInterviewPrompt(prompt, 240);
     const res = await fetch(`${getLiveBaseUrl()}/api/simulation/interview`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: mirofishHeaders(),
       body: JSON.stringify({
         simulation_id: simulationId,
         agent_id: agentId,
@@ -283,7 +298,7 @@ export async function interviewLiveSwarm(
   try {
     const allRes = await fetch(`${getLiveBaseUrl()}/api/simulation/interview/all`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: mirofishHeaders(),
       body: JSON.stringify({
         simulation_id: simulationId,
         prompt: trimInterviewPrompt(prompt, 700),

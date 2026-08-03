@@ -26,7 +26,7 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || product;
@@ -127,7 +127,7 @@ Look for:
 - Audience language differences
 - Emotional vs functional emphasis
 - Category claim differences (e.g. "AI SDR" vs "Revenue automation")
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}

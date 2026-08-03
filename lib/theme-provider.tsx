@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   getThemeTokens,
   tokensToCssVars,
@@ -13,6 +13,11 @@ type ThemeContextValue = ThemeTokens & {
   isDark: boolean;
   toggle: () => void;
   setThemeMode: (mode: ThemeMode) => void;
+  /**
+   * Pin the theme for one route without changing what the user chose.
+   * Pass null to release. See `useForcedTheme`.
+   */
+  setForcedTheme: (mode: ThemeMode | null) => void;
   /** Compat aliases used across existing UI */
   bg: string;
   surface2: string;
@@ -36,13 +41,19 @@ function applyCssVars(mode: ThemeMode) {
   root.style.colorScheme = mode;
 }
 
-function buildContext(theme: ThemeMode, toggle: () => void, setThemeMode: (mode: ThemeMode) => void): ThemeContextValue {
+function buildContext(
+  theme: ThemeMode,
+  toggle: () => void,
+  setThemeMode: (mode: ThemeMode) => void,
+  setForcedTheme: (mode: ThemeMode | null) => void,
+): ThemeContextValue {
   const tokens = getThemeTokens(theme);
   return {
     theme,
     isDark: theme === 'dark',
     toggle,
     setThemeMode,
+    setForcedTheme,
     ...tokens,
     bg: tokens.background,
     surface2: tokens.surfaceRaised,
@@ -54,8 +65,13 @@ function buildContext(theme: ThemeMode, toggle: () => void, setThemeMode: (mode:
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  /** What the user chose. Persisted, and never altered by a forced route. */
   const [theme, setTheme] = useState<ThemeMode>('light');
+  /** What the current route demands, if anything. Never persisted. */
+  const [forced, setForced] = useState<ThemeMode | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  const effective = forced ?? theme;
 
   useEffect(() => {
     setMounted(true);
@@ -65,8 +81,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!mounted) return;
-    applyCssVars(theme);
-  }, [theme, mounted]);
+    applyCssVars(effective);
+  }, [effective, mounted]);
 
   const toggle = () => {
     setTheme((prev) => {
@@ -81,7 +97,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('veracity-theme', mode);
   };
 
-  const value = useMemo(() => buildContext(theme, toggle, setThemeMode), [theme]);
+  // Identity must be stable: `useForcedTheme` depends on it, and a new function
+  // each render would release and re-apply the lock in a loop.
+  const setForcedTheme = useCallback((mode: ThemeMode | null) => setForced(mode), []);
+
+  const value = useMemo(
+    () => buildContext(effective, toggle, setThemeMode, setForcedTheme),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [effective, setForcedTheme],
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -90,7 +114,27 @@ export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
     // SSR / missing provider fallback
-    return buildContext('light', () => {}, () => {});
+    return buildContext('light', () => {}, () => {}, () => {});
   }
   return ctx;
+}
+
+/**
+ * Pin the theme for as long as a component is mounted.
+ *
+ * The sign-in screen is art-directed against a dark backdrop, so it renders
+ * dark regardless of preference. That must not silently rewrite what the user
+ * chose for the app itself — someone who works in light mode should sign in on
+ * a dark page and land in a light workspace.
+ *
+ * So this changes only the effective theme, never `localStorage`, and releases
+ * on unmount.
+ */
+export function useForcedTheme(mode: ThemeMode): void {
+  const { setForcedTheme } = useTheme();
+
+  useEffect(() => {
+    setForcedTheme(mode);
+    return () => setForcedTheme(null);
+  }, [mode, setForcedTheme]);
 }

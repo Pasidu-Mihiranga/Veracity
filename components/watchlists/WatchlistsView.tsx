@@ -268,7 +268,7 @@ export function WatchlistsView() {
     : `${healthyCount}/${lists.length} Healthy · Source Gated`;
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col gap-6 animate-fadeIn pb-24">
+    <div className="w-full flex flex-col gap-6 animate-fadeIn pb-24">
       {/* Toast Notification Banner */}
       {toast && (
         <div
@@ -455,7 +455,7 @@ export function WatchlistsView() {
                       <span>Next: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</strong></span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                       <label className="flex flex-col gap-1 text-muted-foreground">
                         <span className="font-mono uppercase text-[9px]">Cadence</span>
                         <select
@@ -790,7 +790,7 @@ export function WatchlistsView() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <label className="text-xs text-muted-foreground">
                   <span className="font-semibold block mb-1.5">Cadence</span>
                   <select

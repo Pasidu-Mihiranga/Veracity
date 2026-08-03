@@ -4,8 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
-import { Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
-import { useTheme } from '@/lib/theme-provider';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useForcedTheme } from '@/lib/theme-provider';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 
 /** Spline Viewer scene (.splinecode) */
@@ -21,7 +21,9 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const { isDark, toggle } = useTheme();
+  // Art-directed against a dark backdrop, so it renders dark whatever the
+  // user prefers. This does not persist — they land in their own theme.
+  useForcedTheme('dark');
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -103,17 +105,6 @@ function AuthForm() {
           className="auth-robot-viewer"
         />
       </div>
-
-      {/* Theme toggle */}
-      <button
-        type="button"
-        onClick={toggle}
-        className="auth-theme-toggle pointer-events-auto absolute top-5 right-5 z-30 w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        {isDark ? <Sun size={16} /> : <Moon size={16} />}
-      </button>
 
       <div className="relative z-20 min-h-screen flex pointer-events-none">
         {/* Left branding */}

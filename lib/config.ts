@@ -81,6 +81,10 @@ const envSchema = z.object({
   MIROFISH_LIVE_MAX_AGENTS: optionalInt(5, 1, 6),
   MIROFISH_LIVE_INTERVIEW_TIMEOUT_SEC: optionalInt(240, 30, 360),
   MIROFISH_LIVE_STRICT_SERIAL_MODE: optionalString,
+  // Shared secret for the MiroFish worker. The service refuses every API route
+  // without it, so a missing value here surfaces as a clear 503 rather than as
+  // a mysterious failure mid-panel.
+  MIROFISH_SERVICE_TOKEN: optionalString,
 
   // ── Rate limiting (optional locally; enable in production) ─
   UPSTASH_REDIS_REST_URL: optionalUrl,
@@ -89,6 +93,50 @@ const envSchema = z.object({
   // ── Inngest (optional — async sweeps when ff_async_sweep on) ─
   INNGEST_EVENT_KEY: optionalString,
   INNGEST_SIGNING_KEY: optionalString,
+});
+
+/**
+ * Secrets that are published in this repository.
+ *
+ * `.env.example` and the README both contain a placeholder AUTH_SECRET, and
+ * copying `.env.example` to `.env` is the documented first step — so the
+ * overwhelmingly common local value is a string any reader of the repo knows.
+ *
+ * The length check above does not catch this: the placeholder is 33 characters
+ * and passes cleanly, which makes it worse than no check, because it reads as
+ * validation that already happened.
+ *
+ * AUTH_SECRET signs session cookies. Knowing it means being able to mint a
+ * valid session for any user id without a password, so in production this is a
+ * complete authentication bypass rather than a weak-password problem.
+ *
+ * Compared lowercased and trimmed: a stray newline or capital letter must not
+ * be what stands between a deployment and forged sessions.
+ */
+const PUBLISHED_SECRETS = new Set([
+  'change-me-to-a-long-random-string',
+  'change-me',
+  'your-secret-here',
+  'your_auth_secret',
+  'secret',
+]);
+
+const schemaWithProductionGuards = envSchema.superRefine((cfg, ctx) => {
+  // Only enforced in production. Local development is exactly where the
+  // placeholder is harmless and convenient, and failing there would push people
+  // toward deleting the check rather than fixing the deployment.
+  if (cfg.NODE_ENV !== 'production') return;
+
+  if (PUBLISHED_SECRETS.has(cfg.AUTH_SECRET.trim().toLowerCase())) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['AUTH_SECRET'],
+      message:
+        'AUTH_SECRET is the placeholder published in .env.example, so anyone ' +
+        'who has read this repository can forge a session for any user. ' +
+        'Generate a real one: openssl rand -base64 32',
+    });
+  }
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
@@ -105,7 +153,7 @@ export class ConfigError extends Error {
 
 /** Pure parser — preferred for unit tests. Does not touch the process cache. */
 export function parseEnv(env: NodeJS.ProcessEnv | Record<string, string | undefined>): AppConfig {
-  const result = envSchema.safeParse(env);
+  const result = schemaWithProductionGuards.safeParse(env);
   if (!result.success) {
     const issues = result.error.issues.map((issue) => {
       const path = issue.path.length ? issue.path.join('.') : 'env';

@@ -26,7 +26,7 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext } = ctx;
+  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || `${product} competitors alternatives`;
@@ -117,7 +117,7 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
 
   // ── Gemini synthesis ───────────────────────────────────────────────────────
   const systemPrompt = `You are a competitive intelligence analyst specialising in B2B SaaS. You compare product capabilities with brutal honesty. You separate facts from interpretation. You never fabricate features.
-${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}`;
+${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}

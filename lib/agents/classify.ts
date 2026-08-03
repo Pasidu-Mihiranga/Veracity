@@ -164,7 +164,7 @@ Always return valid JSON. Never use placeholder product names. Prefer company/pr
 ${priorContext || 'None'}
 
 Current query: "${query}"
-${images.length > 0 ? `\nAttached images: ${images.length}. Metadata only.` : ''}
+${images.length > 0 ? `\n${images.length} image(s) are attached below. Read them and use what they show — do not guess from the filename or the count.` : ''}
 ${effectiveHeuristic.product ? `\nHeuristic hint — product: "${effectiveHeuristic.product}"${effectiveHeuristic.competitor ? `, competitor: "${effectiveHeuristic.competitor}"` : ''}. Prefer these when they match the query.` : ''}
 
 Respond with JSON:
@@ -194,6 +194,10 @@ Field rules:
     const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
       maxNewTokens: 512,
       temperature: 0.1,
+      // The actual bytes, not just a count. Until this was wired the model was
+      // told "Attached images: 2. Metadata only." and the product implied it
+      // had examined a screenshot it never saw.
+      images: images.map((image) => ({ data: image.data, mimeType: image.mimeType })),
     });
 
     const product = isSelfComparisonQuery(query)
