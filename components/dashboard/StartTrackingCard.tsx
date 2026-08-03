@@ -70,12 +70,22 @@ export function StartTrackingCard({ onCreated, children }: StartTrackingCardProp
     setError(null);
 
     try {
+      // The comparison is not "us versus them" — a user may be sizing up three
+      // companies none of which is theirs. The schema stores one `product` plus
+      // a `competitors` array, so the first name fills `product` and the rest
+      // join the array. That is a storage detail; nothing in the UI implies the
+      // first company is special.
+      const names = [
+        ...parseCompetitors(product),
+        ...parseCompetitors(competitors),
+      ];
+      const [first, ...rest] = names;
+
       const created = await createMarketProject({
-        // The product doubles as the project name — see the note above.
-        name: product.trim(),
-        product: product.trim(),
+        name: names.join(' vs '),
+        product: first,
         productUrl: normaliseUrl(url),
-        competitors: parseCompetitors(competitors),
+        competitors: rest.slice(0, 20),
       });
       onCreated(created);
     } catch (err) {
@@ -96,25 +106,25 @@ export function StartTrackingCard({ onCreated, children }: StartTrackingCardProp
         <div className="flex flex-col gap-2">
           <p className="ui-section-label text-accent">Start here</p>
           <h2 className="text-xl sm:text-2xl font-semibold text-foreground">
-            Track a competitor
+            Compare companies
           </h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Tell us your product and who you compete with. We read their pages,
-            keep watching them, and tell you what changed — with the exact
-            sentence behind every number.
+            Name the companies you want compared. We read their pages, keep
+            watching them, and tell you what changed — with the exact sentence
+            behind every number.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-foreground">
-              Your product or company
+              Companies to compare
             </span>
             <input
               type="text"
               value={product}
               onChange={(event) => setProduct(event.target.value)}
-              placeholder="Vector Agents"
+              placeholder="e.g. PickMe, Uber, Kapruka"
               autoFocus
               className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground focus:outline-none focus:border-accent transition-colors"
             />
@@ -122,14 +132,14 @@ export function StartTrackingCard({ onCreated, children }: StartTrackingCardProp
 
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-foreground">
-              Its website{' '}
+              Website of the first one{' '}
               <span className="font-normal text-muted-foreground">— optional</span>
             </span>
             <input
               type="text"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              placeholder="vectoragents.ai"
+              placeholder="pickme.lk"
               className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground focus:outline-none focus:border-accent transition-colors"
             />
             <span className="text-xs text-muted-foreground">
@@ -140,14 +150,14 @@ export function StartTrackingCard({ onCreated, children }: StartTrackingCardProp
 
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-foreground">
-              Who you compete with{' '}
+              Anyone else{' '}
               <span className="font-normal text-muted-foreground">— optional</span>
             </span>
             <input
               type="text"
               value={competitors}
               onChange={(event) => setCompetitors(event.target.value)}
-              placeholder="Clay, Regie, Artisan"
+              placeholder="Add more names, separated by commas"
               className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground focus:outline-none focus:border-accent transition-colors"
             />
             <span className="text-xs text-muted-foreground">

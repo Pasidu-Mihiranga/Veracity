@@ -41,6 +41,10 @@ interface ProjectFeed {
   items: DigestItem[];
   /** Null when the read failed — distinct from "nothing changed". */
   ok: boolean;
+  /** Why it failed, verbatim. A generic message hides the actual cause. */
+  error?: string;
+  /** False while this company's own read is still in flight. */
+  loaded: boolean;
 }
 
 interface HomeFeedProps {
@@ -68,33 +72,52 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
     try {
       const projects = await listMarketProjects();
 
-      // One read per tracked company, in parallel. A company whose read fails
-      // must not blank the others — a broken row is better than a broken page.
-      const results = await Promise.all(
-        projects.map(async (project): Promise<ProjectFeed> => {
-          try {
-            const response = await fetch(`/api/projects/${project.id}/dashboard`, {
-              credentials: 'include',
-            });
-            if (!response.ok) throw new Error(String(response.status));
-            const payload = await response.json();
-            const digest = payload?.data?.digest ?? payload?.digest;
-            const items: DigestItem[] = (digest?.sections ?? []).flatMap(
-              (section: { items: DigestItem[] }) => section.items ?? [],
-            );
-            return {
-              project,
-              headline: digest?.headline ?? 'Nothing has changed yet.',
-              itemCount: digest?.itemCount ?? 0,
-              items: items.slice(0, 4),
-              ok: true,
-            };
-          } catch {
-            return { project, headline: '', itemCount: 0, items: [], ok: false };
-          }
-        }),
+      // Paint the companies straight away. Waiting on Promise.all meant the
+      // whole page sat on a skeleton until the slowest read finished, so the
+      // app felt broken before it had shown anything at all.
+      setFeeds(
+        projects.map((project) => ({
+          project, headline: '', itemCount: 0, items: [], ok: true, loaded: false,
+        })),
       );
-      setFeeds(results);
+
+      // Then fill each row in as its own read lands. One slow or failing
+      // company degrades its own row and nothing else.
+      projects.forEach(async (project) => {
+        let next: ProjectFeed;
+        try {
+          const response = await fetch(`/api/projects/${project.id}/dashboard`, {
+            credentials: 'include',
+          });
+          if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            throw new Error(
+              `${response.status}${body ? ` — ${body.slice(0, 140)}` : ''}`,
+            );
+          }
+          const payload = await response.json();
+          const digest = payload?.data?.digest ?? payload?.digest;
+          const items: DigestItem[] = (digest?.sections ?? []).flatMap(
+            (section: { items: DigestItem[] }) => section.items ?? [],
+          );
+          next = {
+            project,
+            headline: digest?.headline ?? 'Nothing has changed yet.',
+            itemCount: digest?.itemCount ?? 0,
+            items: items.slice(0, 4),
+            ok: true,
+            loaded: true,
+          };
+        } catch (err) {
+          next = {
+            project, headline: '', itemCount: 0, items: [], ok: false, loaded: true,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+        setFeeds((prev) =>
+          (prev ?? []).map((feed) => (feed.project.id === project.id ? next : feed)),
+        );
+      });
     } catch {
       setFeeds([]);
     } finally {
@@ -139,15 +162,18 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
   }
 
   const totalChanges = feeds.reduce((sum, feed) => sum + feed.itemCount, 0);
+  const stillLoading = feeds.some((feed) => !feed.loaded);
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">
-            {totalChanges > 0
-              ? `${totalChanges} change${totalChanges === 1 ? '' : 's'} worth your attention`
-              : 'Nothing has moved'}
+            {stillLoading
+              ? 'Checking your companies…'
+              : totalChanges > 0
+                ? `${totalChanges} change${totalChanges === 1 ? '' : 's'} worth your attention`
+                : 'Nothing has moved'}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Across {feeds.length} tracked {feeds.length === 1 ? 'company' : 'companies'}.
@@ -196,12 +222,14 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
             </button>
           </div>
 
-          {!feed.ok ? (
-            // A failed read is said plainly. Showing "nothing changed" here would
-            // be a lie the user cannot detect.
-            <p className="flex items-center gap-2 text-xs text-[var(--evidence-unsupported)]">
-              <AlertCircle size={14} />
-              We could not read this company&apos;s history just now.
+          {!feed.loaded ? (
+            <div className="h-3 w-1/3 rounded skeleton" />
+          ) : !feed.ok ? (
+            // A failed read is said plainly, with the actual reason. "Something
+            // went wrong" is unactionable and hides bugs from us as well.
+            <p className="flex items-start gap-2 text-xs text-[var(--evidence-unsupported)]">
+              <AlertCircle size={14} className="shrink-0 mt-px" />
+              <span>Could not read this company&apos;s history — {feed.error}</span>
             </p>
           ) : feed.itemCount === 0 ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">

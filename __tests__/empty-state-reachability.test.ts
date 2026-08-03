@@ -78,9 +78,29 @@ describe('creating a project', () => {
 
   it('does not require a project name', () => {
     // A separate "project name" field is our data model leaking into the user's
-    // first thirty seconds. It is derived from the product instead.
+    // first thirty seconds. It is derived from the companies instead.
     const source = code('components/dashboard/StartTrackingCard.tsx');
-    expect(source).toContain('name: product.trim()');
+    expect(source).toMatch(/name: names\.join\(/);
+    // No input bound to a name field.
+    expect(source).not.toMatch(/setName\(/);
+  });
+
+  it('compares more than two companies', () => {
+    // The comparison is not "us versus them" — a user may be sizing up three
+    // companies, none of which is theirs. The first name fills `product` and the
+    // rest join `competitors`; that is storage, not a hierarchy in the UI.
+    const source = code('components/dashboard/StartTrackingCard.tsx');
+    expect(source).toMatch(/const \[first, \.\.\.rest\] = names/);
+    expect(source).toContain('competitors: rest.slice(0, 20)');
+  });
+
+  it('names no invented company in its placeholders', () => {
+    // "Vector Agents" and "Clay, Regie, Artisan" are not real to this user, and
+    // one of them resolves to a Virginia real-estate business.
+    const source = code('components/dashboard/StartTrackingCard.tsx');
+    expect(source).not.toContain('Vector Agents');
+    expect(source).not.toContain('vectoragents.ai');
+    expect(source).not.toContain('Clay, Regie, Artisan');
   });
 });
 

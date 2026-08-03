@@ -2995,3 +2995,63 @@ someone opens it against a project with change events.
   those is what makes "new research" feel clean.
 - Comparison presentation still assumes pairs; the backend already takes arrays.
 - Evidence badges still bare colour, not icon + label.
+
+## 2026-08-03 — Home feed: progressive loading, real errors, N-company comparison
+
+Three faults reported from a live session. All three were mine.
+
+### 1. Placeholders still named invented companies
+
+I changed `DEMO_QUERIES` and believed the job done. The setup form has its own
+placeholders and I never touched them, so the first screen still read
+"Vector Agents", "vectoragents.ai", "Clay, Regie, Artisan" — one of which
+resolves to a Virginia real-estate business.
+
+Now `PickMe, Uber, Kapruka` / `pickme.lk`, and a guard test asserts none of the
+invented names can come back.
+
+### 2. The whole page waited on the slowest company
+
+`Promise.all` meant a single skeleton until every read resolved. With one
+company that is a long blank screen for no reason.
+
+Now the tracked companies paint immediately from `listMarketProjects()`, and each
+row fills in as its own read lands. One slow or failing company degrades its own
+row and nothing else. The headline says "Checking your companies…" while reads
+are outstanding rather than claiming "Nothing has moved" before it knows.
+
+### 3. "We could not read this company's history just now" told nobody anything
+
+I swallowed the error and printed a generic sentence. That is unactionable for
+the user and it hid the cause from me — I spent several steps guessing at a bug
+the UI already knew about.
+
+The row now prints the actual status and response body. Diagnosis first
+established what was *not* wrong: ownership is correct (`cursor` belongs to
+`admin@local.com`), and both of the route's SQL queries run clean against that
+project returning 0 rows. So the route is sound and the fault is in the
+request/parse path — which the surfaced message will now name outright.
+
+### 4. Comparison assumed "us versus them"
+
+The form asked for "your product" and "who you compete with". A user may be
+sizing up three companies, none of which is theirs. It now asks for companies to
+compare; the first name fills `product` and the rest join `competitors`, which is
+a storage detail with nothing in the UI implying the first is special.
+
+### On the test that failed
+
+`does not require a project name` asserted `name: product.trim()` and broke when
+the derivation changed. It was right to break — the assertion was about
+mechanism. Rewritten to assert the intent (no name input exists; the name is
+derived) plus two new guards for N-company support and the placeholder ban.
+
+### Verified
+
+860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+
+### Still open
+
+The reported "home page looks like chat history" — density and hierarchy of the
+feed itself. And the Research tab still stacks project panels above the
+conversation.
