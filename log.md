@@ -2384,3 +2384,64 @@ fail at the login screen.
 The README's migration list omitted `db:migrate:conversation-summaries`, added
 in the previous commit. A fresh install following the README would have had no
 `conversation_summaries` table and lost the rolling summary silently. Added.
+
+## 2026-08-03 — AUTH_SECRET: the published placeholder was in use
+
+### How it surfaced
+
+A sweep of all 53 tracked `.md` files for real secrets came back clean — no API
+keys, no tokens, no private keys, and `.env` has never been committed. But
+cross-checking the documented values against the live `.env` showed
+`AUTH_SECRET` set to `change-me-to-a-long-random-string`: the literal
+placeholder from `.env.example`, which is published in this repository.
+
+### Why it mattered
+
+`AUTH_SECRET` signs session cookies (`lib/auth-session.ts:14`). A known value is
+not a weak-password problem — it is the ability to mint a valid session for any
+user id without a password. In production that is a complete authentication
+bypass.
+
+The existing validation made this worse rather than better. `lib/config.ts`
+required 16+ characters; the placeholder is 33 and passed cleanly. A check that
+reads as "the secret was validated" while accepting the one value every reader
+of the repo knows is more dangerous than no check, because it stops anyone
+looking again.
+
+Impact here was low — localhost only, no deployment — but the value would have
+travelled with the first deploy, which is exactly how this normally ships.
+
+### Fixed
+
+Two things, because either alone leaves the hole open.
+
+1. **`lib/config.ts` now rejects published placeholders when
+   `NODE_ENV=production`**, via `superRefine` on the schema so no caller can
+   bypass it. Compared trimmed and lowercased — a stray newline from a CI secret
+   store must not be what stands between a deployment and forged sessions. The
+   error states the consequence and gives the command, because "invalid
+   AUTH_SECRET" just gets the value swapped for another guessable one.
+
+   Deliberately **not** enforced in development. Local is where the placeholder
+   is harmless, and failing there teaches people to delete the check instead of
+   fixing the deployment.
+
+2. **Rotated the local secret** to 32 random bytes. `.env` was backed up first
+   and all 25 other keys verified unchanged and in order.
+
+### Verified
+
+- 7 new tests in `__tests__/config-published-secret.test.ts`: placeholder
+  rejected in production, accepted in development and test, casing and trailing
+  newline still caught, a real secret accepted, length rule still enforced.
+- Message content asserted, not just the throw.
+- Dev server restarted on the rotated secret: signin **200**, wrong password
+  **401**.
+- Full suite 837 passed, 1 skipped. Typecheck and ESLint clean.
+
+### Still true and worth stating
+
+The `.md` files themselves contain no real secrets. `.env` is ignored by
+`.gitignore:19` and appears in zero commits. The only values matching real
+config were `GEMINI_MODEL` and `GEMINI_EMBEDDING_MODEL` — model names, not
+credentials.
