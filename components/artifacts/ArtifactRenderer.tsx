@@ -68,15 +68,15 @@ function ArtifactTruthFrame({ output, children }: { output: AgentOutput; childre
   const dataClass = getArtifactDataClass(output);
   const copy = ARTIFACT_DATA_CLASS_COPY[dataClass];
   const tone = dataClass === 'synthetic'
-    ? 'border-amber-400/40 bg-amber-400/10 text-amber-700 dark:text-amber-300'
+    ? 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-300 font-semibold'
     : dataClass === 'observed'
-      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-700 dark:text-emerald-300'
-      : 'border-sky-400/40 bg-sky-400/10 text-sky-700 dark:text-sky-300';
+      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 font-semibold'
+      : 'border-blue-500/40 bg-blue-500/10 text-blue-900 dark:text-blue-300 font-semibold';
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <div className={`self-start rounded-full border px-2.5 py-1 text-[10px] font-mono ${tone}`} title={copy.detail}>
-        {copy.label} · {copy.detail}
+      <div className={`self-start rounded-full border px-3 py-1 text-[10px] font-mono leading-none shadow-2xs ${tone}`} title={copy.detail}>
+        <span className="font-bold">{copy.label}</span> · {copy.detail}
       </div>
       {children}
     </div>

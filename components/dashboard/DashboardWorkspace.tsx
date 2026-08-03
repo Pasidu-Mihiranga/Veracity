@@ -125,6 +125,10 @@ type Props = {
   turnMode?: ResearchTurnMode;
   onTurnModeChange?: (mode: ResearchTurnMode) => void;
   onResetHeader?: () => void;
+  selectedAgents?: Record<Domain, boolean>;
+  onToggleAgent?: (domain: Domain) => void;
+  forceFullSweep?: boolean;
+  onToggleForceFullSweep?: () => void;
   chrome: {
     cardBg: string;
     cardBg2: string;
@@ -191,6 +195,10 @@ export function DashboardWorkspace({
   turnMode,
   onTurnModeChange,
   onResetHeader,
+  selectedAgents,
+  onToggleAgent,
+  forceFullSweep,
+  onToggleForceFullSweep,
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
@@ -278,7 +286,16 @@ export function DashboardWorkspace({
           )}
           {topTab === 'steal' && <StealStrategyPanel />}
           {topTab === 'watchlists' && <WatchlistsView />}
-          {topTab === 'profile' && <ProfileSettingsView userEmail={userEmail ?? null} userMemory={userMemory} />}
+          {topTab === 'profile' && (
+            <ProfileSettingsView
+              userEmail={userEmail ?? null}
+              userMemory={userMemory}
+              selectedAgents={selectedAgents}
+              onToggleAgent={onToggleAgent}
+              forceFullSweep={forceFullSweep}
+              onToggleForceFullSweep={onToggleForceFullSweep}
+            />
+          )}
           {topTab === 'intelligence' && (
             <>
               {selectedProject && (

@@ -37,54 +37,44 @@ export function AgentsDrawer({
   const activeCount = Object.values(selectedAgents).filter(Boolean).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end p-2.5 sm:p-4 pointer-events-none">
       <button
         type="button"
         aria-label="Close agents drawer backdrop"
-        className="absolute inset-0 bg-black/35"
+        className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity animate-fadeIn pointer-events-auto"
         onClick={onClose}
       />
       <aside
-        className="relative h-full w-full max-w-md flex flex-col overflow-hidden"
+        className="relative h-full w-full max-w-md flex flex-col overflow-hidden rounded-2xl bg-card/95 backdrop-blur-xl border border-border/80 shadow-2xl pointer-events-auto animate-slideInRight"
         style={{
-          background: 'var(--card)',
-          borderLeft: '1px solid var(--border)',
-          boxShadow: 'none',
+          boxShadow: 'var(--shadow-extruded), 0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         }}
       >
-        {/* Drawer Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 shrink-0"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <span
-              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }}
-            >
-              <Bot size={14} style={{ color: accentInk }} />
-            </span>
+        {/* Window Header */}
+        <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border/60 bg-accent/5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shrink-0 shadow-xs">
+              <Bot size={16} />
+            </div>
             <div>
-              <p className="ui-title" style={{ color: textMain }}>
+              <p className="text-sm font-bold text-foreground flex items-center gap-2">
                 Swarm Agents
+                <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/25">
+                  {activeCount}/{ALL_DOMAINS.length} Active
+                </span>
               </p>
-              <p className="ui-caption" style={{ color: textSubtle }}>
-                {activeCount} of {ALL_DOMAINS.length} agents enabled
+              <p className="text-xs text-muted-foreground font-mono">
+                Multi-agent web research engines
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
-            style={{
-              color: textMuted,
-              border: '1px solid var(--border)',
-              background: 'var(--surface-raised)',
-            }}
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/15 border border-border/50 transition-all cursor-pointer"
             aria-label="Close"
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
 

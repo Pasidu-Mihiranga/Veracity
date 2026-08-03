@@ -1,19 +1,28 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Building2, Globe, Crosshair, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Brain, Tag, Sun, Moon, Palette, Trash2 } from 'lucide-react';
+import { User, Building2, Globe, Crosshair, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Brain, Tag, Sun, Moon, Palette, Trash2, Bot, ToggleLeft, ToggleRight } from 'lucide-react';
 import { loadUserProfile, saveUserProfile, UserProfile } from '@/lib/user-profile';
 import { getFactText, updateUserMemoryFacts, type MemoryFact, type UserMemory } from '@/lib/memory';
 import { useTheme } from '@/lib/theme-provider';
+import { ALL_DOMAINS, DOMAIN_META, type Domain } from '@/lib/domain-meta';
 
 interface ProfileSettingsViewProps {
   userEmail: string | null;
   userMemory?: UserMemory | null;
+  selectedAgents?: Record<Domain, boolean>;
+  onToggleAgent?: (domain: Domain) => void;
+  forceFullSweep?: boolean;
+  onToggleForceFullSweep?: () => void;
 }
 
 export function ProfileSettingsView({
   userEmail,
   userMemory,
+  selectedAgents: initialSelectedAgents,
+  onToggleAgent,
+  forceFullSweep: initialForceFullSweep = false,
+  onToggleForceFullSweep,
 }: ProfileSettingsViewProps) {
   const { theme, setThemeMode } = useTheme();
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
@@ -27,6 +36,23 @@ export function ProfileSettingsView({
   );
   const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>(() => userMemory?.facts ?? []);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const [agentState, setAgentState] = useState<Record<Domain, boolean>>(() => {
+    if (initialSelectedAgents) return initialSelectedAgents;
+    return ALL_DOMAINS.reduce((acc, d) => ({ ...acc, [d]: true }), {} as Record<Domain, boolean>);
+  });
+
+  const [forceFullSweep, setForceFullSweep] = useState(initialForceFullSweep);
+
+  const toggleAgent = (domain: Domain) => {
+    setAgentState((prev) => ({ ...prev, [domain]: !prev[domain] }));
+    onToggleAgent?.(domain);
+  };
+
+  const handleToggleForceFullSweep = () => {
+    setForceFullSweep((v) => !v);
+    onToggleForceFullSweep?.();
+  };
 
   useEffect(() => {
     if (userMemory) {
@@ -354,6 +380,80 @@ export function ProfileSettingsView({
           </div>
         </div>
       </form>
+
+      {/* Card: Swarm Agent Roster & Engine Configuration */}
+      <div
+        className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-5 shadow-sm"
+        style={{ boxShadow: 'var(--shadow-extruded)' }}
+      >
+        <div className="flex items-center justify-between pb-3 border-b border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent shrink-0">
+              <Bot size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Swarm Agent Roster & Engine Configuration</h3>
+              <p className="text-xs text-muted-foreground">Select active specialist engines for web research sweeps</p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-accent bg-accent/15 px-3 py-1 rounded-full border border-accent/30">
+            {Object.values(agentState).filter(Boolean).length}/{ALL_DOMAINS.length} Agents Active
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-xl bg-accent/5 border border-border/60">
+          <div className="flex items-center gap-3">
+            <Sparkles size={18} className="text-accent" />
+            <div>
+              <p className="text-xs font-bold text-foreground">Force Full Sweep Mode</p>
+              <p className="text-[11px] text-muted-foreground">Bypass adaptive selection to run all active specialist agents unconditionally</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleForceFullSweep}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+              forceFullSweep
+                ? 'bg-accent/15 text-accent border-accent/30 shadow-2xs'
+                : 'bg-muted/50 text-muted-foreground border-border'
+            }`}
+          >
+            {forceFullSweep ? <ToggleRight size={18} className="text-accent" /> : <ToggleLeft size={18} />}
+            <span>{forceFullSweep ? 'Active' : 'Auto'}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {ALL_DOMAINS.map((domain) => {
+            const meta = DOMAIN_META[domain];
+            const isSelected = agentState[domain] ?? true;
+            return (
+              <div
+                key={domain}
+                onClick={() => toggleAgent(domain)}
+                className={`p-4 rounded-xl border flex flex-col justify-between gap-3 cursor-pointer transition-all ${
+                  isSelected
+                    ? 'bg-accent/10 border-accent/40 shadow-2xs ring-1 ring-accent/20'
+                    : 'bg-accent/5 border-border/60 opacity-60 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent">
+                    {meta.short}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleAgent(domain)}
+                    className="accent-accent cursor-pointer"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">{meta.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Card 5: AI-Extracted Personalized Memory Facts */}
       <div

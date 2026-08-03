@@ -367,6 +367,10 @@ export default function VeracityDashboard() {
           turnMode={turnMode}
           onTurnModeChange={setTurnMode}
           onResetHeader={resetHeaderCompress}
+          selectedAgents={selectedAgents}
+          onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+          forceFullSweep={forceFullSweep}
+          onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
       </div>
