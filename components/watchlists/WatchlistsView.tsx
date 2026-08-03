@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Eye, Plus, Play, Trash2, ShieldCheck, Activity, Radio, Bell, BarChart3,
   CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Filter,
-  Globe, ExternalLink, Clock, Loader2, Sparkles
+  Globe, ExternalLink, Clock, Loader2, Sparkles, X
 } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
 import { formatRelativeSweep } from '@/lib/monitoring/health';
@@ -1088,9 +1088,9 @@ export function WatchlistsView() {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="text-xs text-muted-foreground hover:text-foreground p-1 transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground p-1 transition-colors rounded-lg hover:bg-accent/10"
               >
-                ✕
+                <X size={15} />
               </button>
             </div>
 

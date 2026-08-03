@@ -249,13 +249,13 @@ export function DashboardWorkspace({
         onScroll={onMainScroll}
         className="flex-1 overflow-y-auto w-full"
         style={{
-          paddingTop: hasResult ? '12px' : 'clamp(16px, 3vw, 32px)',
-          paddingRight: 'clamp(16px, 3vw, 32px)',
-          paddingBottom: 'clamp(24px, 4vw, 40px)',
-          paddingLeft: 'clamp(16px, 3vw, 32px)',
+          paddingTop: hasResult ? '12px' : 'clamp(16px, 2.5vw, 32px)',
+          paddingRight: 'clamp(24px, 3.5vw, 48px)',
+          paddingBottom: 'clamp(24px, 3.5vw, 40px)',
+          paddingLeft: 'clamp(24px, 3.5vw, 48px)',
         }}
       >
-        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1000px] w-full mx-auto`}>
+        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1240px] w-full mx-auto`}>
           {/*
             The landing screen. Answers "what changed while I was away?" from
             already-collected data — it never triggers research and never calls a
@@ -270,6 +270,10 @@ export function DashboardWorkspace({
               onStartTracking={() => onTopTabChange?.('intelligence')}
               onOpenSession={(sessionId) => {
                 onOpenSession?.(sessionId);
+                onTopTabChange?.('intelligence');
+              }}
+              onLaunchQuery={(query) => {
+                onSendDemoQuery(query);
                 onTopTabChange?.('intelligence');
               }}
             />
