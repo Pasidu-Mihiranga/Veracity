@@ -2445,3 +2445,87 @@ The `.md` files themselves contain no real secrets. `.env` is ignored by
 `.gitignore:19` and appears in zero commits. The only values matching real
 config were `GEMINI_MODEL` and `GEMINI_EMBEDDING_MODEL` — model names, not
 credentials.
+
+## 2026-08-03 — Tab views were centred twice; mobile form grids stacked
+
+### The "two sidebars"
+
+Every tab except Intelligence showed empty vertical bands down both sides, and
+the pages visibly disagreed about where the edge of the content was.
+
+`DashboardWorkspace` already owns page width and gutters: a `max-w-[1400px]
+mx-auto` column inside `clamp(16px, 3vw, 32px)` padding. Four views then applied
+`max-w-5xl mx-auto` plus their own `p-4 sm:p-6 md:p-8` on top of it.
+
+At 1920px that centres a 1024px column inside a 1400px one:
+
+```
+shell column   1400px   <- what the Intelligence tab uses
+view re-centre 1024px
+dead space      188px each side
+```
+
+188px of background down each edge, present on Watchlists, API usage, Steal
+strategy, and Profile & Settings, absent on Intelligence. Not two sidebars — one
+container centring inside another that had already centred it.
+
+Fixed by deleting the inner `max-w-5xl mx-auto` and the duplicated horizontal
+padding from all four view roots. Width and gutters belong to the shell.
+
+`ChatPanel:90` keeps its `max-w-5xl mx-auto` — that is the deliberate centred
+hero for the empty state, not a page container.
+
+### Regression guard
+
+`__tests__/workspace-layout-alignment.test.ts` asserts no tab-view root sets
+`max-w-`, `mx-auto`, or horizontal padding, and that the shell still sets the
+width that makes removing them safe.
+
+Two things worth noting about how it is written:
+
+- It anchors on `export function <Name>` and then the first `return (` at the
+  function body's indentation. Taking the first `return (` in the file picked up
+  a private helper declared above the export, whose padding is legitimate — the
+  first version of this test failed for that reason.
+- Comments are stripped before matching, because the doc comment names the
+  anti-pattern it greps for. That has bitten this repo before.
+
+The guard was verified by re-introducing the exact original className and
+confirming both assertions fail, then restoring. A guard that cannot fail is
+worthless.
+
+### Mobile
+
+Audited rather than assumed. Already correct:
+
+- `viewport` meta — Next.js App Router injects
+  `width=device-width, initial-scale=1` with no export needed. Confirmed in the
+  served HTML, not from the docs.
+- Sidebar is already an overlay below `md` with a backdrop and a hamburger.
+- Header tabs already `overflow-x-auto`.
+- Both wide tables (`min-w-[640px]`, `min-w-[720px]`) already sit in
+  `overflow-x-auto` parents, so neither causes page-level horizontal scroll.
+- `/auth` at 375×812: no horizontal overflow, `scrollWidth === innerWidth`.
+
+Genuinely broken and fixed: three `<select>` controls in a hard `grid-cols-3`
+land at ~109px each on a 375px screen, which truncates the option text and is
+awkward to hit. Those now stack below `sm` (two in `WatchlistsView`, one
+`grid-cols-2` pair in `ProfileSettingsView`).
+
+Compact stat readouts left multi-column on purpose — `grid-cols-4` at
+`text-[10px]` is designed to be small and reads fine.
+
+### Verified
+
+- 846 passed, 1 skipped (9 new).
+- Guard proven to fail on the reintroduced regression.
+- Typecheck clean; ESLint 0 errors.
+- `npm run build` exit 0, 46/46 static pages. An earlier failure
+  (`Failed to collect page data`) was the dev server holding `.next`
+  concurrently, not a code fault — it reproduces and clears on that basis alone.
+
+### Not verified by me
+
+The four corrected tabs were not viewed logged-in; I did not authenticate. The
+change is deterministic CSS and the maths is above, but the visual confirmation
+is a page reload away in an already-signed-in browser.
