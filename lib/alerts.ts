@@ -186,6 +186,28 @@ export async function markAlertRead(
   return rows[0] ?? null;
 }
 
+export async function deleteAlert(
+  id: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM alert_events WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function deleteAlertsForWatchlist(
+  watchlistId: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM alert_events WHERE watchlist_id = $1 AND user_id = $2`,
+    [watchlistId, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function insertCompetitiveEvent(input: {
   userId: string;
   workspaceId?: string | null;

@@ -43,3 +43,27 @@ export async function POST(req: Request) {
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ alert: row });
 }
+
+export async function DELETE(req: Request) {
+  if (!featureFlags.alerts) {
+    return NextResponse.json({ error: 'Alerts disabled' }, { status: 403 });
+  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  const watchlistId = url.searchParams.get('watchlistId');
+
+  const { deleteAlert, deleteAlertsForWatchlist } = await import('@/lib/alerts');
+
+  if (id) {
+    await deleteAlert(id, user.id);
+    return NextResponse.json({ ok: true, deletedId: id });
+  } else if (watchlistId) {
+    await deleteAlertsForWatchlist(watchlistId, user.id);
+    return NextResponse.json({ ok: true, watchlistId });
+  }
+  return NextResponse.json({ error: 'id or watchlistId required' }, { status: 400 });
+}

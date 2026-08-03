@@ -126,6 +126,10 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   const { id } = await ctx.params;
+
+  const { deleteAlertsForWatchlist } = await import('@/lib/alerts');
+  await deleteAlertsForWatchlist(id, user.id);
+
   const ok = await deleteWatchlist(id, user.id);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ ok: true });

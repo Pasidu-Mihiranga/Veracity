@@ -179,7 +179,7 @@ export function WatchlistsView() {
   const runSweepNow = async (id: string) => {
     const targetWl = lists.find((w) => w.id === id);
     const prodName = targetWl?.product || targetWl?.name || 'Watchlist';
-    
+
     setBusy(true);
     setBackgroundSweepStatus({
       watchlistId: id,
@@ -252,13 +252,31 @@ export function WatchlistsView() {
     }
   };
 
+  const dismissAlert = async (alertId: string) => {
+    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    try {
+      await fetch(`/api/alerts?id=${alertId}`, { method: 'DELETE' });
+      showToast('Swept signal cleared from feed');
+    } catch {
+      // ignore
+    }
+  };
+
   const executeDelete = async () => {
     if (!deleteConfirm) return;
     setBusy(true);
     try {
       if (deleteConfirm.type === 'watchlist') {
-        await fetch(`/api/watchlists/${deleteConfirm.id}`, { method: 'DELETE' });
-        showToast('Watchlist deleted');
+        const targetId = deleteConfirm.id;
+        await fetch(`/api/watchlists/${targetId}`, { method: 'DELETE' });
+        
+        // Remove related alerts from state immediately
+        setAlerts((prev) => prev.filter((a) => a.watchlist_id !== targetId));
+
+        if (selectedWatchlistId === targetId) {
+          setSelectedWatchlistId(null);
+        }
+        showToast('Watchlist & associated feed signals deleted');
       } else if (deleteConfirm.itemId) {
         await fetch(`/api/watchlists/${deleteConfirm.id}/items/${deleteConfirm.itemId}`, {
           method: 'DELETE',
@@ -359,11 +377,10 @@ export function WatchlistsView() {
       {/* Toast Notification Banner */}
       {toast && (
         <div
-          className={`p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between shadow-md transition-all animate-fadeIn ${
-            toast.type === 'info'
+          className={`p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between shadow-md transition-all animate-fadeIn ${toast.type === 'info'
               ? 'bg-accent/15 border border-accent/40 text-accent'
               : 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} />
@@ -378,11 +395,10 @@ export function WatchlistsView() {
       {/* Multi-Agent Background Research Live Banner */}
       {backgroundSweepStatus && (
         <div
-          className={`p-5 rounded-2xl border flex flex-col gap-3 transition-all animate-fadeIn shadow-md ${
-            backgroundSweepStatus.status === 'completed'
+          className={`p-5 rounded-2xl border flex flex-col gap-3 transition-all animate-fadeIn shadow-md ${backgroundSweepStatus.status === 'completed'
               ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
               : 'bg-accent/15 border-accent/40 text-accent'
-          }`}
+            }`}
           style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
         >
           <div className="flex items-center justify-between">
@@ -436,9 +452,8 @@ export function WatchlistsView() {
             </div>
             <div className="w-full h-2 rounded-full bg-background overflow-hidden border border-border/40">
               <div
-                className={`h-full transition-all duration-700 rounded-full ${
-                  backgroundSweepStatus.status === 'completed' ? 'bg-emerald-500' : 'bg-accent'
-                }`}
+                className={`h-full transition-all duration-700 rounded-full ${backgroundSweepStatus.status === 'completed' ? 'bg-emerald-500' : 'bg-accent'
+                  }`}
                 style={{ width: `${backgroundSweepStatus.progress}%` }}
               />
             </div>
@@ -577,12 +592,11 @@ export function WatchlistsView() {
                   return (
                     <div
                       key={wl.id}
-                      onClick={() => setSelectedWatchlistId(wl.id)}
-                      className={`rounded-xl p-5 border transition-all cursor-pointer flex flex-col gap-4 ${
-                        isSelected
+                      onClick={() => setSelectedWatchlistId((prev) => (prev === wl.id ? null : wl.id))}
+                      className={`rounded-xl p-5 border transition-all cursor-pointer flex flex-col gap-4 ${isSelected
                           ? 'bg-accent/10 border-accent shadow-md ring-2 ring-accent/20'
                           : 'bg-accent/5 border-border/60 hover:border-accent/40'
-                      }`}
+                        }`}
                     >
                       {/* Watchlist Header Row with Active/Paused Toggle, Accordion Chevron, & Delete */}
                       <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/40">
@@ -602,9 +616,17 @@ export function WatchlistsView() {
                             <h3 className="text-base font-bold text-foreground mt-0.5 flex items-center gap-2">
                               {wl.product || wl.name}
                               {isSelected && (
-                                <span className="text-[10px] font-semibold text-accent bg-accent/15 px-2 py-0.5 rounded-md">
-                                  Selected
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedWatchlistId(null);
+                                  }}
+                                  className="text-[10px] font-semibold text-accent bg-accent/15 border border-accent/30 hover:bg-accent/25 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="Click to clear watchlist selection"
+                                >
+                                  Selected ✕
+                                </button>
                               )}
                             </h3>
                           </div>
@@ -615,11 +637,10 @@ export function WatchlistsView() {
                           <button
                             type="button"
                             onClick={() => void updateMonitoringConfig(wl.id, { enabled: !wl.enabled })}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
-                              wl.enabled
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${wl.enabled
                                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
                                 : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25'
-                            }`}
+                              }`}
                             title={wl.enabled ? 'Click to Pause monitoring' : 'Click to Activate monitoring'}
                           >
                             {wl.enabled ? (
@@ -943,7 +964,7 @@ export function WatchlistsView() {
               {/* Signal Severity & Category Breakdown Bar Graph */}
               <div className="flex flex-col gap-2.5 p-4 rounded-xl bg-accent/5 border border-border/40">
                 <span className="text-[11px] font-bold text-foreground">Delta Category Shifts</span>
-                
+
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="text-muted-foreground">Pricing Adjustments</span>
@@ -1017,7 +1038,7 @@ export function WatchlistsView() {
                 {displayAlerts.map((alert) => (
                   <div
                     key={alert.id}
-                    className="p-3.5 rounded-xl bg-accent/5 border border-border/40 flex flex-col gap-1.5 text-xs"
+                    className="p-3.5 rounded-xl bg-accent/5 border border-border/40 flex flex-col gap-1.5 text-xs transition-all hover:border-accent/30"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1026,9 +1047,20 @@ export function WatchlistsView() {
                         </span>
                         <span className="text-muted-foreground text-[11px]">vs {alert.product}</span>
                       </div>
-                      <span className="font-mono text-muted-foreground text-[10px]">
-                        {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-muted-foreground text-[10px]">
+                          {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void dismissAlert(alert.id)}
+                          className="text-muted-foreground hover:text-red-500 hover:bg-red-500/15 p-1 rounded-md transition-all cursor-pointer"
+                          title="Clear signal from feed"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
 
                     <h4 className="font-bold text-foreground leading-snug">{alert.title}</h4>
