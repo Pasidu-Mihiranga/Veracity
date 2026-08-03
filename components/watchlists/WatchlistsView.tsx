@@ -472,12 +472,12 @@ export function WatchlistsView() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-foreground">Competitor Intelligence Watchlists</h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-[11px] font-semibold text-accent">
+              <h1 className="text-2xl font-bold text-foreground">Competitor Intelligence Watchlists</h1>
+              <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-xs font-semibold text-accent">
                 Automated Sweeps
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-sm text-muted-foreground mt-1">
               Multi-agent background monitoring continuously tracks competitor pricing, features, and positioning shifts.
             </p>
           </div>
@@ -486,7 +486,7 @@ export function WatchlistsView() {
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
-          className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
+          className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
         >
           <Plus size={15} /> Create Watchlist
         </button>
@@ -502,8 +502,8 @@ export function WatchlistsView() {
             <Radio size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium block">Active Watchlists</span>
-            <span className="text-lg font-bold text-foreground">{lists.length}</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Active Watchlists</span>
+            <span className="text-base font-bold text-foreground">{activeListsCount}</span>
           </div>
         </div>
 
@@ -515,8 +515,8 @@ export function WatchlistsView() {
             <Activity size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium block">Tracked Competitors</span>
-            <span className="text-lg font-bold text-foreground">{totalTrackedCompetitors}</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Tracked Competitors</span>
+            <span className="text-base font-bold text-foreground">{totalTrackedCompetitors}</span>
           </div>
         </div>
 
@@ -528,7 +528,7 @@ export function WatchlistsView() {
             <ShieldCheck size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium block">Sweep Cadence</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Sweep Cadence</span>
             <span className="text-xs font-bold text-foreground capitalize">{cadenceDisplay}</span>
           </div>
         </div>
@@ -541,7 +541,7 @@ export function WatchlistsView() {
             <CheckCircle2 size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium block">System Status</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">System Status</span>
             <span className="text-xs font-bold text-foreground">{systemStatusDisplay}</span>
           </div>
         </div>
@@ -559,11 +559,11 @@ export function WatchlistsView() {
               <div className="flex items-center justify-between pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
                   <Eye size={16} className="text-accent" />
-                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                  <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
                     Active Watchlists ({lists.length})
                   </h2>
                 </div>
-                <span className="text-xs text-muted-foreground">Multi-Agent Monitoring</span>
+                <span className="text-xs text-muted-foreground font-medium">Multi-Agent Monitoring</span>
               </div>
 
               {loading ? (

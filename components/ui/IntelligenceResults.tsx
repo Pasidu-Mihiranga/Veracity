@@ -28,6 +28,7 @@ import { DecisionSupportPack } from '@/components/ui/DecisionSupportPack';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
 import { CompetitiveTimeline } from '@/components/ui/CompetitiveTimeline';
+import { FormattedResearchContent } from '@/components/ui/FormattedResearchContent';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
 import { featureFlags } from '@/lib/feature-flags';
 import {
@@ -347,7 +348,7 @@ export function IntelligenceResults({
           </div>
         </div>
         <div className="p-6 lg:p-8 flex flex-col gap-4">
-          <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
+          <FormattedResearchContent content={currentResult.content} />
           {trust ? (
             <p className="text-[12px] leading-relaxed" style={{ color: textMuted }}>
               {trust}

@@ -279,8 +279,7 @@ export function ChatPanel({
                   <button
                     type="button"
                     onClick={onAttachClick}
-                    className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
-                    style={{ color: textSubtle }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-accent/5 hover:bg-accent/12 border border-border/50 text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs hover:border-accent/30"
                     aria-label="Attach image"
                     disabled={composerBusy}
                   >

@@ -108,14 +108,13 @@ export function DashboardHeader({
           </div>
         )}
 
-        <div className="header-island-tabs flex items-center gap-0.5 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
+        <div className="header-island-tabs flex items-center gap-1 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
           {([
-            { id: 'home' as const, label: 'Home', icon: <Home size={13} /> },
-            { id: 'intelligence' as const, label: 'Research', icon: <Sparkles size={13} /> },
-            ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists', icon: <Eye size={13} /> }] : []),
-            { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={13} /> },
-            { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={13} /> },
-            { id: 'profile' as const, label: 'Profile & Settings', icon: <User size={13} /> },
+            { id: 'home' as const, label: 'Home' },
+            { id: 'intelligence' as const, label: 'Research' },
+            ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists' }] : []),
+            { id: 'steal' as const, label: 'Steal strategy' },
+            { id: 'profile' as const, label: 'Profile & Settings' },
           ]).map(tab => {
             const active = topTab === tab.id;
             return (
@@ -125,10 +124,9 @@ export function DashboardHeader({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onTopTabChange(tab.id)}
-                className="header-nav-tab flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-medium transition-colors min-h-9"
+                className="header-nav-tab flex items-center justify-center px-3.5 py-1.5 text-[13.5px] sm:text-[14px] font-medium transition-all min-h-9 rounded-xl cursor-pointer"
                 data-active={active ? 'true' : 'false'}
               >
-                {tab.icon}
                 <span className="header-island-tab-label">{tab.label}</span>
               </button>
             );

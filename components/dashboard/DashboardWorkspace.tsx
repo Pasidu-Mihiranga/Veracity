@@ -274,19 +274,9 @@ export function DashboardWorkspace({
               }}
             />
           )}
-          {topTab === 'usage' && (
-            <ApiUsagePanel
-              lastMetrics={currentResult?.orchestratorOutput?.metrics}
-              lastLive={currentResult?.liveMetrics}
-              sessionTotals={sessionUsage}
-              queryCacheStats={queryCacheStats}
-              sessionId={currentSessionId}
-              agentsSavedVsFull={currentResult?.orchestratorOutput?.selectionMeta?.savedVsFull ?? null}
-            />
-          )}
           {topTab === 'steal' && <StealStrategyPanel />}
           {topTab === 'watchlists' && <WatchlistsView />}
-          {topTab === 'profile' && (
+          {(topTab === 'profile' || topTab === 'usage') && (
             <ProfileSettingsView
               userEmail={userEmail ?? null}
               userMemory={userMemory}

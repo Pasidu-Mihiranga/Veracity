@@ -6,6 +6,7 @@ import { loadUserProfile, saveUserProfile, UserProfile } from '@/lib/user-profil
 import { getFactText, updateUserMemoryFacts, type MemoryFact, type UserMemory } from '@/lib/memory';
 import { useTheme } from '@/lib/theme-provider';
 import { ALL_DOMAINS, DOMAIN_META, type Domain } from '@/lib/domain-meta';
+import { ApiUsagePanel } from '@/components/ApiUsagePanel';
 
 interface ProfileSettingsViewProps {
   userEmail: string | null;
@@ -170,19 +171,19 @@ export function ProfileSettingsView({
 
             <div className="flex flex-col gap-3">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-xs sm:text-[12.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Account Email
                 </label>
                 <input
                   type="text"
                   disabled
                   value={userEmail || 'Executive User'}
-                  className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-xs font-mono text-muted-foreground cursor-not-allowed opacity-80"
+                  className="w-full px-4 py-2.5 rounded-xl bg-accent/5 border border-border text-xs sm:text-sm font-mono text-muted-foreground cursor-not-allowed opacity-80"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-xs sm:text-[12.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Executive Role / Title
                 </label>
                 <input
@@ -195,7 +196,7 @@ export function ProfileSettingsView({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-xs sm:text-[12.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Target Category / Industry
                 </label>
                 <input
@@ -284,7 +285,7 @@ export function ProfileSettingsView({
 
             <div className="flex flex-col gap-3">
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-xs sm:text-[12.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Company / Product Name
                 </label>
                 <input
@@ -297,7 +298,7 @@ export function ProfileSettingsView({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <label className="block text-xs sm:text-[12.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Official Website URL
                 </label>
                 <div className="relative">
@@ -326,13 +327,13 @@ export function ProfileSettingsView({
                 <Crosshair size={16} className="text-accent" />
                 <h3 className="text-sm font-bold text-foreground">Competitor Intelligence Radar</h3>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground font-medium">
                 {competitors.length} tracked entities
               </span>
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+              <label className="block text-xs sm:text-[12.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                 Monitored Competitors
               </label>
               <div className="flex gap-2 mb-3">
@@ -515,6 +516,11 @@ export function ProfileSettingsView({
             })}
           </div>
         )}
+      </div>
+
+      {/* Card 6: API and Model Usage Telemetry */}
+      <div className="pt-4 border-t border-border/40">
+        <ApiUsagePanel />
       </div>
     </div>
   );

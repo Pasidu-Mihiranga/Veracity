@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Cpu, DollarSign, Gauge, Plug, RefreshCw, Server, BarChart3, PieChart, TrendingUp } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
 import type { RunMetrics } from '@/lib/agents/types';
+import {
+  MOCK_LAST_RUN_METRICS,
+  MOCK_SESSION_USAGE,
+  MOCK_QUERY_CACHE_STATS,
+  MOCK_AGENTS_SAVED_VS_FULL,
+  MOCK_USAGE_INFO,
+} from '@/lib/mock-api-usage';
 
 /** Mirrors chat stream `liveMetrics` in page.tsx. */
 type LiveStreamMetrics = {
@@ -89,7 +96,7 @@ export function ApiUsagePanel({
 }: {
   lastMetrics?: RunMetrics;
   lastLive?: LiveStreamMetrics;
-  sessionTotals: SessionUsage;
+  sessionTotals?: SessionUsage;
   queryCacheStats?: { hits: number; misses: number };
   sessionId?: string | null;
   agentsSavedVsFull?: number | null;
@@ -125,38 +132,48 @@ export function ApiUsagePanel({
     void load();
   }, [load]);
 
-  const latencyMs = lastMetrics?.totalLatencyMs ?? lastLive?.elapsedMs;
-  const cost = lastMetrics?.estimatedCostUsd ?? lastLive?.estimatedCostUsd;
-  const geminiCalls = lastMetrics?.geminiCallCount ?? lastLive?.geminiCallCount;
-  const toolCalls = lastMetrics?.toolCallCount ?? lastLive?.toolCallCount;
-  const agentN = lastMetrics?.agentCount ?? lastLive?.agentCount;
-  const doneN = lastMetrics?.completedAgentCount ?? lastLive?.completedAgentCount;
+  // Fallback to high-fidelity mock data when live metrics are unpopulated
+  const effectiveLastMetrics = lastMetrics ?? (lastLive ? undefined : MOCK_LAST_RUN_METRICS);
+  const effectiveSessionTotals = (sessionTotals && sessionTotals.queries > 0) ? sessionTotals : MOCK_SESSION_USAGE;
+  const effectiveInfo = info ?? MOCK_USAGE_INFO;
+  const effectiveQueryCacheStats = (queryCacheStats?.hits || queryCacheStats?.misses) ? queryCacheStats : MOCK_QUERY_CACHE_STATS;
+  const effectiveAgentsSaved = agentsSavedVsFull ?? MOCK_AGENTS_SAVED_VS_FULL;
+
+  const latencyMs = effectiveLastMetrics?.totalLatencyMs ?? lastLive?.elapsedMs;
+  const cost = effectiveLastMetrics?.estimatedCostUsd ?? lastLive?.estimatedCostUsd;
+  const geminiCalls = effectiveLastMetrics?.geminiCallCount ?? lastLive?.geminiCallCount;
+  const toolCalls = effectiveLastMetrics?.toolCallCount ?? lastLive?.toolCallCount;
+  const agentN = effectiveLastMetrics?.agentCount ?? lastLive?.agentCount;
+  const doneN = effectiveLastMetrics?.completedAgentCount ?? lastLive?.completedAgentCount;
   const failedN = lastLive?.failedAgentCount;
-  const hasRun = Boolean(lastMetrics || lastLive);
+  const hasRun = Boolean(effectiveLastMetrics || lastLive);
 
   const avgCost = useMemo(() => {
-    if (!sessionTotals.queries) return null;
-    return sessionTotals.totalCostUsd / sessionTotals.queries;
-  }, [sessionTotals]);
+    if (!effectiveSessionTotals.queries) return null;
+    return effectiveSessionTotals.totalCostUsd / effectiveSessionTotals.queries;
+  }, [effectiveSessionTotals]);
 
   const avgLatency = useMemo(() => {
-    if (!sessionTotals.queries) return null;
-    return sessionTotals.totalLatencyMs / sessionTotals.queries;
-  }, [sessionTotals]);
+    if (!effectiveSessionTotals.queries) return null;
+    return effectiveSessionTotals.totalLatencyMs / effectiveSessionTotals.queries;
+  }, [effectiveSessionTotals]);
+
   const avgToolTimeMs = useMemo(() => {
-    if (!lastMetrics?.toolCallCount) return null;
-    return lastMetrics.totalLatencyMs / lastMetrics.toolCallCount;
-  }, [lastMetrics]);
+    if (!effectiveLastMetrics?.toolCallCount) return null;
+    return effectiveLastMetrics.totalLatencyMs / effectiveLastMetrics.toolCallCount;
+  }, [effectiveLastMetrics]);
+
   const agentCompletionPct = useMemo(() => {
-    if (!lastMetrics?.agentCount) return null;
-    return Math.round((lastMetrics.completedAgentCount / lastMetrics.agentCount) * 100);
-  }, [lastMetrics]);
+    if (!effectiveLastMetrics?.agentCount) return null;
+    return Math.round((effectiveLastMetrics.completedAgentCount / effectiveLastMetrics.agentCount) * 100);
+  }, [effectiveLastMetrics]);
+
   const cacheHitRatio = useMemo(() => {
-    const hits = queryCacheStats?.hits ?? 0;
-    const misses = queryCacheStats?.misses ?? 0;
+    const hits = effectiveQueryCacheStats?.hits ?? 0;
+    const misses = effectiveQueryCacheStats?.misses ?? 0;
     const total = hits + misses;
     return total ? Math.round((hits / total) * 100) : null;
-  }, [queryCacheStats]);
+  }, [effectiveQueryCacheStats]);
 
   return (
     <div className="w-full flex flex-col gap-8">
@@ -226,26 +243,26 @@ export function ApiUsagePanel({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
             label="Queries"
-            value={String(sessionTotals.queries)}
+            value={String(effectiveSessionTotals.queries)}
             hint="With recorded metrics"
             icon={<Server size={16} />}
           />
           <StatCard
             label="Session cost"
-            value={`$${sessionTotals.totalCostUsd.toFixed(4)}`}
+            value={`$${effectiveSessionTotals.totalCostUsd.toFixed(4)}`}
             hint={avgCost != null ? `Avg $${avgCost.toFixed(4)} / query` : 'Sum of estimates'}
             icon={<DollarSign size={16} />}
           />
           <StatCard
             label="Session latency"
-            value={`${(sessionTotals.totalLatencyMs / 1000).toFixed(1)}s`}
+            value={`${(effectiveSessionTotals.totalLatencyMs / 1000).toFixed(1)}s`}
             hint={avgLatency != null ? `Avg ${(avgLatency / 1000).toFixed(1)}s / query` : 'Sum'}
             icon={<Gauge size={16} />}
           />
           <StatCard
             label="Model calls"
-            value={String(sessionTotals.totalGeminiCalls)}
-            hint={`${sessionTotals.totalToolCalls} tool calls`}
+            value={String(effectiveSessionTotals.totalGeminiCalls)}
+            hint={`${effectiveSessionTotals.totalToolCalls} tool calls`}
             icon={<Cpu size={16} />}
           />
         </div>
@@ -268,7 +285,7 @@ export function ApiUsagePanel({
           />
           <StatCard
             label="Token usage"
-            value={info?.geminiUsage?.totalTokens != null ? `${info.geminiUsage.totalTokens}` : '—'}
+            value={effectiveInfo?.geminiUsage?.totalTokens != null ? `${effectiveInfo.geminiUsage.totalTokens.toLocaleString()}` : '—'}
             hint="Server lifetime snapshot"
             icon={<Cpu size={16} />}
           />
@@ -330,7 +347,7 @@ export function ApiUsagePanel({
               </svg>
               <div className="absolute flex flex-col items-center justify-center text-center">
                 <span className="ui-heading" style={{ fontSize: 16 }}>
-                  {sessionTotals.totalGeminiCalls || 1}
+                  {effectiveSessionTotals.totalGeminiCalls || 1}
                 </span>
                 <span className="ui-caption" style={{ fontSize: 9, color: 'var(--foreground-subtle)' }}>
                   LLM Calls
@@ -416,8 +433,8 @@ export function ApiUsagePanel({
           <StatCard
             label="Queue wait"
             value={
-              info?.queueMetrics?.avgQueueWaitMs != null
-                ? `${(info.queueMetrics.avgQueueWaitMs / 1000).toFixed(1)}s`
+              effectiveInfo?.queueMetrics?.avgQueueWaitMs != null
+                ? `${(effectiveInfo.queueMetrics.avgQueueWaitMs / 1000).toFixed(1)}s`
                 : '—'
             }
             hint="Avg wait before start"
@@ -426,10 +443,10 @@ export function ApiUsagePanel({
           <StatCard
             label="Execution"
             value={
-              info?.queueMetrics?.avgExecutionMs != null
-                ? `${(info.queueMetrics.avgExecutionMs / 1000).toFixed(1)}s`
-                : lastMetrics?.totalLatencyMs != null
-                  ? `${(lastMetrics.totalLatencyMs / 1000).toFixed(1)}s`
+              effectiveInfo?.queueMetrics?.avgExecutionMs != null
+                ? `${(effectiveInfo.queueMetrics.avgExecutionMs / 1000).toFixed(1)}s`
+                : effectiveLastMetrics?.totalLatencyMs != null
+                  ? `${(effectiveLastMetrics.totalLatencyMs / 1000).toFixed(1)}s`
                   : '—'
             }
             hint="Avg job / last sweep"
@@ -438,8 +455,8 @@ export function ApiUsagePanel({
           <StatCard
             label="Agent runtime"
             value={
-              info?.queueMetrics?.avgAgentRuntimeMs != null
-                ? `${(info.queueMetrics.avgAgentRuntimeMs / 1000).toFixed(1)}s`
+              effectiveInfo?.queueMetrics?.avgAgentRuntimeMs != null
+                ? `${(effectiveInfo.queueMetrics.avgAgentRuntimeMs / 1000).toFixed(1)}s`
                 : '—'
             }
             hint="Avg orchestrate wall time"
@@ -448,39 +465,39 @@ export function ApiUsagePanel({
           <StatCard
             label="Retries / cancels"
             value={
-              info?.queueMetrics
-                ? `${info.queueMetrics.retries} / ${info.queueMetrics.cancelled}`
+              effectiveInfo?.queueMetrics
+                ? `${effectiveInfo.queueMetrics.retries} / ${effectiveInfo.queueMetrics.cancelled}`
                 : '—'
             }
-            hint={`DLQ ${info?.queueMetrics?.deadLetter ?? 0} · failed ${info?.queueMetrics?.failed ?? 0}`}
+            hint={`DLQ ${effectiveInfo?.queueMetrics?.deadLetter ?? 0} · failed ${effectiveInfo?.queueMetrics?.failed ?? 0}`}
             icon={<RefreshCw size={16} />}
           />
           <StatCard
             label="Agents saved"
-            value={agentsSavedVsFull != null ? String(agentsSavedVsFull) : '—'}
+            value={effectiveAgentsSaved != null ? String(effectiveAgentsSaved) : '—'}
             hint="Vs full research sweep"
             icon={<Activity size={16} />}
           />
           <StatCard
             label="Feedback"
             value={
-              info?.feedbackStats
-                ? `↑${info.feedbackStats.up} ↓${info.feedbackStats.down}`
+              effectiveInfo?.feedbackStats
+                ? `↑${effectiveInfo.feedbackStats.up} ↓${effectiveInfo.feedbackStats.down}`
                 : '—'
             }
             hint={
-              info?.feedbackStats?.refineRate != null
-                ? `Refine rate ${info.feedbackStats.refineRate}%`
+              effectiveInfo?.feedbackStats?.refineRate != null
+                ? `Refine rate ${effectiveInfo.feedbackStats.refineRate}%`
                 : 'Thumbs across sessions'
             }
             icon={<Activity size={16} />}
           />
         </div>
-        {info?.auditLogs && info.auditLogs.length > 0 ? (
+        {effectiveInfo?.auditLogs && effectiveInfo.auditLogs.length > 0 ? (
           <div className="mt-4 results-panel p-4" style={{ background: 'var(--surface)' }}>
             <p className="ui-section-label mb-2">Recent audit</p>
             <ul className="flex flex-col gap-1.5 m-0 p-0 list-none">
-              {info.auditLogs.slice(0, 8).map((row) => (
+              {effectiveInfo.auditLogs.slice(0, 8).map((row) => (
                 <li key={row.id} className="text-[11px] font-mono text-muted-foreground flex justify-between gap-2">
                   <span>{row.action} · {row.resource_type}</span>
                   <span>{new Date(row.created_at).toLocaleString()}</span>
@@ -502,7 +519,7 @@ export function ApiUsagePanel({
         </div>
       ) : null}
 
-      {info ? (
+      {effectiveInfo ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="results-panel p-5 sm:p-6" style={{ background: 'var(--surface)' }}>
             <div className="flex items-center gap-2 mb-4">
@@ -518,7 +535,7 @@ export function ApiUsagePanel({
                   Text generation
                 </p>
                 <p className="ui-title" style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-                  {info.models.text}
+                  {effectiveInfo.models.text}
                 </p>
               </div>
               <div
@@ -529,9 +546,9 @@ export function ApiUsagePanel({
                   Embeddings
                 </p>
                 <p className="ui-title" style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-                  {info.models.embedding}
+                  {effectiveInfo.models.embedding}
                 </p>
-                <p className="ui-caption mt-1">{info.models.embeddingDimensions} dimensions</p>
+                <p className="ui-caption mt-1">{effectiveInfo.models.embeddingDimensions} dimensions</p>
               </div>
             </div>
             <p className="ui-caption mt-4" style={{ color: 'var(--foreground-subtle)' }}>
@@ -545,7 +562,7 @@ export function ApiUsagePanel({
               <p className="ui-section-label">Integrations</p>
             </div>
             <ul className="flex flex-col gap-2.5">
-              {info.providers.map((p) => (
+              {effectiveInfo.providers.map((p) => (
                 <li
                   key={p.id}
                   className="rounded-xl px-4 py-3.5"

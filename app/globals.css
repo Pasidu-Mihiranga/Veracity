@@ -220,26 +220,26 @@ body {
 /* ─── UI type scale (high-visibility consistency) ───────── */
 .ui-section-label {
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: 0.1em;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--foreground-muted);
 }
 
 .ui-heading {
   font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.3;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
   letter-spacing: -0.025em;
   color: var(--foreground);
 }
 
 .ui-title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.02em;
@@ -256,23 +256,23 @@ body {
 
 .ui-body-sm {
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--foreground);
 }
 
 .ui-caption {
   font-family: var(--font-sans);
-  font-size: 12.5px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 450;
   line-height: 1.5;
   color: var(--foreground-muted);
 }
 
 .ui-mono {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -637,9 +637,9 @@ textarea.neu-input:focus {
 
 .label-mono {
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--foreground-subtle);
 }
@@ -779,38 +779,39 @@ textarea.neu-input:focus {
   box-shadow: none;
 }
 
-/* Text-style nav — underline active, not a filled CTA button */
+/* Clean, simple, professional & interactive nav tab styling */
 .header-nav-tab {
   position: relative;
   border: none;
-  border-radius: 0;
-  background: transparent !important;
+  border-radius: 12px;
+  background: transparent;
   box-shadow: none !important;
   color: var(--foreground-muted);
   cursor: pointer;
+  transition: all 180ms ease;
 }
 
 .header-nav-tab::after {
   content: '';
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 12px;
+  right: 12px;
   bottom: 2px;
-  height: 2px;
-  border-radius: 2px;
+  height: 2.5px;
+  border-radius: 9999px;
   background: transparent;
-  transition: background 160ms ease;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .header-nav-tab:hover {
   color: var(--accent) !important;
-  background: transparent !important;
+  background: color-mix(in srgb, var(--accent) 7%, transparent) !important;
 }
 
 .header-nav-tab[data-active='true'] {
   color: var(--accent) !important;
   font-weight: 600;
-  background: transparent !important;
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
 }
 
 .header-nav-tab[data-active='true']::after {
@@ -819,7 +820,7 @@ textarea.neu-input:focus {
 
 .header-nav-tab[data-active='true']:hover {
   color: var(--accent) !important;
-  background: transparent !important;
+  background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
 }
 
 @media (max-width: 640px) {

@@ -52,6 +52,12 @@ export function ConversationTimeline({
           message.id === currentResultId && Boolean(message.orchestratorOutput);
         const isPending = !isUser && !message.content && !message.streamError;
 
+        // Omit current structured assistant message in timeline to prevent text duplication
+        // (the full structured synthesis is rendered directly below in IntelligenceResults)
+        if (!isUser && isCurrentStructuredResult) {
+          return null;
+        }
+
         return (
           <article
             key={`${message.role}-${message.id}`}

@@ -190,18 +190,18 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession }: Home
 
   if (feeds.length === 0) {
     return (
-      <div className="veracity-card p-8 sm:p-10 flex flex-col items-center text-center gap-4">
-        <h2 className="text-xl font-semibold text-foreground">Nothing tracked yet</h2>
-        <p className="text-sm text-muted-foreground max-w-md">
+      <div className="veracity-card p-8 sm:p-12 flex flex-col items-center text-center gap-4">
+        <h2 className="text-2xl font-bold text-foreground">Nothing tracked yet</h2>
+        <p className="text-sm sm:text-base text-muted-foreground max-w-md leading-relaxed">
           Add a company and we start watching its pages. Next time you open
           Veracity, this screen tells you what moved.
         </p>
         <button
           type="button"
           onClick={onStartTracking}
-          className="bg-gradient-signature text-white rounded-xl py-2.5 px-5 font-medium transition-transform hover:-translate-y-[1px] flex items-center gap-2"
+          className="bg-gradient-signature text-white rounded-xl py-3 px-6 font-bold transition-transform hover:-translate-y-[1px] flex items-center gap-2 text-sm cursor-pointer shadow-md"
         >
-          <Plus size={15} /> Track a company
+          <Plus size={16} /> Track a company
         </button>
       </div>
     );
