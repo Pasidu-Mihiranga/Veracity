@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { ChevronDown } from 'lucide-react';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
 import type { Domain } from '@/lib/domain-meta';
@@ -16,6 +17,8 @@ import type { MarketProject } from '@/lib/projects';
 import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
 import { ProjectDashboard } from '@/components/dashboard/ProjectDashboard';
+import { StartTrackingCard } from '@/components/dashboard/StartTrackingCard';
+import { DEMO_QUERIES } from '@/lib/domain-meta';
 import { ScenarioPanel } from '@/components/dashboard/ScenarioPanel';
 import { EntityCorrectionPanel } from '@/components/projects/EntityCorrectionPanel';
 import { ArtifactAttachPicker } from '@/components/dashboard/ArtifactAttachPicker';
@@ -75,6 +78,8 @@ type Props = {
   currentResult?: ChatMessage;
   currentSessionId: string | null;
   selectedProject?: MarketProject | null;
+  /** Select the new project and refresh the sidebar list. */
+  onProjectCreated?: (project: MarketProject) => void;
   messages: ChatMessage[];
   followUps: FollowUp[];
   followUpEndRef: React.RefObject<HTMLDivElement | null>;
@@ -138,6 +143,7 @@ export function DashboardWorkspace({
   currentResult,
   currentSessionId,
   selectedProject,
+  onProjectCreated,
   messages,
   followUps,
   followUpEndRef,
@@ -296,7 +302,49 @@ export function DashboardWorkspace({
                   refreshKey={currentResult?.persistedId ?? currentResult?.id ?? null}
                 />
               ) : null}
-              {messages.length === 0 && !isLoading && !hasResult && !currentResult && (
+              {/*
+                What a first-time visitor sees.
+
+                Without a project, the entire returning-user surface — dashboard,
+                ledger, charts, timeline — cannot render, because every one of
+                those is gated on `selectedProject` below. The old empty state
+                offered only question chips, so people asked one question, judged
+                the product on a single-shot answer, and never reached the part
+                that makes it worth returning to.
+
+                So: setup leads, and asking a one-off stays available underneath.
+                Once a project exists, the question prompt is the right lead again.
+              */}
+              {messages.length === 0 && !isLoading && !hasResult && !currentResult && !selectedProject && (
+                <StartTrackingCard onCreated={(project) => onProjectCreated?.(project)}>
+                  <details className="veracity-card p-5 group">
+                    <summary className="cursor-pointer text-sm font-medium text-foreground list-none flex items-center justify-between">
+                      <span>Just ask a one-off question instead</span>
+                      <ChevronDown
+                        size={15}
+                        className="text-muted-foreground transition-transform group-open:rotate-180"
+                      />
+                    </summary>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      You get one answer, and we forget it. Tracking keeps watching
+                      and tells you what changed.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-2">
+                      {DEMO_QUERIES.map((query) => (
+                        <button
+                          key={query}
+                          type="button"
+                          onClick={() => onSendDemoQuery(query)}
+                          className="text-left text-sm text-accent hover:underline"
+                        >
+                          {query}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                </StartTrackingCard>
+              )}
+              {messages.length === 0 && !isLoading && !hasResult && !currentResult && selectedProject && (
                 <ChatPanel
                   showEmptyState
                   onDemoQuery={onSendDemoQuery}

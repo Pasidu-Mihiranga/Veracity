@@ -26,6 +26,8 @@ export type SessionSidebarProps = {
   onNewQuery: (project?: MarketProject) => void;
   selectedProject?: MarketProject | null;
   onSelectProject?: (project: MarketProject | null) => void;
+  /** Bump to force a re-read of the project list. */
+  projectsRefreshKey?: number;
   sessions: ChatSession[];
   loadingSessions: boolean;
   currentSessionId: string | null;
@@ -50,6 +52,7 @@ export function SessionSidebar({
   onNewQuery,
   selectedProject,
   onSelectProject,
+  projectsRefreshKey,
   sessions,
   loadingSessions,
   currentSessionId,
@@ -82,9 +85,12 @@ export function SessionSidebar({
     displayTitle: string;
   } | null>(null);
 
+  // Re-reads when `projectsRefreshKey` changes. A project created from the
+  // empty state lives outside this component, so without the key the sidebar
+  // would keep showing an empty list until a full reload.
   useEffect(() => {
     listMarketProjects().then(setProjects).catch(() => setProjects([]));
-  }, []);
+  }, [projectsRefreshKey]);
 
   const toggleFolder = (folderName: string) => {
     setExpandedFolders((prev) => ({

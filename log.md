@@ -2720,3 +2720,76 @@ SerpAPI keys are 64 hex characters. The account endpoint returns
 ### Not started
 
 Plan only. No component or token changes yet.
+
+## 2026-08-03 — Phase 1: the project surface is reachable
+
+### What was wrong
+
+Twenty-seven components — ProjectDashboard, SinceLastVisit, ProjectCharts,
+ActivityTimeline, EvidenceDrawer — all render behind `selectedProject`
+(`DashboardWorkspace.tsx:278`). The only way to get a project was a **13px
+unlabelled folder icon** beside "MARKET PROJECTS" in the sidebar
+(`SessionSidebar.tsx:254`), opening a four-field modal.
+
+The empty state offered question chips instead, so new users asked one question,
+judged the product on a single-shot answer, and never saw the surface that makes
+it worth returning to. `admin@local.com` had zero projects; that is why none of
+the work was visible.
+
+### Changed
+
+`components/dashboard/StartTrackingCard.tsx` — inline setup as the lead element
+of the empty state. Three deliberate calls:
+
+- **Inline, not a modal.** A modal interrupts. This is the main thing we want
+  someone to do, so it is the main thing on screen.
+- **Three fields.** `name` is derived from the product rather than asked for — a
+  separate "project name" is our data model leaking into the user's first thirty
+  seconds. The API's `ON CONFLICT (user_id, name)` then makes re-adding a product
+  an update rather than a duplicate.
+- **A bare domain is upgraded to `https://`.** Nobody types the scheme, and the
+  route validates with `z.string().url()`, so the most common input in the form
+  would otherwise fail server-side.
+
+The question path survives, demoted to a disclosure that states the trade
+honestly: one answer and we forget it, versus tracking that keeps watching.
+
+Once a project exists the card disappears and the question prompt leads again —
+setup should not nag someone who has already set up.
+
+`SessionSidebar` gained `projectsRefreshKey`. Its project list came from a
+mount-only effect, so a project created anywhere else stayed invisible there
+until a full reload.
+
+### The test I nearly shipped broken
+
+`__tests__/empty-state-reachability.test.ts` asserted
+`toContain('<StartTrackingCard')`. When I broke the component on purpose by
+renaming it to `<StartTrackingCardREMOVED`, **all nine tests still passed** — the
+substring was still present. A guard that cannot fail is worth nothing, which is
+the same lesson as the benchmark and theme guards, arrived at a third time.
+
+Tightened to `/<StartTrackingCard[\s>]/` and re-verified against two realistic
+breaks: renaming the element, and dropping the `!selectedProject` gate. Both now
+fail exactly one test; restoring passes nine.
+
+### Verified
+
+- Unit: 860 passed, 1 skipped (9 new).
+- Guard proven to fail on two separate real breaks.
+- `test:e2e:dashboard`: **47 passed, 0 failed** — signup, project creation,
+  collection, chart binding, and evidence tracing through the real API.
+- Typecheck clean, ESLint 0 errors, `npm run build` exit 0.
+
+### Not verified by me
+
+I did not sign in, so I have not seen the new empty state rendered in a browser.
+Given the previous mistake was believing "mounted" meant "reachable", that
+distinction matters: the tests assert reachability at source level and the API
+path is covered by the smoke run, but the visual confirmation is a reload away
+in an already-signed-in browser.
+
+### Next
+
+Phase 2 — collapse output when identity is unresolved, so a thin run reads as one
+clear ask rather than fifteen `UNSUPPORTED` cells.
