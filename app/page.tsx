@@ -74,7 +74,7 @@ export default function VeracityDashboard() {
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [topTab, setTopTab] = useState<TopTab>('intelligence');
+  const [topTab, setTopTab] = useState<TopTab>('home');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
   const [turnMode, setTurnMode] = useState<ResearchTurnMode>('verify');
 
@@ -318,6 +318,7 @@ export default function VeracityDashboard() {
           currentResult={currentResult}
           currentSessionId={currentSessionId}
           selectedProject={selectedProject}
+          onTopTabChange={setTopTab}
           onProjectCreated={(project) => {
             // Select it immediately so the dashboard, ledger, charts and
             // timeline render straight away, and refresh the sidebar list.

@@ -2941,3 +2941,57 @@ scales the whole type ramp rather than patching individual sizes.
 - Comparison limited in presentation, not capability.
 - No dashboard home; the app opens straight into chat.
 - No change feed or notification surface for tracked companies.
+
+## 2026-08-03 — Home is a change feed, not a chat box
+
+### Why
+
+The app opened in a chat box, which framed it as a question-answering toy: ask,
+read, leave. Nothing brought anyone back, and the work that makes it worth
+returning to — continuous monitoring, change detection, an evidence ledger that
+accumulates — was invisible on arrival.
+
+It also explains the "new research doesn't work" report: research and project
+overview shared one scrolling surface, so resetting the conversation left the
+previous project's panels on screen and looked like nothing happened.
+
+### Added
+
+`components/dashboard/HomeFeed.tsx`, and `home` as the default tab. The landing
+screen answers one question: **what changed while I was away?** Tracked
+companies, what moved on each, and how much it matters.
+
+- Reads `/api/projects/[id]/dashboard` per company **in parallel**, so one slow
+  or broken company does not hold up the page.
+- A failed read says so. Rendering "nothing changed" when the read failed is a
+  lie the user cannot detect, and it is the exact failure this product exists to
+  avoid.
+- Materiality is never shown as a number — it goes through
+  `importanceOf()` from the shared vocabulary, so "Worth acting on" reads
+  identically here, in the digest, and in the drawer.
+- **No research is triggered and no model is called.** Opening the app must not
+  cost money.
+
+Tabs are now Home · Research · Watchlists · API usage · Steal strategy · Profile.
+"Intelligence" was renamed to "Research" because it described the product
+category rather than what the tab does.
+
+### Verified
+
+- 860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+- `npm run build` compiled successfully with the new tab.
+- Dev server compiles the route with zero errors.
+
+### Not verified by me
+
+I have not seen the feed rendered with real data — that needs a signed-in
+browser. The empty state, the failed-read state, and the populated state are all
+implemented; only the empty and error paths are certain to be exercised until
+someone opens it against a project with change events.
+
+### Next
+
+- Research tab still stacks project panels above the conversation; splitting
+  those is what makes "new research" feel clean.
+- Comparison presentation still assumes pairs; the backend already takes arrays.
+- Evidence badges still bare colour, not icon + label.

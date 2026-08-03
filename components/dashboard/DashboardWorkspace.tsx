@@ -18,6 +18,7 @@ import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
 import { ProjectDashboard } from '@/components/dashboard/ProjectDashboard';
 import { StartTrackingCard } from '@/components/dashboard/StartTrackingCard';
+import { HomeFeed } from '@/components/dashboard/HomeFeed';
 import { DEMO_QUERIES } from '@/lib/domain-meta';
 import { ScenarioPanel } from '@/components/dashboard/ScenarioPanel';
 import { EntityCorrectionPanel } from '@/components/projects/EntityCorrectionPanel';
@@ -80,6 +81,8 @@ type Props = {
   selectedProject?: MarketProject | null;
   /** Select the new project and refresh the sidebar list. */
   onProjectCreated?: (project: MarketProject) => void;
+  /** Home links into the research tab, so it needs to switch tabs. */
+  onTopTabChange?: (tab: TopTab) => void;
   messages: ChatMessage[];
   followUps: FollowUp[];
   followUpEndRef: React.RefObject<HTMLDivElement | null>;
@@ -144,6 +147,7 @@ export function DashboardWorkspace({
   currentSessionId,
   selectedProject,
   onProjectCreated,
+  onTopTabChange,
   messages,
   followUps,
   followUpEndRef,
@@ -237,6 +241,20 @@ export function DashboardWorkspace({
         }}
       >
         <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1400px] w-full mx-auto`}>
+          {/*
+            The landing screen. Answers "what changed while I was away?" from
+            already-collected data — it never triggers research and never calls a
+            model, so opening the app costs nothing.
+          */}
+          {topTab === 'home' && (
+            <HomeFeed
+              onOpenProject={(project) => {
+                onProjectCreated?.(project);
+                onTopTabChange?.('intelligence');
+              }}
+              onStartTracking={() => onTopTabChange?.('intelligence')}
+            />
+          )}
           {topTab === 'usage' && (
             <ApiUsagePanel
               lastMetrics={currentResult?.orchestratorOutput?.metrics}
