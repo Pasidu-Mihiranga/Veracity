@@ -199,10 +199,10 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
   });
 
   const DEMO_STARTER_PROMPTS = [
-    { label: 'Compare PickMe and Uber in Sri Lanka ride hailing', icon: Zap },
-    { label: 'Analyze SaaS competitor pricing tiers & discounts', icon: DollarSign },
-    { label: 'Detect recent product releases for top competitors', icon: Rocket },
-    { label: 'Executive market positioning & GTM breakdown', icon: Target },
+    { label: 'Compare Dialog Axiata and SLT-Mobitel. Who is winning?', icon: Zap },
+    { label: 'What has PickMe done lately, and how did Uber respond?', icon: Rocket },
+    { label: 'Which tea exporter is ready for the new EU rules?', icon: Target },
+    { label: 'Where is the telecom market heading?', icon: DollarSign },
   ];
 
   return (
@@ -218,13 +218,10 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
               <Sparkles size={16} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">Instant Growth Intelligence</h2>
-              <p className="text-xs text-muted-foreground">Ask any research question to launch 6 specialist agents immediately</p>
+              <h2 className="text-base font-bold text-foreground">Ask about your market</h2>
+              <p className="text-xs text-muted-foreground">Name a company or a market and say what you want to decide</p>
             </div>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full border border-border text-[11px] font-medium text-muted-foreground hidden sm:inline-block">
-            Autonomous Swarm Active
-          </span>
         </div>
 
         <form onSubmit={handleQuickSearchSubmit} className="flex gap-2 w-full">
@@ -319,9 +316,6 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
         >
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Companies</p>
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {activeFilter === 'all' ? 'Filtered' : 'View All'}
-            </span>
           </div>
           <p className="text-2xl font-bold text-foreground tabular-nums">{feedList.length}</p>
           <p className="text-xs text-muted-foreground">being watched for you</p>
@@ -350,9 +344,6 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
         >
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Changes</p>
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {activeFilter === 'changes' ? 'Active Filter' : 'Filter Changes'}
-            </span>
           </div>
           <p className="text-2xl font-bold text-foreground tabular-nums">{totalChanges}</p>
           <p className="text-xs text-muted-foreground">worth your attention</p>
@@ -368,7 +359,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
         >
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Health Status</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Could not read</p>
             <ShieldCheck size={14} className={totalStale > 0 ? 'text-[var(--evidence-derived)]' : 'text-muted-foreground'} />
           </div>
           <p className="text-2xl font-bold text-foreground tabular-nums">{totalStale}</p>
