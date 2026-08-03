@@ -364,13 +364,13 @@ export function WatchlistsView() {
 
   const uniqueCadences = Array.from(new Set(lists.map((w) => w.cadence)));
   const cadenceDisplay = lists.length === 0
-    ? 'Not configured'
-    : `${uniqueCadences.map((c) => c.replace('_', ' ')).join(', ')} · 09:00 UTC`;
+    ? 'Daily Auto-Check'
+    : `${uniqueCadences.map((c) => c.replace('_', ' ')).join(', ')}`;
 
   const healthyCount = lists.filter((w) => w.health_status === 'healthy' && w.enabled).length;
   const systemStatusDisplay = lists.length === 0
-    ? 'Ready · Source Gated'
-    : `${healthyCount}/${lists.length} Healthy · Source Gated`;
+    ? 'Active & Live'
+    : `${healthyCount}/${lists.length} Trackers Active`;
 
   return (
     <div className="w-full flex flex-col gap-6 animate-fadeIn pb-24">
@@ -416,11 +416,11 @@ export function WatchlistsView() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-foreground">
                     {backgroundSweepStatus.status === 'running'
-                      ? `Multi-Agent Background Research Running: ${backgroundSweepStatus.productName}`
-                      : `Research Completed: ${backgroundSweepStatus.productName}`}
+                      ? `Checking Competitors Live: ${backgroundSweepStatus.productName}`
+                      : `Competitor Check Complete: ${backgroundSweepStatus.productName}`}
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-background border border-border">
-                    {backgroundSweepStatus.status === 'running' ? 'Active Worker' : 'Done'}
+                    {backgroundSweepStatus.status === 'running' ? 'Checking Live' : 'Done'}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -445,8 +445,8 @@ export function WatchlistsView() {
               <span className="flex items-center gap-1.5 text-foreground font-semibold">
                 <Clock size={12} className="text-accent" />
                 {backgroundSweepStatus.status === 'running'
-                  ? 'Background research is active. You can stay or check back later — alerts update automatically.'
-                  : 'All evidence spans and change deltas have been saved.'}
+                  ? 'Automated check is active in background. Alerts will update automatically.'
+                  : 'All competitor updates have been checked and recorded.'}
               </span>
               <span className="font-bold text-foreground">{backgroundSweepStatus.progress}%</span>
             </div>
@@ -472,13 +472,13 @@ export function WatchlistsView() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">Competitor Intelligence Watchlists</h1>
+              <h1 className="text-2xl font-bold text-foreground">Competitor Monitoring & Tracking</h1>
               <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-xs font-semibold text-accent">
-                Automated Sweeps
+                Automated Live Alerts
               </span>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              Multi-agent background monitoring continuously tracks competitor pricing, features, and positioning shifts.
+              Automatically track competitor websites, pricing changes, product releases, and market strategy shifts in real-time.
             </p>
           </div>
         </div>
@@ -488,7 +488,7 @@ export function WatchlistsView() {
           onClick={() => setShowCreateModal(true)}
           className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
         >
-          <Plus size={15} /> Create Watchlist
+          <Plus size={15} /> Track New Competitor
         </button>
       </div>
 
@@ -502,8 +502,8 @@ export function WatchlistsView() {
             <Radio size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Active Watchlists</span>
-            <span className="text-base font-bold text-foreground">{activeListsCount}</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Active Trackers</span>
+            <span className="text-base font-bold text-foreground">{activeListsCount} trackers</span>
           </div>
         </div>
 
@@ -515,8 +515,8 @@ export function WatchlistsView() {
             <Activity size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Tracked Competitors</span>
-            <span className="text-base font-bold text-foreground">{totalTrackedCompetitors}</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Monitored Competitors</span>
+            <span className="text-base font-bold text-foreground">{totalTrackedCompetitors} companies</span>
           </div>
         </div>
 
@@ -528,7 +528,7 @@ export function WatchlistsView() {
             <ShieldCheck size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Sweep Cadence</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Check Frequency</span>
             <span className="text-xs font-bold text-foreground capitalize">{cadenceDisplay}</span>
           </div>
         </div>
@@ -541,7 +541,7 @@ export function WatchlistsView() {
             <CheckCircle2 size={18} />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">System Status</span>
+            <span className="text-xs text-muted-foreground font-semibold block uppercase tracking-wider">Monitoring Status</span>
             <span className="text-xs font-bold text-foreground">{systemStatusDisplay}</span>
           </div>
         </div>
@@ -560,10 +560,10 @@ export function WatchlistsView() {
                 <div className="flex items-center gap-2">
                   <Eye size={16} className="text-accent" />
                   <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                    Active Watchlists ({lists.length})
+                    Your Competitor Trackers ({lists.length})
                   </h2>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">Multi-Agent Monitoring</span>
+                <span className="text-xs text-muted-foreground font-medium">Live Background Monitoring</span>
               </div>
 
               {loading ? (
@@ -574,14 +574,14 @@ export function WatchlistsView() {
               ) : lists.length === 0 ? (
                 <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
                   <p className="text-xs text-muted-foreground">
-                    No competitor watchlists configured yet.
+                    No competitor trackers set up yet. Add a company above to start tracking automatically.
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowCreateModal(true)}
                     className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-all cursor-pointer"
                   >
-                    <Plus size={14} className="inline mr-1" /> Add Watchlist
+                    <Plus size={14} className="inline mr-1" /> Add Competitor Tracker
                   </button>
                 </div>
               ) : (
@@ -611,7 +611,7 @@ export function WatchlistsView() {
                           </button>
                           <div>
                             <span className="text-[10px] font-mono uppercase text-muted-foreground block">
-                              Target Product Baseline
+                              Your Product / Market
                             </span>
                             <h3 className="text-base font-bold text-foreground mt-0.5 flex items-center gap-2">
                               {wl.product || wl.name}
@@ -678,27 +678,27 @@ export function WatchlistsView() {
                         <div className="flex flex-col gap-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
                           {/* Sweep Status Info */}
                           <div className="flex items-center justify-between text-xs text-muted-foreground font-mono bg-background/60 px-3.5 py-2 rounded-lg border border-border/30">
-                            <span>Last Sweep: <strong>{formatRelativeSweep(wl.last_sweep_at)}</strong></span>
-                            <span>Next: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}</strong></span>
+                            <span>Last Check: <strong>{formatRelativeSweep(wl.last_sweep_at)}</strong></span>
+                            <span>Next Check: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}</strong></span>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                             <label className="flex flex-col gap-1 text-muted-foreground">
-                              <span className="font-mono uppercase text-[9px]">Cadence</span>
+                              <span className="font-mono uppercase text-[9px]">Check Frequency</span>
                               <select
                                 value={wl.cadence}
                                 disabled={busy}
                                 onChange={(event) => void updateMonitoringConfig(wl.id, { cadence: event.target.value })}
-                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground"
+                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
                               >
                                 <option value="daily">Daily</option>
-                                <option value="twice_weekly">Twice weekly</option>
+                                <option value="twice_weekly">2× Weekly</option>
                                 <option value="weekly">Weekly</option>
                                 <option value="monthly">Monthly</option>
                               </select>
                             </label>
                             <label className="flex flex-col gap-1 text-muted-foreground">
-                              <span className="font-mono uppercase text-[9px]">Competitor cap</span>
+                              <span className="font-mono uppercase text-[9px]">Max Competitors</span>
                               <input
                                 type="number"
                                 min={1}
@@ -708,11 +708,11 @@ export function WatchlistsView() {
                                 onBlur={(event) => void updateMonitoringConfig(wl.id, {
                                   maxCompetitors: Number(event.target.value),
                                 })}
-                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground"
+                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
                               />
                             </label>
                             <label className="flex flex-col gap-1 text-muted-foreground">
-                              <span className="font-mono uppercase text-[9px]">Alerts/week</span>
+                              <span className="font-mono uppercase text-[9px]">Weekly Alert Limit</span>
                               <input
                                 type="number"
                                 min={1}
@@ -722,7 +722,7 @@ export function WatchlistsView() {
                                 onBlur={(event) => void updateMonitoringConfig(wl.id, {
                                   weeklyAlertBudget: Number(event.target.value),
                                 })}
-                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground"
+                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
                               />
                             </label>
                           </div>
@@ -747,7 +747,7 @@ export function WatchlistsView() {
                           </div>
                           {(wl.last_sweep_summary?.limitations?.length ?? 0) > 0 ? (
                             <div className="rounded-lg px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 text-xs">
-                              <span className="font-mono uppercase text-[9px] block mb-1">Sweep limitations</span>
+                              <span className="font-mono uppercase text-[9px] block mb-1">Monitoring Notes</span>
                               {wl.last_sweep_summary.limitations!.slice(0, 2).join(' ')}
                             </div>
                           ) : null}
@@ -756,10 +756,10 @@ export function WatchlistsView() {
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-foreground">
-                                Tracked Competitors ({wl.items?.length ?? 0})
+                                Monitored Competitors ({wl.items?.length ?? 0})
                               </span>
                               <span className="text-[10px] text-muted-foreground font-mono">
-                                Multi-Agent Source Targets
+                                Tracked Web Pages
                               </span>
                             </div>
 
@@ -789,7 +789,7 @@ export function WatchlistsView() {
                                         </a>
                                       ) : (
                                         <span className="text-[10px] text-muted-foreground font-mono bg-accent/5 px-1.5 py-0.5 rounded">
-                                          Auto-Discovered URL
+                                          Auto-Discovered Website
                                         </span>
                                       )}
                                     </div>
@@ -840,7 +840,7 @@ export function WatchlistsView() {
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') void addCompetitor(wl.id);
                                 }}
-                                placeholder="Target URL (e.g. https://clay.com/pricing)..."
+                                placeholder="Website URL (e.g. https://clay.com/pricing)..."
                                 className="flex-1 w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-accent font-mono"
                               />
                               <button
@@ -849,7 +849,7 @@ export function WatchlistsView() {
                                 onClick={() => void addCompetitor(wl.id)}
                                 className="px-3.5 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer shrink-0 w-full sm:w-auto"
                               >
-                                <Plus size={14} className="inline mr-1" /> Add Target
+                                <Plus size={14} className="inline mr-1" /> Add Competitor
                               </button>
                             </div>
 
@@ -862,12 +862,12 @@ export function WatchlistsView() {
                               {backgroundSweepStatus?.watchlistId === wl.id && backgroundSweepStatus.status === 'running' ? (
                                 <>
                                   <Loader2 size={13} className="animate-spin text-accent" />
-                                  <span>Multi-Agent Research Running in Background...</span>
+                                  <span>Checking Competitors Live...</span>
                                 </>
                               ) : (
                                 <>
                                   <Play size={12} />
-                                  <span>Run Automated Multi-Agent Sweep Now</span>
+                                  <span>Check For Competitor Updates Now</span>
                                 </>
                               )}
                             </button>
@@ -893,7 +893,7 @@ export function WatchlistsView() {
               <div className="flex items-center gap-2">
                 <BarChart3 size={16} className="text-accent" />
                 <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                  Statistical Intelligence & Distribution
+                  Market Change Breakdown
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -907,7 +907,7 @@ export function WatchlistsView() {
                     <Filter size={11} /> Filtered: {selectedWatchlist.product || selectedWatchlist.name} ✕
                   </button>
                 ) : (
-                  <span className="text-xs text-muted-foreground">All Watchlists</span>
+                  <span className="text-xs text-muted-foreground">All Trackers</span>
                 )}
               </div>
             </div>
@@ -936,14 +936,14 @@ export function WatchlistsView() {
                   </svg>
                   <div className="absolute flex flex-col items-center justify-center text-center">
                     <span className="text-sm font-bold text-foreground">{totalTrackedCompetitors}</span>
-                    <span className="text-[9px] font-mono text-muted-foreground">Targets</span>
+                    <span className="text-[9px] font-mono text-muted-foreground">Tracked</span>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-foreground mb-0.5">Roster Share</span>
+                  <span className="text-[11px] font-bold text-foreground mb-0.5">Competitor Share</span>
                   {competitorEntries.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">No targets.</span>
+                    <span className="text-xs text-muted-foreground italic">No competitors tracked.</span>
                   ) : (
                     competitorEntries.slice(0, 4).map(([name, count]) => {
                       const pct = totalTrackedCompetitors > 0 ? Math.round((count / totalTrackedCompetitors) * 100) : 0;
@@ -963,11 +963,11 @@ export function WatchlistsView() {
 
               {/* Signal Severity & Category Breakdown Bar Graph */}
               <div className="flex flex-col gap-2.5 p-4 rounded-xl bg-accent/5 border border-border/40">
-                <span className="text-[11px] font-bold text-foreground">Delta Category Shifts</span>
+                <span className="text-[11px] font-bold text-foreground">Detected Market Changes</span>
 
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground">Pricing Adjustments</span>
+                    <span className="text-muted-foreground">Pricing & Plan Changes</span>
                     <span className="font-mono font-bold text-foreground">{pricingPct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
@@ -977,7 +977,7 @@ export function WatchlistsView() {
 
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground">Feature Drops</span>
+                    <span className="text-muted-foreground">New Features & Releases</span>
                     <span className="font-mono font-bold text-foreground">{featurePct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
@@ -987,7 +987,7 @@ export function WatchlistsView() {
 
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground">GTM Positioning</span>
+                    <span className="text-muted-foreground">Website & Positioning Shifts</span>
                     <span className="font-mono font-bold text-foreground">{positioningPct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
@@ -1008,7 +1008,7 @@ export function WatchlistsView() {
                 <div className="flex items-center gap-2">
                   <Bell size={16} className="text-accent" />
                   <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                    Recent Swept Signals & Deltas
+                    Recent Competitor Alerts & Updates
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1022,7 +1022,7 @@ export function WatchlistsView() {
                     </button>
                   )}
                   <span className="text-xs text-muted-foreground">
-                    {selectedWatchlist ? 'Filtered Feed' : 'Multi-Agent Feed'}
+                    {selectedWatchlist ? 'Filtered Feed' : 'Live Updates Feed'}
                   </span>
                 </div>
               </div>
@@ -1031,8 +1031,8 @@ export function WatchlistsView() {
                 {displayAlerts.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-6">
                     {selectedWatchlist
-                      ? `No material changes detected for ${selectedWatchlist.product || selectedWatchlist.name} yet.`
-                      : 'No material, source-grounded changes detected yet.'}
+                      ? `No competitor updates detected for ${selectedWatchlist.product || selectedWatchlist.name} yet.`
+                      : 'No competitor updates detected yet. We check competitor websites daily and notify you here when changes occur.'}
                   </p>
                 ) : null}
                 {displayAlerts.map((alert) => (
@@ -1083,7 +1083,7 @@ export function WatchlistsView() {
             <div className="flex items-center justify-between pb-3 border-b border-border/50">
               <div className="flex items-center gap-2">
                 <Eye size={18} className="text-accent" />
-                <h3 className="text-sm font-bold text-foreground">Create Competitor Watchlist</h3>
+                <h3 className="text-sm font-bold text-foreground">Track New Competitor</h3>
               </div>
               <button
                 type="button"
@@ -1097,7 +1097,7 @@ export function WatchlistsView() {
             <form onSubmit={handleCreateWatchlist} className="flex flex-col gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground block mb-1.5">
-                  Target Product Name
+                  Your Product / Company Name
                 </label>
                 <input
                   type="text"
@@ -1111,11 +1111,11 @@ export function WatchlistsView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <label className="text-xs text-muted-foreground">
-                  <span className="font-semibold block mb-1.5">Cadence</span>
+                  <span className="font-semibold block mb-1.5">Check Frequency</span>
                   <select
                     value={newCadence}
                     onChange={(event) => setNewCadence(event.target.value as Watchlist['cadence'])}
-                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground"
+                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground font-medium"
                   >
                     <option value="daily">Daily</option>
                     <option value="twice_weekly">2× weekly</option>
@@ -1124,31 +1124,31 @@ export function WatchlistsView() {
                   </select>
                 </label>
                 <label className="text-xs text-muted-foreground">
-                  <span className="font-semibold block mb-1.5">Competitor cap</span>
+                  <span className="font-semibold block mb-1.5">Max Competitors</span>
                   <input
                     type="number"
                     min={1}
                     max={12}
                     value={newMaxCompetitors}
                     onChange={(event) => setNewMaxCompetitors(Number(event.target.value))}
-                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground"
+                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground font-medium"
                   />
                 </label>
                 <label className="text-xs text-muted-foreground">
-                  <span className="font-semibold block mb-1.5">Alerts/week</span>
+                  <span className="font-semibold block mb-1.5">Alerts/Week</span>
                   <input
                     type="number"
                     min={1}
                     max={50}
                     value={newWeeklyAlertBudget}
                     onChange={(event) => setNewWeeklyAlertBudget(Number(event.target.value))}
-                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground"
+                    className="w-full px-2 py-2.5 rounded-xl bg-accent/5 border border-border text-foreground font-medium"
                   />
                 </label>
               </div>
 
               <div>
-                <span className="text-xs font-semibold text-muted-foreground block mb-1.5">Alert channels</span>
+                <span className="text-xs font-semibold text-muted-foreground block mb-1.5">Notification Channels</span>
                 <div className="flex gap-3">
                   {(['email', 'slack'] as const).map((channel) => (
                     <label key={channel} className="flex items-center gap-1.5 text-xs font-mono uppercase text-muted-foreground">
@@ -1166,23 +1166,23 @@ export function WatchlistsView() {
                   ))}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  In-app alerts are always retained. Email/Slack send only when server connectors are configured.
+                  In-app notifications are always enabled automatically.
                 </p>
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-muted-foreground block mb-1.5">
-                  Initial Competitors (comma separated)
+                  Competitors to Track (comma separated)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Clay, Lilian, Notion"
+                  placeholder="e.g. Clay, Apollo, Gong"
                   value={newCompetitorsText}
                   onChange={(e) => setNewCompetitorsText(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
                 />
                 <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Leave empty to automatically seed competitors from your AI memory.
+                  Leave blank to automatically load competitors saved in your Profile.
                 </span>
               </div>
 
@@ -1199,7 +1199,7 @@ export function WatchlistsView() {
                   disabled={busy}
                   className="px-4.5 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
                 >
-                  {busy ? 'Creating...' : 'Create Watchlist'}
+                  {busy ? 'Starting Tracker...' : 'Start Tracking Competitors'}
                 </button>
               </div>
             </form>

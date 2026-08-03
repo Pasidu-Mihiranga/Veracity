@@ -463,8 +463,8 @@ export function useChatOrchestration({
 
       indexMessageInBackground(sessionId, 'assistant', finalOutput.synthesizedAnswer);
       if (userMemory) {
-        extractAndUpdateMemory(sessionId, effectiveText, finalOutput.synthesizedAnswer, userMemory)
-          .then(() => refreshUserMemory())
+        void extractAndUpdateMemory(sessionId, effectiveText, finalOutput.synthesizedAnswer, userMemory)
+          .then(() => { void refreshUserMemory(); })
           .catch(() => {});
       }
     } else if (streamState.failureText) {
