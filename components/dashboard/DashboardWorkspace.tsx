@@ -18,6 +18,7 @@ import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
 import { ProjectDashboard } from '@/components/dashboard/ProjectDashboard';
 import { StartTrackingCard } from '@/components/dashboard/StartTrackingCard';
+import { ResearchStarter } from '@/components/dashboard/ResearchStarter';
 import { HomeFeed } from '@/components/dashboard/HomeFeed';
 import { DEMO_QUERIES } from '@/lib/domain-meta';
 import { ScenarioPanel } from '@/components/dashboard/ScenarioPanel';
@@ -207,6 +208,9 @@ export function DashboardWorkspace({
   // so they survive the composer remounting between result states.
   const [attachedArtifacts, setAttachedArtifacts] = useState<AttachedArtifact[]>([]);
 
+  // The tracking form is now a deliberate detour rather than the front door.
+  const [showTrackingForm, setShowTrackingForm] = useState(false);
+
   // Collapsed by default: the conversation leads this tab, not the project's
   // standing panels. See the note above the disclosure.
   const [showProjectDetail, setShowProjectDetail] = useState(false);
@@ -272,6 +276,8 @@ export function DashboardWorkspace({
                 onOpenSession?.(sessionId);
                 onTopTabChange?.('intelligence');
               }}
+              // One path for "send this question into the conversation",
+              // used by both the quick search and the market cards.
               onLaunchQuery={(query) => {
                 onSendDemoQuery(query);
                 onTopTabChange?.('intelligence');
@@ -383,33 +389,27 @@ export function DashboardWorkspace({
                 </>
               )}
               {messages.length === 0 && !isLoading && !hasResult && !currentResult && !selectedProject && (
-                <StartTrackingCard onCreated={(project) => onProjectCreated?.(project)}>
-                  <details className="veracity-card p-5 group">
-                    <summary className="cursor-pointer text-sm font-medium text-foreground list-none flex items-center justify-between">
-                      <span>Just ask a one-off question instead</span>
-                      <ChevronDown
-                        size={15}
-                        className="text-muted-foreground transition-transform group-open:rotate-180"
-                      />
-                    </summary>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      You get one answer, and we forget it. Tracking keeps watching
-                      and tells you what changed.
-                    </p>
-                    <div className="mt-3 flex flex-col gap-2">
-                      {DEMO_QUERIES.map((query) => (
-                        <button
-                          key={query}
-                          type="button"
-                          onClick={() => onSendDemoQuery(query)}
-                          className="text-left text-sm text-accent hover:underline"
-                        >
-                          {query}
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                </StartTrackingCard>
+                showTrackingForm ? (
+                  <StartTrackingCard
+                    onCreated={(project) => {
+                      setShowTrackingForm(false);
+                      onProjectCreated?.(project);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowTrackingForm(false)}
+                      className="self-start text-xs text-muted-foreground hover:text-accent"
+                    >
+                      Back to asking a question
+                    </button>
+                  </StartTrackingCard>
+                ) : (
+                  <ResearchStarter
+                    onAsk={onSendDemoQuery}
+                    onTrackNew={() => setShowTrackingForm(true)}
+                  />
+                )
               )}
               {messages.length === 0 && !isLoading && !hasResult && !currentResult && selectedProject && (
                 <ChatPanel
