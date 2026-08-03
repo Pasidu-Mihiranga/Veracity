@@ -24,6 +24,7 @@ import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
 import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
 import { ResearchWorkflowPack } from '@/components/ui/ResearchWorkflowPack';
+import { MarketBriefingSection } from '@/components/artifacts/MarketBriefingSection';
 import { DecisionSupportPack } from '@/components/ui/DecisionSupportPack';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
@@ -381,6 +382,14 @@ export function IntelligenceResults({
           ) : null}
         </div>
       </section>
+
+      {/*
+        What we already knew, before what the agents went and found.
+        A market we have been collecting on for months answers the question
+        better than a fresh web sweep can, so it goes above the sweep's own
+        output rather than below it.
+      */}
+      <MarketBriefingSection briefing={currentResult.orchestratorOutput?.marketBriefing} />
 
       <ResearchWorkflowPack output={currentResult.orchestratorOutput} />
       <DecisionSupportPack
