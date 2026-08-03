@@ -2,14 +2,14 @@
 
 import type { RefObject } from 'react';
 import {
-  BarChart3, Bell, Bot, Brain, Building2, Crosshair, Eye, LogOut, Network, Sparkles, Sun, Moon, User,
+  BarChart3, Bell, Bot, Brain, Building2, Crosshair, Eye, Home, LogOut, Network, Sparkles, Sun, Moon, User,
 } from 'lucide-react';
 import type { Domain } from '@/lib/domain-meta';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 import { featureFlags } from '@/lib/feature-flags';
 import { WorkspaceSwitcher } from '@/components/ui/WorkspaceSwitcher';
 
-export type TopTab = 'intelligence' | 'watchlists' | 'usage' | 'steal' | 'profile';
+export type TopTab = 'home' | 'intelligence' | 'watchlists' | 'usage' | 'steal' | 'profile';
 
 export type DashboardHeaderProps = {
   headerIslandRef: RefObject<HTMLElement | null>;
@@ -110,7 +110,8 @@ export function DashboardHeader({
 
         <div className="header-island-tabs flex items-center gap-0.5 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
           {([
-            { id: 'intelligence' as const, label: 'Intelligence', icon: <Sparkles size={13} /> },
+            { id: 'home' as const, label: 'Home', icon: <Home size={13} /> },
+            { id: 'intelligence' as const, label: 'Research', icon: <Sparkles size={13} /> },
             ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists', icon: <Eye size={13} /> }] : []),
             { id: 'usage' as const, label: 'API usage', icon: <BarChart3 size={13} /> },
             { id: 'steal' as const, label: 'Steal strategy', icon: <Crosshair size={13} /> },

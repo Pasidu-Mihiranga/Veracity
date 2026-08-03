@@ -62,6 +62,8 @@ export default function VeracityDashboard() {
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  // Bumped when a project is created outside the sidebar, so its list re-reads.
+  const [projectsVersion, setProjectsVersion] = useState(0);
   const [agentsDrawerOpen, setAgentsDrawerOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertsUnread, setAlertsUnread] = useState(0);
@@ -72,7 +74,7 @@ export default function VeracityDashboard() {
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [topTab, setTopTab] = useState<TopTab>('intelligence');
+  const [topTab, setTopTab] = useState<TopTab>('home');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
   const [turnMode, setTurnMode] = useState<ResearchTurnMode>('verify');
 
@@ -253,6 +255,7 @@ export default function VeracityDashboard() {
           onNewQuery={handleNewQuery}
           selectedProject={selectedProject}
           onSelectProject={setSelectedProject}
+          projectsRefreshKey={projectsVersion}
           sessions={sessions}
           loadingSessions={loadingSessions}
           currentSessionId={currentSessionId}
@@ -315,6 +318,14 @@ export default function VeracityDashboard() {
           currentResult={currentResult}
           currentSessionId={currentSessionId}
           selectedProject={selectedProject}
+          onTopTabChange={setTopTab}
+          onOpenSession={(id) => { void loadSession(id); }}
+          onProjectCreated={(project) => {
+            // Select it immediately so the dashboard, ledger, charts and
+            // timeline render straight away, and refresh the sidebar list.
+            setSelectedProject(project);
+            setProjectsVersion((v) => v + 1);
+          }}
           messages={messages}
           followUps={followUps}
           followUpEndRef={followUpEndRef}

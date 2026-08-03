@@ -1,6 +1,7 @@
 'use client';
 
 import { Search, ShieldCheck } from 'lucide-react';
+import { EvidenceBadge } from '@/components/ui/EvidenceBadge';
 import type { OrchestratorOutput } from '@/lib/agents/types';
 
 type Props = {
@@ -11,12 +12,6 @@ const STATUS_CLASS = {
   verified: 'bg-emerald-50 text-emerald-600 border-emerald-200',
   partial: 'bg-amber-50 text-amber-700 border-amber-200',
   open: 'bg-red-50 text-red-600 border-red-200',
-} as const;
-
-const SUPPORT_CLASS = {
-  supported: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  'weakly-supported': 'bg-amber-50 text-amber-700 border-amber-200',
-  unsupported: 'bg-red-50 text-red-600 border-red-200',
 } as const;
 
 export function ResearchWorkflowPack({ output }: Props) {
@@ -85,9 +80,9 @@ export function ResearchWorkflowPack({ output }: Props) {
                   <td className="py-3 pr-3 text-xs font-medium text-foreground">{dimension.label}</td>
                   {dimension.cells.map((cell) => (
                     <td key={cell.entity} className="py-3 px-3">
-                      <span className={`inline-flex text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border mb-1.5 ${SUPPORT_CLASS[cell.confidence]}`}>
-                        {cell.confidence.replace('-', ' ')}
-                      </span>
+                      <div className="mb-1.5">
+                        <EvidenceBadge level={cell.confidence} compact />
+                      </div>
                       <p className="text-xs text-muted-foreground">{cell.finding}</p>
                     </td>
                   ))}

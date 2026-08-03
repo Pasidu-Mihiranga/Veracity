@@ -2651,3 +2651,504 @@ README now teaches one command, states **run it after every `git pull`**, quotes
 both errors verbatim so they are searchable, and explains why the column one
 looks so strange. `AGENTS.md` and the script table updated. No references to
 `db:schema:apply` remain in any doc.
+
+## 2026-08-03 — UI redesign plan, and the audit that prompted it
+
+### The challenge
+
+Asked what 46 commits had actually changed, since none of it was visible. The
+audit is in `plans/UI_REDESIGN_PLAN.md` §1; the short version is that the
+criticism was correct.
+
+13% of the work (3,386 of ~26,000 lines) landed in the UI. And the 27 UI
+components that were built sit behind `{selectedProject ? <ProjectDashboard/> :
+null}` — an account with no Market Project renders none of them. I verified
+"mounted" repeatedly and reported it as connected end to end. Mounted is not
+reachable, and I checked the wrong one.
+
+Also confirmed: every panel in the screenshots being judged — board mode,
+evidence meter, battlefield — predates my work (`747f414`, `1c3b223`).
+
+### Plan written
+
+`plans/UI_REDESIGN_PLAN.md`. Five phases, ordered by visible impact per unit of
+effort, deliberately **not** starting with the palette:
+
+1. Make the good surface reachable — empty state leads to project creation.
+2. Collapse meaningless output when identity is unresolved.
+3. Palette swap.
+4. Charts.
+5. Agentic interaction patterns.
+
+Repainting an unreachable surface changes nothing, which is why the cheapest
+phase is third rather than first.
+
+### Palette, validated not eyeballed
+
+Evidence quality is a **status** palette, not categorical — which carries a hard
+rule the current UI breaks: a status colour never carries meaning alone. Bare red
+`UNSUPPORTED` chips, fifteen to a screen, are exactly the anti-pattern.
+
+Ink and fill steps are separate. Ink clears WCAG 4.5:1 on both surfaces
+(5.48 / 5.02 / 6.47). The fill trio passes CVD separation (worst adjacent ΔE 11.3
+protan) and the normal-vision floor (27.6). The amber fill fails the categorical
+lightness band at 1.83:1 — expected and permitted for status, mitigated by the
+icon + label pairing, and it would not be acceptable for a series palette.
+
+Competitor series capped at three: past three the all-pairs colourblind floors
+cannot be cleared by any ordering.
+
+### On the component that was requested
+
+The two files supplied were re-export wrappers importing `@/components/app-shell`
+and `@/components/dashboard`; neither was included and neither exists. Nothing to
+install. It is also a generic SaaS demo — active users, revenue, invoices — so
+importing it would add a page of fake numbers beside the real product. Agreed
+instead to adopt the design language into Veracity's own components.
+
+Setup checked while there: TypeScript 5.9.3, Tailwind 4.1.11, `components/ui`
+already present with 41 files, `recharts` and `lucide-react` installed. shadcn is
+not initialised (no `components.json`) though the project is compatible. Four
+Radix packages absent; not installed, since nothing needs them yet.
+
+### Blocker recorded
+
+The replacement SerpAPI key is invalid — 43 characters beginning `sk_`, where
+SerpAPI keys are 64 hex characters. The account endpoint returns
+`Invalid API key`. Until that is real, no UI work changes how thin the output is.
+
+### Not started
+
+Plan only. No component or token changes yet.
+
+## 2026-08-03 — Phase 1: the project surface is reachable
+
+### What was wrong
+
+Twenty-seven components — ProjectDashboard, SinceLastVisit, ProjectCharts,
+ActivityTimeline, EvidenceDrawer — all render behind `selectedProject`
+(`DashboardWorkspace.tsx:278`). The only way to get a project was a **13px
+unlabelled folder icon** beside "MARKET PROJECTS" in the sidebar
+(`SessionSidebar.tsx:254`), opening a four-field modal.
+
+The empty state offered question chips instead, so new users asked one question,
+judged the product on a single-shot answer, and never saw the surface that makes
+it worth returning to. `admin@local.com` had zero projects; that is why none of
+the work was visible.
+
+### Changed
+
+`components/dashboard/StartTrackingCard.tsx` — inline setup as the lead element
+of the empty state. Three deliberate calls:
+
+- **Inline, not a modal.** A modal interrupts. This is the main thing we want
+  someone to do, so it is the main thing on screen.
+- **Three fields.** `name` is derived from the product rather than asked for — a
+  separate "project name" is our data model leaking into the user's first thirty
+  seconds. The API's `ON CONFLICT (user_id, name)` then makes re-adding a product
+  an update rather than a duplicate.
+- **A bare domain is upgraded to `https://`.** Nobody types the scheme, and the
+  route validates with `z.string().url()`, so the most common input in the form
+  would otherwise fail server-side.
+
+The question path survives, demoted to a disclosure that states the trade
+honestly: one answer and we forget it, versus tracking that keeps watching.
+
+Once a project exists the card disappears and the question prompt leads again —
+setup should not nag someone who has already set up.
+
+`SessionSidebar` gained `projectsRefreshKey`. Its project list came from a
+mount-only effect, so a project created anywhere else stayed invisible there
+until a full reload.
+
+### The test I nearly shipped broken
+
+`__tests__/empty-state-reachability.test.ts` asserted
+`toContain('<StartTrackingCard')`. When I broke the component on purpose by
+renaming it to `<StartTrackingCardREMOVED`, **all nine tests still passed** — the
+substring was still present. A guard that cannot fail is worth nothing, which is
+the same lesson as the benchmark and theme guards, arrived at a third time.
+
+Tightened to `/<StartTrackingCard[\s>]/` and re-verified against two realistic
+breaks: renaming the element, and dropping the `!selectedProject` gate. Both now
+fail exactly one test; restoring passes nine.
+
+### Verified
+
+- Unit: 860 passed, 1 skipped (9 new).
+- Guard proven to fail on two separate real breaks.
+- `test:e2e:dashboard`: **47 passed, 0 failed** — signup, project creation,
+  collection, chart binding, and evidence tracing through the real API.
+- Typecheck clean, ESLint 0 errors, `npm run build` exit 0.
+
+### Not verified by me
+
+I did not sign in, so I have not seen the new empty state rendered in a browser.
+Given the previous mistake was believing "mounted" meant "reachable", that
+distinction matters: the tests assert reachability at source level and the API
+path is covered by the smoke run, but the visual confirmation is a reload away
+in an already-signed-in browser.
+
+### Next
+
+Phase 2 — collapse output when identity is unresolved, so a thin run reads as one
+clear ask rather than fifteen `UNSUPPORTED` cells.
+
+## 2026-08-03 — Phase 3 (brought forward): palette, chart colour, and two real bugs
+
+Phase 1 made the project surface reachable, and seeing it rendered exposed the
+next set of problems. Palette was planned third; it moved up because it is what
+the screen actually looks like.
+
+### "Text is not visible" — measured, not a matter of taste
+
+`foregroundSubtle` was `#3D5A78`, which reads on the old `#C9D9E8` page but not on
+white cards. Hint text, field help, and metadata all use it.
+
+Now `#64748B` — **4.76:1** on white, clearing the 4.5:1 floor for body text.
+`foreground` 17.85:1, `foregroundMuted` 7.58:1. Dark mode measured against
+`#111827` rather than flipped: 16.96 / 6.92.
+
+### "Colors are not good"
+
+`background` was `#C9D9E8` — a pale blue page plane that tinted every surface and
+made the whole app read as washed out. Now `#F8FAFC`, with all structure in a
+slate ramp and colour reserved for meaning.
+
+### "Charts are not good" — and they were worse than they looked
+
+Two separate faults, both real:
+
+1. **Every chart slot was blue.** `chart1`–`chart5` were `#00A3E0`, `#3D9EFF`,
+   `#0088CC`, `#36B5F5`, `#64748B` — four blues and a grey. Multi-series charts
+   could not look like anything but one colour. Replaced with the validated
+   categorical order: blue, orange, aqua, yellow, magenta.
+
+2. **`ChartSpecView` never read the theme at all.** `SERIES_COLORS` was five
+   hardcoded hex values (`#0052FF`, `#4D7CFF`, …). Editing theme tokens would
+   have changed nothing on any chart — the palette work would have appeared to
+   do nothing. Now `var(--chart-N)`, so charts follow light/dark and the tokens.
+
+Fixed order, never cycled: colour follows the entity, so filtering series cannot
+repaint the survivors.
+
+### The nonsense chart sentence
+
+The screenshot read:
+
+> "Evidence coverage went from 0 claims to 42 claims between Supported and
+> Unsupported"
+
+`plain-language.ts` builds that from `points[0]` and `points[last]` as a *before
+and after*. For a snapshot the points are **categories**, not moments, so it
+described a trend across two things that never moved.
+
+Snapshots now get a composition sentence instead — "Evidence coverage:
+Unsupported accounts for 42 of 42." Time series keep the movement sentence.
+
+### Evidence-state tokens
+
+`EVIDENCE_STATE` in `theme-tokens.ts`, exposed as `--evidence-*` CSS variables,
+with separate **ink** (text, WCAG-checked on both surfaces) and **fill** (chart
+marks, gated on colourblind separation) steps. Dark inks measured on `#111827`:
+9.23 / 10.63 / 6.41.
+
+Rebuilding the badges as icon + label is still to do — the tokens exist, the
+components have not been changed yet.
+
+### Answered, from the machine rather than memory
+
+- **Are the charts hardcoded?** No. `planEvidenceCoverageChart` received
+  `supported: 0, unsupported: 42` from the real ledger. The numbers were honest;
+  the chart *form* was wrong. Two bars where one is zero should be a stat line,
+  not a bar chart. Form fix still outstanding.
+- **Is MiroFish running locally?** No. Nothing listens on 5001. Port 5000
+  answering 403 is macOS AirPlay, not MiroFish.
+
+### Verified
+
+- 860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+- New tokens confirmed **in the served CSS bundle**, not just the source —
+  `--background: #F8FAFC` light, `#0B1120` dark.
+- Sign-in page re-checked in the browser: still dark, still correct under the new
+  dark tokens.
+
+### Still open
+
+Chart form for the zero-value case; evidence badges as icon + label; the
+identity-unresolved collapse (Phase 2); density and alignment of the results
+page; MiroFish.
+
+## 2026-08-03 — Five reported bugs, fixed
+
+Reported from a real session. Each was real; three had a specific cause worth
+recording.
+
+### 1. Clicking the logo did nothing
+
+It was a plain `<div>` — no handler, no role, no keyboard access. The logo is the
+universal "take me home" affordance and people click it expecting that.
+
+Now a button calling `onNewQuery(undefined)`. Passing `undefined` rather than the
+current project matters: home means a clean slate, so the project is deselected
+too and the user lands on the start screen instead of the previous project's
+panels.
+
+### 2. "New research" appeared not to work — it did
+
+`resetConversation()` clears `currentSessionId`, `messages` and `followUps`, and
+`currentResult` is derived from `messages`, so the reset was correct. But
+`New project research` passes the current project, and everything gated on
+`selectedProject` — the project dashboard, research history, overview — keeps
+rendering above the fresh empty state.
+
+So the user clicks, the conversation *does* reset, and the screen still shows a
+wall of the previous project. Nothing to fix in the reset; the fault is that
+"new research" and "project overview" share one scrolling surface. Recorded as
+the information-architecture problem it is, not patched over.
+
+### 3. Bars hundreds of pixels wide
+
+Recharts divides the available width across however many categories exist, so a
+two-category snapshot rendered two enormous columns. Capped with
+`maxBarSize={56}`. A bar's width should never encode how few categories there
+happen to be.
+
+### 4. Example questions named companies that do not resolve
+
+`DEMO_QUERIES` used "Lilian" and "Vector Agents". "Lilian" resolves to a
+real-estate business in McLean, Virginia, and "Vector Agents" to nothing — so the
+first thing a new user saw, having clicked our own suggestion, was a wall of
+"unsupported".
+
+Replaced with Sri Lankan companies that have real public footprints — pricing
+pages, app listings, press: PickMe vs Uber, Dialog Axiata vs SLT-Mobitel, Daraz
+LK vs Kapruka. Examples, not defaults.
+
+### 5. Text too small
+
+`html { font-size: 15px }` shrank every rem-based size in the app by 6.7% against
+the 16px browser default that body copy is designed around. Now 16px, which
+scales the whole type ramp rather than patching individual sizes.
+
+### Verified
+
+860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+
+### Not fixed — needs the IA change, not a patch
+
+- Robot/empty state appearing below project panels (see 2 above).
+- Comparison limited in presentation, not capability.
+- No dashboard home; the app opens straight into chat.
+- No change feed or notification surface for tracked companies.
+
+## 2026-08-03 — Home is a change feed, not a chat box
+
+### Why
+
+The app opened in a chat box, which framed it as a question-answering toy: ask,
+read, leave. Nothing brought anyone back, and the work that makes it worth
+returning to — continuous monitoring, change detection, an evidence ledger that
+accumulates — was invisible on arrival.
+
+It also explains the "new research doesn't work" report: research and project
+overview shared one scrolling surface, so resetting the conversation left the
+previous project's panels on screen and looked like nothing happened.
+
+### Added
+
+`components/dashboard/HomeFeed.tsx`, and `home` as the default tab. The landing
+screen answers one question: **what changed while I was away?** Tracked
+companies, what moved on each, and how much it matters.
+
+- Reads `/api/projects/[id]/dashboard` per company **in parallel**, so one slow
+  or broken company does not hold up the page.
+- A failed read says so. Rendering "nothing changed" when the read failed is a
+  lie the user cannot detect, and it is the exact failure this product exists to
+  avoid.
+- Materiality is never shown as a number — it goes through
+  `importanceOf()` from the shared vocabulary, so "Worth acting on" reads
+  identically here, in the digest, and in the drawer.
+- **No research is triggered and no model is called.** Opening the app must not
+  cost money.
+
+Tabs are now Home · Research · Watchlists · API usage · Steal strategy · Profile.
+"Intelligence" was renamed to "Research" because it described the product
+category rather than what the tab does.
+
+### Verified
+
+- 860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+- `npm run build` compiled successfully with the new tab.
+- Dev server compiles the route with zero errors.
+
+### Not verified by me
+
+I have not seen the feed rendered with real data — that needs a signed-in
+browser. The empty state, the failed-read state, and the populated state are all
+implemented; only the empty and error paths are certain to be exercised until
+someone opens it against a project with change events.
+
+### Next
+
+- Research tab still stacks project panels above the conversation; splitting
+  those is what makes "new research" feel clean.
+- Comparison presentation still assumes pairs; the backend already takes arrays.
+- Evidence badges still bare colour, not icon + label.
+
+## 2026-08-03 — Home feed: progressive loading, real errors, N-company comparison
+
+Three faults reported from a live session. All three were mine.
+
+### 1. Placeholders still named invented companies
+
+I changed `DEMO_QUERIES` and believed the job done. The setup form has its own
+placeholders and I never touched them, so the first screen still read
+"Vector Agents", "vectoragents.ai", "Clay, Regie, Artisan" — one of which
+resolves to a Virginia real-estate business.
+
+Now `PickMe, Uber, Kapruka` / `pickme.lk`, and a guard test asserts none of the
+invented names can come back.
+
+### 2. The whole page waited on the slowest company
+
+`Promise.all` meant a single skeleton until every read resolved. With one
+company that is a long blank screen for no reason.
+
+Now the tracked companies paint immediately from `listMarketProjects()`, and each
+row fills in as its own read lands. One slow or failing company degrades its own
+row and nothing else. The headline says "Checking your companies…" while reads
+are outstanding rather than claiming "Nothing has moved" before it knows.
+
+### 3. "We could not read this company's history just now" told nobody anything
+
+I swallowed the error and printed a generic sentence. That is unactionable for
+the user and it hid the cause from me — I spent several steps guessing at a bug
+the UI already knew about.
+
+The row now prints the actual status and response body. Diagnosis first
+established what was *not* wrong: ownership is correct (`cursor` belongs to
+`admin@local.com`), and both of the route's SQL queries run clean against that
+project returning 0 rows. So the route is sound and the fault is in the
+request/parse path — which the surfaced message will now name outright.
+
+### 4. Comparison assumed "us versus them"
+
+The form asked for "your product" and "who you compete with". A user may be
+sizing up three companies, none of which is theirs. It now asks for companies to
+compare; the first name fills `product` and the rest join `competitors`, which is
+a storage detail with nothing in the UI implying the first is special.
+
+### On the test that failed
+
+`does not require a project name` asserted `name: product.trim()` and broke when
+the derivation changed. It was right to break — the assertion was about
+mechanism. Rewritten to assert the intent (no name input exists; the name is
+derived) plus two new guards for N-company support and the placeholder ban.
+
+### Verified
+
+860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+
+### Still open
+
+The reported "home page looks like chat history" — density and hierarchy of the
+feed itself. And the Research tab still stacks project panels above the
+conversation.
+
+## 2026-08-03 — Home was a headline and one card
+
+Reported repeatedly: the landing screen looks blank. It was — a headline, a
+subtitle, and one card that on a quiet week said "Nothing changed". No sense that
+anything was being watched, and nowhere to go.
+
+Researched what a competitive-intelligence landing screen carries (Klue, Valona,
+Klipfolio; sources in `plans/UI_REDESIGN_PLAN.md`). Consistent answer: KPI tiles,
+recent activity, and a route back into prior work — teams use the dashboard to
+see shifts faster than reading individual reports, and to jump from a number into
+the thing behind it.
+
+### Added
+
+**Four stat tiles.** Companies watched · Sources read · Changes · Could not read.
+These say what the system is doing for you even when the answer is "nothing
+moved", which is the state the old screen handled worst. Each tile carries a
+label *and* what it counts, because a bare figure is decoration — nobody can tell
+whether "9" is good.
+
+"Could not read" is deliberately its own tile rather than folded into a total.
+"We looked and nothing changed" and "we could not look" mean opposite things and
+the product must never merge them.
+
+**Pick up where you left off.** Recent research sessions, clickable, switching to
+the Research tab and loading that session. This list existed only in the sidebar,
+which is hidden outside the Research tab — so from Home there was no way back to
+your own work. That is what made the whole screen feel like a dead end.
+
+The route already returned `sourcesChecked` and `staleSources`; the first version
+of this component threw both away.
+
+### Verified
+
+862 passed, 1 skipped; typecheck clean; ESLint 0 errors; dev compiles with no
+errors.
+
+### Still not done
+
+Charts on Home. The stat tiles are the honest floor — a chart needs a time series,
+and with one company and no collection runs there is nothing truthful to plot yet.
+Adding a chart now would mean inventing data, which is the one thing this product
+must not do.
+
+## 2026-08-03 — Research tab collapsed; evidence badges carry icon + label
+
+### The Research wall
+
+Four panels — ProjectDashboard, ScenarioPanel, EntityCorrectionPanel,
+MarketProjectOverview — sat permanently above the conversation. Starting new
+research reset the conversation correctly and then left a wall of the previous
+project on screen, so the reset looked like it had not happened. That was the
+real cause behind the "new research doesn't work" report.
+
+They are now behind a **collapsed** "Show project detail" disclosure. The
+conversation is what the tab is for; the project's standing detail is reference
+material you open when you want it.
+
+### Evidence badges
+
+`components/ui/EvidenceBadge.tsx` — one badge, used everywhere, enforcing the
+rule the old UI broke: **a status colour never carries meaning alone.** Colour is
+invisible to roughly one man in twelve, disappears in print and forced-colours
+mode, and means nothing to anyone who has not yet learned this palette.
+
+Two components hand-rolled `bg-red-50 text-red-600 border-red-200` around the
+bare word "UNSUPPORTED", and the comparison grid rendered fifteen at once. That
+is how correct, honest output came to read as a broken screen.
+
+Each state now ships an icon and words, from the `--evidence-*` tokens:
+
+| State | Reads as |
+|---|---|
+| supported | Backed by a source |
+| weakly-supported | Partly backed |
+| unsupported | **No source found** |
+
+"Unsupported" was itself the problem — it reads as "we checked and it is false"
+when it means the opposite: we could not find it. The tooltip says so outright,
+and a test asserts that sentence stays.
+
+### Two things the guard caught that I had wrong
+
+1. My first edit script asserted on `ResearchWorkflowPack` before touching
+   `EvidenceTrail`, hit a whitespace mismatch, and died — so EvidenceTrail was
+   never edited at all while I believed both were done. The test caught it.
+2. The test flagged `open: 'bg-red-50 …'` in ResearchWorkflowPack, which is an
+   open/closed status map with nothing to do with evidence. Narrowed to the
+   evidence maps: a noisy guard gets deleted, and then it protects nothing.
+
+Verified by removing the badge and confirming exactly one test fails.
+
+### Verified
+
+871 passed, 1 skipped (9 new); typecheck clean; ESLint 0 errors; build
+successful.
