@@ -2651,3 +2651,72 @@ README now teaches one command, states **run it after every `git pull`**, quotes
 both errors verbatim so they are searchable, and explains why the column one
 looks so strange. `AGENTS.md` and the script table updated. No references to
 `db:schema:apply` remain in any doc.
+
+## 2026-08-03 — UI redesign plan, and the audit that prompted it
+
+### The challenge
+
+Asked what 46 commits had actually changed, since none of it was visible. The
+audit is in `plans/UI_REDESIGN_PLAN.md` §1; the short version is that the
+criticism was correct.
+
+13% of the work (3,386 of ~26,000 lines) landed in the UI. And the 27 UI
+components that were built sit behind `{selectedProject ? <ProjectDashboard/> :
+null}` — an account with no Market Project renders none of them. I verified
+"mounted" repeatedly and reported it as connected end to end. Mounted is not
+reachable, and I checked the wrong one.
+
+Also confirmed: every panel in the screenshots being judged — board mode,
+evidence meter, battlefield — predates my work (`747f414`, `1c3b223`).
+
+### Plan written
+
+`plans/UI_REDESIGN_PLAN.md`. Five phases, ordered by visible impact per unit of
+effort, deliberately **not** starting with the palette:
+
+1. Make the good surface reachable — empty state leads to project creation.
+2. Collapse meaningless output when identity is unresolved.
+3. Palette swap.
+4. Charts.
+5. Agentic interaction patterns.
+
+Repainting an unreachable surface changes nothing, which is why the cheapest
+phase is third rather than first.
+
+### Palette, validated not eyeballed
+
+Evidence quality is a **status** palette, not categorical — which carries a hard
+rule the current UI breaks: a status colour never carries meaning alone. Bare red
+`UNSUPPORTED` chips, fifteen to a screen, are exactly the anti-pattern.
+
+Ink and fill steps are separate. Ink clears WCAG 4.5:1 on both surfaces
+(5.48 / 5.02 / 6.47). The fill trio passes CVD separation (worst adjacent ΔE 11.3
+protan) and the normal-vision floor (27.6). The amber fill fails the categorical
+lightness band at 1.83:1 — expected and permitted for status, mitigated by the
+icon + label pairing, and it would not be acceptable for a series palette.
+
+Competitor series capped at three: past three the all-pairs colourblind floors
+cannot be cleared by any ordering.
+
+### On the component that was requested
+
+The two files supplied were re-export wrappers importing `@/components/app-shell`
+and `@/components/dashboard`; neither was included and neither exists. Nothing to
+install. It is also a generic SaaS demo — active users, revenue, invoices — so
+importing it would add a page of fake numbers beside the real product. Agreed
+instead to adopt the design language into Veracity's own components.
+
+Setup checked while there: TypeScript 5.9.3, Tailwind 4.1.11, `components/ui`
+already present with 41 files, `recharts` and `lucide-react` installed. shadcn is
+not initialised (no `components.json`) though the project is compatible. Four
+Radix packages absent; not installed, since nothing needs them yet.
+
+### Blocker recorded
+
+The replacement SerpAPI key is invalid — 43 characters beginning `sk_`, where
+SerpAPI keys are 64 hex characters. The account endpoint returns
+`Invalid API key`. Until that is real, no UI work changes how thin the output is.
+
+### Not started
+
+Plan only. No component or token changes yet.
