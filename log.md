@@ -3099,3 +3099,56 @@ Charts on Home. The stat tiles are the honest floor — a chart needs a time ser
 and with one company and no collection runs there is nothing truthful to plot yet.
 Adding a chart now would mean inventing data, which is the one thing this product
 must not do.
+
+## 2026-08-03 — Research tab collapsed; evidence badges carry icon + label
+
+### The Research wall
+
+Four panels — ProjectDashboard, ScenarioPanel, EntityCorrectionPanel,
+MarketProjectOverview — sat permanently above the conversation. Starting new
+research reset the conversation correctly and then left a wall of the previous
+project on screen, so the reset looked like it had not happened. That was the
+real cause behind the "new research doesn't work" report.
+
+They are now behind a **collapsed** "Show project detail" disclosure. The
+conversation is what the tab is for; the project's standing detail is reference
+material you open when you want it.
+
+### Evidence badges
+
+`components/ui/EvidenceBadge.tsx` — one badge, used everywhere, enforcing the
+rule the old UI broke: **a status colour never carries meaning alone.** Colour is
+invisible to roughly one man in twelve, disappears in print and forced-colours
+mode, and means nothing to anyone who has not yet learned this palette.
+
+Two components hand-rolled `bg-red-50 text-red-600 border-red-200` around the
+bare word "UNSUPPORTED", and the comparison grid rendered fifteen at once. That
+is how correct, honest output came to read as a broken screen.
+
+Each state now ships an icon and words, from the `--evidence-*` tokens:
+
+| State | Reads as |
+|---|---|
+| supported | Backed by a source |
+| weakly-supported | Partly backed |
+| unsupported | **No source found** |
+
+"Unsupported" was itself the problem — it reads as "we checked and it is false"
+when it means the opposite: we could not find it. The tooltip says so outright,
+and a test asserts that sentence stays.
+
+### Two things the guard caught that I had wrong
+
+1. My first edit script asserted on `ResearchWorkflowPack` before touching
+   `EvidenceTrail`, hit a whitespace mismatch, and died — so EvidenceTrail was
+   never edited at all while I believed both were done. The test caught it.
+2. The test flagged `open: 'bg-red-50 …'` in ResearchWorkflowPack, which is an
+   open/closed status map with nothing to do with evidence. Narrowed to the
+   evidence maps: a noisy guard gets deleted, and then it protects nothing.
+
+Verified by removing the badge and confirming exactly one test fails.
+
+### Verified
+
+871 passed, 1 skipped (9 new); typecheck clean; ESLint 0 errors; build
+successful.

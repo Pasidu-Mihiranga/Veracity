@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { EvidenceBadge } from '@/components/ui/EvidenceBadge';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
 import type { EvidenceClaimBinding } from '@/lib/agents/types';
@@ -46,12 +47,6 @@ export function EvidenceTrail({
 
   if (evidence.length === 0 && links.length === 0 && evidenceBindings.length === 0) return null;
 
-  const supportClasses = {
-    supported: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    'weakly-supported': 'bg-amber-50 text-amber-700 border-amber-200',
-    unsupported: 'bg-red-50 text-red-600 border-red-200',
-  } as const;
-
   return (
     <div className="mt-1 flex flex-col gap-1.5">
       <button
@@ -72,8 +67,8 @@ export function EvidenceTrail({
               <div key={`${binding.claim}-${index}`} className="flex flex-col gap-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[12px] text-muted-foreground">{binding.claim}</p>
-                  <span className={`shrink-0 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${supportClasses[binding.support]}`}>
-                    {binding.support.replace('-', ' ')}
+                  <span className="shrink-0">
+                    <EvidenceBadge level={binding.support} compact />
                   </span>
                 </div>
                 {binding.sourceUrls.length > 0 ? (

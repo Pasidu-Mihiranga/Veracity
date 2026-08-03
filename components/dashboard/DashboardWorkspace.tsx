@@ -199,6 +199,10 @@ export function DashboardWorkspace({
   // so they survive the composer remounting between result states.
   const [attachedArtifacts, setAttachedArtifacts] = useState<AttachedArtifact[]>([]);
 
+  // Collapsed by default: the conversation leads this tab, not the project's
+  // standing panels. See the note above the disclosure.
+  const [showProjectDetail, setShowProjectDetail] = useState(false);
+
   /**
    * Send with any attached artifacts appended as explicit references.
    *
@@ -306,6 +310,30 @@ export function DashboardWorkspace({
                 re-type it. This is what makes a second visit worth more than
                 the first, so it sits above the static project overview.
               */}
+              {/*
+                Project detail, collapsed by default.
+
+                These four panels used to sit permanently above the conversation,
+                so starting new research left a wall of the previous project on
+                screen and the reset looked like it had not happened. The
+                conversation is what this tab is for; the project's standing
+                detail is reference material you open when you want it.
+              */}
+              {selectedProject && (
+                <button
+                  type="button"
+                  onClick={() => setShowProjectDetail((v) => !v)}
+                  className="self-start flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`transition-transform ${showProjectDetail ? 'rotate-180' : ''}`}
+                  />
+                  {showProjectDetail ? 'Hide project detail' : 'Show project detail'}
+                </button>
+              )}
+              {showProjectDetail && (
+                <>
               {selectedProject ? (
                 <ProjectDashboard
                   projectId={selectedProject.id}
@@ -340,6 +368,8 @@ export function DashboardWorkspace({
                 So: setup leads, and asking a one-off stays available underneath.
                 Once a project exists, the question prompt is the right lead again.
               */}
+                </>
+              )}
               {messages.length === 0 && !isLoading && !hasResult && !currentResult && !selectedProject && (
                 <StartTrackingCard onCreated={(project) => onProjectCreated?.(project)}>
                   <details className="veracity-card p-5 group">
