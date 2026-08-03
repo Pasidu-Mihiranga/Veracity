@@ -379,27 +379,47 @@ export function WatchlistsView() {
         <div
           className={`p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between shadow-md transition-all animate-fadeIn ${toast.type === 'info'
               ? 'bg-accent/15 border border-accent/40 text-accent'
-              : 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+              : 'status-chip status-chip--good'
             }`}
         >
           <div className="flex items-center gap-2">
             <CheckCircle2 size={16} />
             <span>{toast.message}</span>
           </div>
-          <button type="button" onClick={() => setToast(null)} className="opacity-60 hover:opacity-100 text-xs">
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="icon-btn text-sm opacity-70 hover:opacity-100"
+            aria-label="Dismiss"
+          >
             ✕
           </button>
         </div>
       )}
 
-      {/* Multi-Agent Background Research Live Banner */}
+      {/*
+        The sweep banner.
+
+        Sticky, because it reports work that is still happening: scroll down to
+        look at a tracker and the progress it describes scrolls out of view,
+        which is exactly when someone wants to know whether the run finished.
+        It sits below the app header rather than at viewport top, and gets an
+        opaque background — a translucent bar with content sliding under it is
+        harder to read than either state alone.
+      */}
       {backgroundSweepStatus && (
         <div
-          className={`p-5 rounded-2xl border flex flex-col gap-3 transition-all animate-fadeIn shadow-md ${backgroundSweepStatus.status === 'completed'
-              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+          className={`sticky top-2 z-20 p-5 rounded-2xl border flex flex-col gap-3 transition-all animate-fadeIn ${backgroundSweepStatus.status === 'completed'
+              ? 'status-chip--good border-[color-mix(in_srgb,var(--evidence-measured)_30%,var(--border))]'
               : 'bg-accent/15 border-accent/40 text-accent'
             }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
+          style={{
+            // Sticky content must not let the page show through it.
+            backgroundColor: backgroundSweepStatus.status === 'completed'
+              ? 'color-mix(in srgb, var(--evidence-measured) 8%, var(--card))'
+              : 'color-mix(in srgb, var(--accent) 12%, var(--card))',
+            boxShadow: 'var(--shadow-popover)',
+          }}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -408,8 +428,8 @@ export function WatchlistsView() {
                   <Loader2 size={20} className="animate-spin text-accent" />
                 </div>
               ) : (
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
-                  <CheckCircle2 size={20} className="text-emerald-500" />
+                <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <CheckCircle2 size={20} className="status-good" />
                 </div>
               )}
               <div>
@@ -432,8 +452,9 @@ export function WatchlistsView() {
             <button
               type="button"
               onClick={() => setBackgroundSweepStatus(null)}
-              className="text-xs text-muted-foreground hover:text-foreground p-1 transition-colors"
+              className="icon-btn text-sm"
               title="Dismiss notification"
+              aria-label="Dismiss notification"
             >
               ✕
             </button>
@@ -452,7 +473,7 @@ export function WatchlistsView() {
             </div>
             <div className="w-full h-2 rounded-full bg-background overflow-hidden border border-border/40">
               <div
-                className={`h-full transition-all duration-700 rounded-full ${backgroundSweepStatus.status === 'completed' ? 'bg-emerald-500' : 'bg-accent'
+                className={`h-full transition-all duration-700 rounded-full ${backgroundSweepStatus.status === 'completed' ? 'bg-[var(--evidence-measured)]' : 'bg-accent'
                   }`}
                 style={{ width: `${backgroundSweepStatus.progress}%` }}
               />
@@ -593,10 +614,31 @@ export function WatchlistsView() {
                     <div
                       key={wl.id}
                       onClick={() => setSelectedWatchlistId((prev) => (prev === wl.id ? null : wl.id))}
+                      /*
+                        Selection has to survive comparison with the row above
+                        it. It used to be bg-accent/10 against bg-accent/5 —
+                        a five percent difference in tint, invisible unless the
+                        two cards happened to be adjacent.
+
+                        So unselected is now plainly neutral, and selected gets
+                        a solid accent spine down its left edge. The spine is
+                        the signal; the wash only supports it. Both states carry
+                        the same 3px border-left so nothing shifts sideways when
+                        selection moves.
+                      */
+                      aria-selected={isSelected}
                       className={`rounded-xl p-5 border transition-all cursor-pointer flex flex-col gap-4 ${isSelected
-                          ? 'bg-accent/10 border-accent shadow-md ring-2 ring-accent/20'
-                          : 'bg-accent/5 border-border/60 hover:border-accent/40'
+                          ? 'bg-accent/[0.07] border-accent/40'
+                          : 'bg-card border-border hover:border-accent/40'
                         }`}
+                      /* The spine is set here rather than with a border-l-*
+                         utility: that class resolved to transparent, so the
+                         signal silently did not render and the wash was doing
+                         all the work on its own. */
+                      style={{
+                        borderLeftWidth: '3px',
+                        borderLeftColor: isSelected ? 'var(--accent)' : 'transparent',
+                      }}
                     >
                       {/* Watchlist Header Row with Active/Paused Toggle, Accordion Chevron, & Delete */}
                       <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/40">
@@ -638,19 +680,19 @@ export function WatchlistsView() {
                             type="button"
                             onClick={() => void updateMonitoringConfig(wl.id, { enabled: !wl.enabled })}
                             className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${wl.enabled
-                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
-                                : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25'
+                                ? 'status-chip status-chip--good'
+                                : 'status-chip status-chip--warn'
                               }`}
                             title={wl.enabled ? 'Click to Pause monitoring' : 'Click to Activate monitoring'}
                           >
                             {wl.enabled ? (
                               <>
-                                <ToggleRight size={16} className="text-emerald-500" />
+                                <ToggleRight size={16} className="status-good" />
                                 <span>Active</span>
                               </>
                             ) : (
                               <>
-                                <ToggleLeft size={16} className="text-amber-500" />
+                                <ToggleLeft size={16} className="status-warn" />
                                 <span>Paused</span>
                               </>
                             )}
@@ -665,7 +707,7 @@ export function WatchlistsView() {
                                 title: `watchlist "${wl.product || wl.name}"`,
                               })
                             }
-                            className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-500/15 rounded-lg transition-all cursor-pointer"
+                            className="p-1.5 text-muted-foreground hover:text-[var(--evidence-unsupported)] rounded-lg transition-colors cursor-pointer"
                             title="Delete Watchlist"
                           >
                             <Trash2 size={15} />
@@ -746,7 +788,7 @@ export function WatchlistsView() {
                             ))}
                           </div>
                           {(wl.last_sweep_summary?.limitations?.length ?? 0) > 0 ? (
-                            <div className="rounded-lg px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 text-xs">
+                            <div className="rounded-lg px-3 py-2 border border-border text-xs status-warn">
                               <span className="font-mono uppercase text-[9px] block mb-1">Monitoring Notes</span>
                               {wl.last_sweep_summary.limitations!.slice(0, 2).join(' ')}
                             </div>
@@ -805,7 +847,7 @@ export function WatchlistsView() {
                                           title: `competitor "${item.competitor}"`,
                                         });
                                       }}
-                                      className="text-red-500 hover:text-red-600 p-0.5 transition-colors cursor-pointer shrink-0"
+                                      className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-0.5 transition-colors cursor-pointer shrink-0"
                                       title="Remove competitor"
                                     >
                                       <Trash2 size={12} />
@@ -1055,7 +1097,7 @@ export function WatchlistsView() {
                         <button
                           type="button"
                           onClick={() => void dismissAlert(alert.id)}
-                          className="text-muted-foreground hover:text-red-500 hover:bg-red-500/15 p-1 rounded-md transition-all cursor-pointer"
+                          className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded-md transition-colors cursor-pointer"
                           title="Clear signal from feed"
                         >
                           <Trash2 size={12} />
@@ -1211,11 +1253,11 @@ export function WatchlistsView() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
           <div
-            className="w-full max-w-sm rounded-2xl p-5 bg-card border border-red-500/30 flex flex-col gap-4 shadow-2xl animate-scaleUp"
+            className="w-full max-w-sm rounded-2xl p-5 bg-card border border-border flex flex-col gap-4 animate-scaleUp"
             style={{ boxShadow: 'var(--shadow-extruded)' }}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/15 text-red-500 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-muted status-bad flex items-center justify-center shrink-0">
                 <Trash2 size={18} />
               </div>
               <div>
@@ -1237,7 +1279,7 @@ export function WatchlistsView() {
               <button
                 type="button"
                 onClick={() => void executeDelete()}
-                className="px-4.5 py-2 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white shadow-xs transition-colors cursor-pointer"
+                className="px-4.5 py-2 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer" style={{ background: 'var(--evidence-unsupported)' }}
               >
                 Delete
               </button>

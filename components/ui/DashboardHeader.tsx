@@ -76,7 +76,13 @@ export function DashboardHeader({
   const isIntelligence = topTab === 'intelligence';
   return (
     <div
-      className={`shrink-0 z-30 px-2 md:px-5 ${isIntelligence && sidebarCollapsed ? 'pl-2 md:pl-14' : ''}`}
+      /*
+        Same gutters on every tab. Research used to add 56px of left padding
+        when the sidebar was collapsed, which narrowed the island by that much —
+        so the bar was visibly shorter there than on Home, which is the size
+        difference people notice.
+      */
+      className="shrink-0 z-30 px-2 md:px-5"
       style={{
         height: 60,
         paddingTop: 8,
@@ -87,7 +93,7 @@ export function DashboardHeader({
     >
       <header
         ref={headerIslandRef}
-        className={`header-island ${headerCompact ? 'header-island--compact' : ''} ${isIntelligence && sidebarCollapsed ? 'header-island--rail' : ''}`}
+        className={`header-island ${headerCompact ? 'header-island--compact' : ''}`}
         style={{ background: headerBg }}
       >
         {/* Mobile Hamburger Menu Button (only when sidebar is active) */}

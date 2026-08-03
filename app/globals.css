@@ -60,23 +60,39 @@
   --chart-5:           #E87BA4;
   --chart-track:       #EFF3F8;
 
-  --neu-light:         rgba(255, 255, 255, 0.7);
-  --neu-dark:          rgba(120, 155, 190, 0.55);
-  --neu-light-strong:  rgba(255, 255, 255, 0.85);
-  --neu-dark-strong:   rgba(100, 140, 180, 0.65);
+  /* Kept only so any straggling reference still resolves. Nothing in the flat
+     system paints a neumorphic highlight; do not reintroduce these. */
+  --neu-light:         transparent;
+  --neu-dark:          transparent;
+  --neu-light-strong:  transparent;
+  --neu-dark-strong:   transparent;
 
-  --shadow-extruded:       9px 9px 16px var(--neu-dark), -9px -9px 16px var(--neu-light);
-  --shadow-extruded-hover: 12px 12px 20px var(--neu-dark-strong), -12px -12px 20px var(--neu-light-strong);
-  --shadow-extruded-sm:    5px 5px 10px var(--neu-dark), -5px -5px 10px var(--neu-light);
-  --shadow-inset:          inset 6px 6px 10px var(--neu-dark), inset -6px -6px 10px var(--neu-light);
-  --shadow-inset-deep:     inset 10px 10px 20px var(--neu-dark-strong), inset -10px -10px 20px var(--neu-light-strong);
-  --shadow-inset-sm:       inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+  /*
+    Surfaces are separated by a hairline and a background step, never by
+    elevation. The token names survive the change so all 100+ existing call
+    sites flatten at once; what they resolve to is now a 1px ring.
+
+    Elevation is reserved for things that genuinely float above the page —
+    menus, modals, toasts — which is the only place a shadow carries meaning.
+  */
+  --shadow-extruded:       0 0 0 1px var(--border);
+  --shadow-extruded-hover: 0 0 0 1px var(--border-strong);
+  --shadow-extruded-sm:    0 0 0 1px var(--border);
+  --shadow-inset:          inset 0 0 0 1px var(--border);
+  --shadow-inset-deep:     inset 0 0 0 1px var(--border);
+  /* Pills and chips read as tinted text, not as sunken objects. */
+  --shadow-inset-sm:       none;
+
+  --shadow-overlay:        0 8px 24px rgba(15, 23, 42, 0.10), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-popover:        0 2px 8px rgba(15, 23, 42, 0.08), 0 0 0 1px var(--border);
 
   --shadow:    var(--shadow-extruded);
   --shadow-sm: var(--shadow-extruded-sm);
-  --radius-card:   32px;
-  --radius-button: 16px;
-  --radius-inner:  12px;
+  /* Three radii, and only three: controls, cards, pills. 12px matches the
+     rounded-xl the components already reach for most often. */
+  --radius-card:   12px;
+  --radius-button: 8px;
+  --radius-inner:  8px;
   --evidence-measured: #047857;
   --evidence-derived: #B45309;
   --evidence-unsupported: #B91C1C;
@@ -120,17 +136,23 @@
   --chart-5:           #D55181;
   --chart-track:       #1E293B;
 
-  --neu-light:         rgba(255, 255, 255, 0.05);
-  --neu-dark:          rgba(0, 0, 0, 0.4);
-  --neu-light-strong:  rgba(255, 255, 255, 0.08);
-  --neu-dark-strong:   rgba(0, 0, 0, 0.55);
+  --neu-light:         transparent;
+  --neu-dark:          transparent;
+  --neu-light-strong:  transparent;
+  --neu-dark-strong:   transparent;
 
-  --shadow-extruded:       6px 6px 14px var(--neu-dark), -4px -4px 12px var(--neu-light);
-  --shadow-extruded-hover: 8px 8px 16px var(--neu-dark-strong), -5px -5px 14px var(--neu-light-strong);
-  --shadow-extruded-sm:    3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light);
-  --shadow-inset:          inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
-  --shadow-inset-deep:     inset 6px 6px 12px var(--neu-dark-strong), inset -6px -6px 12px var(--neu-light-strong);
-  --shadow-inset-sm:       inset 2px 2px 4px var(--neu-dark), inset -2px -2px 4px var(--neu-light);
+  /* Dark is designed, not inverted: cards sit *lighter* than the canvas and the
+     hairline is low-alpha white, because a dark-on-dark shadow separates
+     nothing. */
+  --shadow-extruded:       0 0 0 1px var(--border);
+  --shadow-extruded-hover: 0 0 0 1px var(--border-strong);
+  --shadow-extruded-sm:    0 0 0 1px var(--border);
+  --shadow-inset:          inset 0 0 0 1px var(--border);
+  --shadow-inset-deep:     inset 0 0 0 1px var(--border);
+  --shadow-inset-sm:       none;
+
+  --shadow-overlay:        0 12px 32px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-popover:        0 4px 12px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border);
 
   --shadow:    var(--shadow-extruded);
   --shadow-sm: var(--shadow-extruded-sm);
@@ -286,22 +308,26 @@ input::placeholder, textarea::placeholder {
   color: var(--placeholder);
 }
 
-/* ─── Neumorphic surfaces ───────────────────────────────── */
+/* ─── Surfaces ──────────────────────────────────────────────
+   One card treatment for the whole product: a background step plus a hairline.
+   Cards do not float, so they cast nothing; that is what keeps two cards side
+   by side looking identical regardless of what sits behind them. */
 .v-card,
 .veracity-card {
   background: var(--card);
-  border: none;
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-extruded);
-  transition: transform 300ms ease-out, box-shadow 300ms ease-out;
+  box-shadow: none;
+  transition: border-color 160ms ease, background 160ms ease;
 }
 
+/* Hover darkens the hairline rather than lifting the card. A 2px lift on a
+   non-clickable surface promises an interaction most of these cards do not
+   have. */
 .veracity-card-hover:hover,
 .v-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-extruded-hover);
-  background: var(--card);
-  border-color: transparent;
+  background: var(--card-hover);
+  border-color: var(--border-strong);
 }
 
 .neu-flat {
@@ -563,19 +589,14 @@ textarea.neu-input:focus {
   letter-spacing: -0.01em;
 }
 
+/* A results panel is a card and is now styled as one — it used to carry its own
+   radius and its own light-mode drop shadow, which is exactly how two cards on
+   the same screen end up looking different. */
 .results-panel {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow-extruded-sm);
-}
-
-.light .results-panel {
-  background: #FFFFFF;
-  border: 1px solid rgba(6, 20, 36, 0.1);
-  box-shadow:
-    0 1px 2px rgba(6, 20, 36, 0.04),
-    0 8px 20px rgba(6, 20, 36, 0.06);
+  border-radius: var(--radius-card);
+  box-shadow: none;
 }
 
 .results-section-title {
@@ -705,26 +726,28 @@ textarea.neu-input:focus {
     var(--shadow-extruded-sm);
   transform: translate3d(0, 0, 0) scale(1);
   transform-origin: top center;
-  will-change: transform, max-width, border-radius, padding, gap;
-  transition:
-    box-shadow 480ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    max-width 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    gap 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: box-shadow;
+  transition: box-shadow 480ms cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 30;
 }
 
-.header-island:not(.header-island--rail) {
-  max-width: min(1400px, 100%);
-}
+/*
+  One size, every page.
 
-/* Sidebar collapsed: stretch as a full-width top rail */
-.header-island--rail:not(.header-island--compact) {
-  border-radius: 20px;
-  padding-left: 14px;
-  padding-right: 14px;
+  The island used to change shape three ways: a scroll-driven "compact" mode
+  that shrank its width, padding, radius and control sizes; a "rail" variant
+  that widened it on Research whenever the sidebar was collapsed; and a mobile
+  variant on top of both. The result was a navigation bar that was a different
+  size on Research than on Home, and different again after two lines of scroll —
+  chrome that moves under you while you are reading is a distraction, and the
+  one element that should be the fixed reference point on every screen was the
+  least stable thing on it.
+
+  So geometry is now constant. Scrolling still registers, but through elevation
+  only: the shadow deepens, nothing resizes.
+*/
+.header-island {
+  max-width: min(1400px, 100%);
 }
 
 .dark .header-island {
@@ -734,17 +757,12 @@ textarea.neu-input:focus {
     var(--shadow-extruded-sm);
 }
 
-/* Compact Dynamic Island — centered pill */
-/* Compact Dynamic Island — user-friendly smooth width reduction on scroll */
+/* Scrolled: lifts off the page. Same width, same padding, same radius. */
 .header-island--compact {
-  max-width: min(1080px, 94%);
-  padding: 6px 14px;
-  border-radius: 9999px;
-  transform: translate3d(0, 0, 0) scale(0.99);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow:
-    0 10px 30px rgba(15, 23, 42, 0.12),
+    0 12px 32px rgba(15, 23, 42, 0.14),
     0 2px 8px rgba(15, 23, 42, 0.06),
     var(--shadow-extruded-sm);
 }
@@ -757,12 +775,8 @@ textarea.neu-input:focus {
   height: 36px;
 }
 
-.header-island--compact .neu-extruded-sm,
-.header-island--compact .neu-orb,
-.header-island--compact .header-avatar {
-  width: 30px;
-  height: 30px;
-}
+/* Controls keep one size too — a 36px avatar that becomes 30px on scroll is a
+   moving hit target. */
 
 /* Profile avatar — solid accent, no gradient */
 .header-avatar {
@@ -830,10 +844,7 @@ textarea.neu-input:focus {
     padding-right: 10px;
     gap: 8px;
   }
-  .header-island--compact {
-    max-width: min(360px, 94%);
-    transform: translate3d(0, 0, 0) scale(0.92);
-  }
+  /* No compact geometry on mobile either — see the note above. */
 }
 
 .query-bar-glow {
@@ -1048,10 +1059,18 @@ textarea.neu-input:focus {
   box-shadow: var(--shadow-inset-sm);
 }
 
-.border-border,
-.border {
-  border-color: transparent !important;
-}
+/*
+  This used to force `border-color: transparent !important` on every element
+  carrying a `border` or `border-border` utility — a leftover from the
+  neumorphic system, where surfaces were separated by shadow and a visible
+  hairline would have fought it.
+
+  It outlived that system and silently broke the one that replaced it: the flat
+  design relies on hairlines, so every component using Tailwind's `border
+  border-border` was drawing an invisible one, and no amount of local styling
+  could win against an `!important` on a global selector. Removing it is what
+  makes the hairlines actually render.
+*/
 
 .focus-ring:focus-visible {
   outline: 2px solid var(--accent);
@@ -1522,4 +1541,97 @@ button, a { touch-action: manipulation; }
 @media (max-width: 640px) {
   .empty-heading { font-size: 20px; }
   .veracity-card { border-radius: 24px; }
+}
+
+/* ─── Status, said once ─────────────────────────────────────
+   Every screen was reaching for raw Tailwind palettes — emerald-500,
+   amber-600, red-500 — so the same three meanings arrived in a dozen
+   different hues, none of which matched the tokens or survived a theme
+   change. These are the only status colours in the product.
+
+   They are deliberately quiet: a tinted surface plus a hairline, never a
+   saturated fill. Status is a mark next to a sentence, not the loudest
+   thing on the page — and the most common status on a monitoring screen is
+   "nothing happened", which must never shout. */
+.status-good  { color: var(--evidence-measured); }
+.status-warn  { color: var(--evidence-derived); }
+.status-bad   { color: var(--evidence-unsupported); }
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--foreground-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.status-chip--good { color: var(--evidence-measured); border-color: color-mix(in srgb, var(--evidence-measured) 30%, var(--border)); background: color-mix(in srgb, var(--evidence-measured) 8%, transparent); }
+.status-chip--warn { color: var(--evidence-derived);  border-color: color-mix(in srgb, var(--evidence-derived) 30%, var(--border));  background: color-mix(in srgb, var(--evidence-derived) 8%, transparent); }
+.status-chip--bad  { color: var(--evidence-unsupported); border-color: color-mix(in srgb, var(--evidence-unsupported) 30%, var(--border)); background: color-mix(in srgb, var(--evidence-unsupported) 8%, transparent); }
+
+/* A neutral label. Not every pill is a status or an action. */
+.ui-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border);
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ─── Hit areas ─────────────────────────────────────────────
+   Icon-only buttons were being sized by their icon: a 13px glyph with 4px of
+   padding is a 21px target, which is under half the 44px a finger needs and
+   below the 24px WCAG 2.2 asks for even with a mouse. The dismiss on the sweep
+   banner was the visible symptom; the pattern is everywhere.
+
+   Fixing it per component would mean touching forty files and missing the next
+   one written. This gives every button whose entire content is one icon a floor,
+   without changing the icon, the padding, or the surrounding layout — the target
+   grows, the appearance does not. */
+button:has(> svg:only-child),
+a:has(> svg:only-child) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* A finger is not a cursor. On touch, go to the full recommended target. */
+@media (pointer: coarse) {
+  button:has(> svg:only-child),
+  a:has(> svg:only-child) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* For icon buttons that carry a text glyph rather than an SVG, and anywhere the
+   floor above needs to be explicit. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 0.5rem;
+  color: var(--foreground-muted);
+  transition: color 160ms ease, background 160ms ease;
+}
+.icon-btn:hover {
+  color: var(--foreground);
+  background: var(--surface-raised);
+}
+@media (pointer: coarse) {
+  .icon-btn { min-width: 44px; min-height: 44px; }
 }

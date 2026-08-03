@@ -80,7 +80,7 @@ export function UserProfileDrawer({ isOpen, onClose, onSave }: UserProfileDrawer
             </div>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground text-sm font-medium p-1.5 rounded-lg hover:bg-accent/10 transition-colors"
+              className="icon-btn text-sm" aria-label="Close"
             >
               ✕
             </button>
