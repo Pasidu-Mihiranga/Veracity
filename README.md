@@ -105,6 +105,7 @@ npm run db:migrate:project-decisions
 npm run db:migrate:evidence-ledger
 npm run db:migrate:swarm-scenarios
 npm run db:migrate:entity-ownership
+npm run db:migrate:conversation-summaries
 ```
 
 ## 4. Configure your keys
@@ -145,12 +146,52 @@ Reddit, and RSS/changelog feeds. Those work out of the box.
 
 ## 5. Start it
 
+If you used **Option A** (the repo's own PostgreSQL), one command starts the
+database, seeds a development login, and runs the app:
+
+```bash
+npm run dev:local
+```
+
+Otherwise start the app on its own — your database is already running:
+
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:3000**, create an account, and you are in. Nothing is
-sent anywhere on signup — the account lives in your own database.
+Open **http://localhost:3000**.
+
+### The development login
+
+`npm run dev:local` creates a ready-made account so you do not sign up by hand
+every time:
+
+| | |
+|---|---|
+| Email | `admin@local.com` |
+| Password | `admin1234` |
+
+Re-running the command resets that password, so a forgotten local login is one
+command away from working. To seed it without restarting anything:
+
+```bash
+npm run dev:seed
+```
+
+Override the values with `DEV_SEED_EMAIL` and `DEV_SEED_PASSWORD` in `.env` if
+you prefer your own.
+
+> **This account cannot be created anywhere but your own machine.** The seed
+> script refuses to run when `NODE_ENV=production`, and refuses when
+> `DATABASE_URL` points at anything other than a loopback address — it exits
+> without touching the database. A weak, publicly documented admin login is
+> only safe because it is impossible to point at a shared or hosted database,
+> so please do not add a way to force it.
+
+If you started with plain `npm run dev`, or you are on a hosted database, use
+**Sign up** on the login page instead. Any email works and there is no
+verification step — the account lives in your own database and nothing is sent
+anywhere.
 
 ## 6. First five minutes in the product
 
@@ -352,10 +393,15 @@ The active `.env` must point `DATABASE_URL` at that cluster. The database files 
 ### 4. Run
 
 ```bash
+npm run dev:local           # local Postgres + dev login + Next.js  ← usual
 npm run dev                 # Next.js only → http://localhost:3000
 npm run dev:full            # Next.js + local MiroFish (Python venv)
 npm run mirofish:bootstrap  # seed a local MiroFish simulation map
 ```
+
+`dev:local` seeds `admin@local.com` / `admin1234` so you are not signing up by
+hand each time. It refuses to run against a non-loopback `DATABASE_URL` or with
+`NODE_ENV=production`.
 
 ### 5. Quality checks
 
@@ -381,6 +427,8 @@ npm run test:e2e:live-research
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Next.js dev server |
+| `npm run dev:local` | Local Postgres + seeded dev login + dev server |
+| `npm run dev:seed` | Create/reset the `admin@local.com` dev login (loopback databases only) |
 | `npm run dev:full` | App + MiroFish side-by-side |
 | `npm run mirofish` | MiroFish Flask service only |
 | `npm run build` / `start` | Production build & serve |

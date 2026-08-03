@@ -17,7 +17,8 @@ Next.js 15 · React 19 · TypeScript 5.9 · PostgreSQL + pgvector · Gemini.
 ## Commands
 
 ```bash
-npm run dev              # dev server on :3000
+npm run dev:local        # local Postgres + seeded dev login + dev server
+npm run dev              # dev server only, on :3000
 npm run typecheck        # tsc --noEmit — run before every commit
 npm test                 # ~830 unit tests, ~15s
 npx vitest run __tests__/foo.test.ts   # single file

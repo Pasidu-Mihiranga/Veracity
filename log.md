@@ -2329,3 +2329,58 @@ benchmark exist so the option stays open with evidence attached.
 - ESLint: zero errors.
 - Documented the convention in `AGENTS.md`, and corrected its test counts, which
   had drifted behind the last few commits.
+
+## 2026-08-03 — Seeded development login
+
+### Why
+
+There was no way into the app without signing up by hand first. The only
+account in the local database was a leftover from the dashboard smoke test, and
+its two projects are minimal fixtures — five claims, zero chart specs — so it
+shows the shell of the product rather than the product.
+
+### Added
+
+`scripts/seed-dev-user.mjs` creates `admin@local.com` / `admin1234`, wired into
+`npm run dev:local` (which already started the database) and available on its
+own as `npm run dev:seed`. Overridable via `DEV_SEED_EMAIL` /
+`DEV_SEED_PASSWORD`.
+
+Idempotent by `ON CONFLICT (email) DO UPDATE` rather than an existence check —
+two starts racing on the same database should not leave one in an error state,
+and a forgotten local password is then one command from working.
+
+### The part that matters
+
+A weak, publicly documented admin account is a straightforward takeover if it
+ever reaches a shared database. It is only safe because it cannot get there, so
+two independent guards must both pass before anything is written:
+
+1. `NODE_ENV` must not be `production`.
+2. `DATABASE_URL` must resolve to a loopback host.
+
+Both exit non-zero without opening a connection. The host check parses the URL
+and compares the hostname exactly — a substring match would accept
+`localhost.evil.com`, which is tested below. **There is deliberately no `--force`
+flag**, and the README and the script header both say not to add one; the sole
+security property here is that this cannot be pointed somewhere it does not
+belong.
+
+The script also verifies the hash it just wrote actually authenticates. A column
+rename or a changed bcrypt cost would otherwise report a successful seed and
+fail at the login screen.
+
+### Verified
+
+- First run creates, second run resets — both exit 0.
+- `NODE_ENV=production` → refused, exit 1, nothing written.
+- `DATABASE_URL` at `db.prod.example.com` → refused.
+- `DATABASE_URL` at `localhost.evil.com` → refused (exact-hostname check).
+- `POST /api/auth/signin` with the seeded pair → **200**; wrong password → **401**.
+- Full suite: 830 passed, 1 skipped. Typecheck and ESLint clean.
+
+### Also fixed
+
+The README's migration list omitted `db:migrate:conversation-summaries`, added
+in the previous commit. A fresh install following the README would have had no
+`conversation_summaries` table and lost the rolling summary silently. Added.
