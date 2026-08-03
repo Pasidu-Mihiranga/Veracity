@@ -2529,3 +2529,57 @@ Compact stat readouts left multi-column on purpose — `grid-cols-4` at
 The four corrected tabs were not viewed logged-in; I did not authenticate. The
 change is deterministic CSS and the maths is above, but the visual confirmation
 is a page reload away in an already-signed-in browser.
+
+## 2026-08-03 — Sign-in page pinned to dark
+
+Requested: the sign-in screen always dark, the rest of the app still defaulting
+to light.
+
+### The part that needed care
+
+Forcing dark is easy. Forcing dark *without hijacking the user's preference* is
+the requirement that is easy to miss. If the sign-in page had simply called
+`setThemeMode('dark')`, every light-mode user would sign in and land in a dark
+workspace with nothing to explain what changed it — and it would persist across
+sessions.
+
+So `ThemeProvider` now tracks two values:
+
+- `theme` — what the user chose. Persisted. Never altered by a route.
+- `forced` — what the current route demands. Never persisted.
+
+`effective = forced ?? theme` drives rendering; `localStorage` only ever sees
+`theme`. `useForcedTheme(mode)` applies the lock on mount and releases it on
+unmount, so leaving `/auth` restores the user's own theme.
+
+`setForcedTheme` is wrapped in `useCallback` deliberately — `useForcedTheme`
+depends on it, and an unstable identity would release and re-apply the lock
+every render.
+
+### Also
+
+- Removed the theme toggle from the sign-in page. It could no longer change the
+  page it sat on, and a control that does nothing is worse than no control. The
+  header toggle still governs the app.
+- Removed the four now-dead `.auth-theme-toggle` CSS blocks, and the unused
+  `Sun` / `Moon` imports.
+
+Worth noting for anyone changing this later: `.auth-page` is styled with
+hardcoded hex values, not design tokens, so setting the root class alone does
+nothing. It works because a complete `.dark .auth-page` variant already existed
+in `globals.css` (~line 1266). A test asserts that variant still exists.
+
+### Verified
+
+- Rendered `/auth` in the browser: dark, no toggle, unchanged layout.
+- `localStorage['veracity-theme']` reads **light** while the page renders dark —
+  the forced theme does not leak into the saved preference.
+- 5 new tests in `__tests__/forced-theme.test.ts`, proven to fail: persisting
+  the forced value inside `setForcedTheme` trips the storage-write assertion.
+- 851 passed, 1 skipped. Typecheck clean, ESLint 0 errors.
+
+There is no jsdom or Testing Library in this project, so the unmount-release
+path is asserted at source level rather than by mounting the hook. Adding both
+dependencies to test one hook was not proportionate; the regression that
+actually threatens this is someone persisting the forced value, and that is
+caught.

@@ -1249,19 +1249,6 @@ button, a { touch-action: manipulation; }
     -3px -3px 10px rgba(255, 255, 255, 1);
 }
 
-.auth-page .auth-theme-toggle {
-  background: rgba(255, 255, 255, 0.85);
-  color: #1A3554;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow:
-    4px 4px 12px rgba(15, 23, 42, 0.08),
-    -2px -2px 8px rgba(255, 255, 255, 0.9);
-}
-
-.auth-page .auth-theme-toggle:hover {
-  background: #FFFFFF;
-}
-
 /* ── Auth dark mode (matches dashboard navy) ─────────────── */
 .dark .auth-page {
   background: linear-gradient(180deg, #0E1A2A 0%, #070D16 48%, #03060B 100%);
@@ -1364,20 +1351,6 @@ button, a { touch-action: manipulation; }
     4px 4px 12px rgba(0, 0, 0, 0.5),
     -3px -3px 10px rgba(255, 255, 255, 0.06);
   border-color: rgba(0, 196, 255, 0.25);
-}
-
-.dark .auth-page .auth-theme-toggle {
-  background: rgba(12, 22, 36, 0.9);
-  color: #A8C0D8;
-  border: 1px solid rgba(232, 244, 252, 0.1);
-  box-shadow:
-    4px 4px 12px rgba(0, 0, 0, 0.4),
-    -2px -2px 8px rgba(255, 255, 255, 0.04);
-}
-
-.dark .auth-page .auth-theme-toggle:hover {
-  background: #0B1522;
-  color: #00C4FF;
 }
 
 .auth-suspense {
