@@ -2793,3 +2793,88 @@ in an already-signed-in browser.
 
 Phase 2 — collapse output when identity is unresolved, so a thin run reads as one
 clear ask rather than fifteen `UNSUPPORTED` cells.
+
+## 2026-08-03 — Phase 3 (brought forward): palette, chart colour, and two real bugs
+
+Phase 1 made the project surface reachable, and seeing it rendered exposed the
+next set of problems. Palette was planned third; it moved up because it is what
+the screen actually looks like.
+
+### "Text is not visible" — measured, not a matter of taste
+
+`foregroundSubtle` was `#3D5A78`, which reads on the old `#C9D9E8` page but not on
+white cards. Hint text, field help, and metadata all use it.
+
+Now `#64748B` — **4.76:1** on white, clearing the 4.5:1 floor for body text.
+`foreground` 17.85:1, `foregroundMuted` 7.58:1. Dark mode measured against
+`#111827` rather than flipped: 16.96 / 6.92.
+
+### "Colors are not good"
+
+`background` was `#C9D9E8` — a pale blue page plane that tinted every surface and
+made the whole app read as washed out. Now `#F8FAFC`, with all structure in a
+slate ramp and colour reserved for meaning.
+
+### "Charts are not good" — and they were worse than they looked
+
+Two separate faults, both real:
+
+1. **Every chart slot was blue.** `chart1`–`chart5` were `#00A3E0`, `#3D9EFF`,
+   `#0088CC`, `#36B5F5`, `#64748B` — four blues and a grey. Multi-series charts
+   could not look like anything but one colour. Replaced with the validated
+   categorical order: blue, orange, aqua, yellow, magenta.
+
+2. **`ChartSpecView` never read the theme at all.** `SERIES_COLORS` was five
+   hardcoded hex values (`#0052FF`, `#4D7CFF`, …). Editing theme tokens would
+   have changed nothing on any chart — the palette work would have appeared to
+   do nothing. Now `var(--chart-N)`, so charts follow light/dark and the tokens.
+
+Fixed order, never cycled: colour follows the entity, so filtering series cannot
+repaint the survivors.
+
+### The nonsense chart sentence
+
+The screenshot read:
+
+> "Evidence coverage went from 0 claims to 42 claims between Supported and
+> Unsupported"
+
+`plain-language.ts` builds that from `points[0]` and `points[last]` as a *before
+and after*. For a snapshot the points are **categories**, not moments, so it
+described a trend across two things that never moved.
+
+Snapshots now get a composition sentence instead — "Evidence coverage:
+Unsupported accounts for 42 of 42." Time series keep the movement sentence.
+
+### Evidence-state tokens
+
+`EVIDENCE_STATE` in `theme-tokens.ts`, exposed as `--evidence-*` CSS variables,
+with separate **ink** (text, WCAG-checked on both surfaces) and **fill** (chart
+marks, gated on colourblind separation) steps. Dark inks measured on `#111827`:
+9.23 / 10.63 / 6.41.
+
+Rebuilding the badges as icon + label is still to do — the tokens exist, the
+components have not been changed yet.
+
+### Answered, from the machine rather than memory
+
+- **Are the charts hardcoded?** No. `planEvidenceCoverageChart` received
+  `supported: 0, unsupported: 42` from the real ledger. The numbers were honest;
+  the chart *form* was wrong. Two bars where one is zero should be a stat line,
+  not a bar chart. Form fix still outstanding.
+- **Is MiroFish running locally?** No. Nothing listens on 5001. Port 5000
+  answering 403 is macOS AirPlay, not MiroFish.
+
+### Verified
+
+- 860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+- New tokens confirmed **in the served CSS bundle**, not just the source —
+  `--background: #F8FAFC` light, `#0B1120` dark.
+- Sign-in page re-checked in the browser: still dark, still correct under the new
+  dark tokens.
+
+### Still open
+
+Chart form for the zero-value case; evidence badges as icon + label; the
+identity-unresolved collapse (Phase 2); density and alignment of the results
+page; MiroFish.
