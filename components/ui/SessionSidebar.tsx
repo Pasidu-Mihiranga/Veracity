@@ -223,37 +223,15 @@ export function SessionSidebar({
           project, so the user lands on the start screen rather than staring at
           the previous project's panels wondering why nothing reset.
         */}
-        <div className="px-4 pt-4 pb-3">
-          <button
-            type="button"
-            onClick={() => onNewQuery(undefined)}
-            aria-label="Veracity home"
-            title="Home"
-            className="flex items-center gap-2.5 w-full text-left rounded-xl p-1 -m-1 hover:bg-accent/5 transition-colors focus-ring cursor-pointer"
-          >
-            <Image
-              src="/robot.avif"
-              alt=""
-              width={40}
-              height={40}
-              className="brand-mascot w-10 h-10 shrink-0"
-              draggable={false}
-            />
-            <div className="min-w-0">
-              <BrandWordmark size="sm" />
-              <p className="ui-section-label mt-1.5" style={{ color: textSubtle }}>
-                Growth Intelligence
-              </p>
-            </div>
-          </button>
-        </div>
+        <div className="pt-3" />
 
         <div className="px-3 pt-3 pb-2">
           <button
-            onClick={() => onNewQuery(selectedProject ?? undefined)}
-            className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11"
+            type="button"
+            onClick={() => onNewQuery(undefined)}
+            className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11 cursor-pointer rounded-xl"
           >
-            <Plus size={14} /> {selectedProject ? 'New project research' : 'New research'}
+            <Plus size={14} /> New research
           </button>
         </div>
 

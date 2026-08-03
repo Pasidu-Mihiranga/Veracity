@@ -243,11 +243,11 @@ export function DashboardWorkspace({
   }, [currentSessionId, mainScrollRef, topTab]);
 
   return (
-    <>
+    <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
       <div
         ref={mainScrollRef}
         onScroll={onMainScroll}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto w-full"
         style={{
           paddingTop: hasResult ? '12px' : 'clamp(16px, 3vw, 32px)',
           paddingRight: 'clamp(16px, 3vw, 32px)',
@@ -255,7 +255,7 @@ export function DashboardWorkspace({
           paddingLeft: 'clamp(16px, 3vw, 32px)',
         }}
       >
-        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1400px] w-full mx-auto`}>
+        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1000px] w-full mx-auto`}>
           {/*
             The landing screen. Answers "what changed while I was away?" from
             already-collected data — it never triggers research and never calls a
@@ -284,6 +284,7 @@ export function DashboardWorkspace({
               onToggleAgent={onToggleAgent}
               forceFullSweep={forceFullSweep}
               onToggleForceFullSweep={onToggleForceFullSweep}
+              initialSubTab={topTab === 'usage' ? 'usage' : 'profile'}
             />
           )}
           {topTab === 'intelligence' && (
@@ -547,6 +548,6 @@ export function DashboardWorkspace({
           />
         </AppErrorBoundary>
       )}
-    </>
+    </div>
   );
 }

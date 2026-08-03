@@ -246,68 +246,67 @@ export default function VeracityDashboard() {
 
   return (
     <div className={isDark ? 'dark' : 'light'} style={{ display: 'contents' }}>
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground font-sans">
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground font-sans">
+      {/* ═══════════════════════════════════ TOP HEADER NAV ══ */}
+      <DashboardHeader
+        headerIslandRef={headerIslandRef}
+        headerCompact={headerCompact}
+        sidebarCollapsed={sidebarCollapsed}
+        onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
+        headerBg={headerBg}
+        topTab={topTab}
+        onTopTabChange={setTopTab}
+        selectedAgents={selectedAgents}
+        mirofishRunning={mirofishRunning}
+        onOpenAgents={() => setAgentsDrawerOpen(true)}
+        onOpenMemory={() => setMemoryDrawerOpen(true)}
+        onOpenProfile={() => setProfileDrawerOpen(true)}
+        onOpenAlerts={() => setAlertsOpen(true)}
+        alertsUnread={alertsUnread}
+        onOpenMembers={() => setMembersOpen(true)}
+        onOpenOrgIntel={() => setOrgIntelOpen(true)}
+        onOpenKgExplorer={() => setKgExplorerOpen(true)}
+        isDark={isDark}
+        onToggleTheme={toggleTheme}
+        userEmail={userEmail}
+        showUserMenu={showUserMenu}
+        onToggleUserMenu={() => setShowUserMenu(v => !v)}
+        onSignOut={() => { void handleSignOut(); }}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        textMuted={textMuted}
+        textSubtle={textSubtle}
+        accentInk={accentInk}
+      />
 
-      {topTab === 'intelligence' && (
-        <SessionSidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
-          onNewQuery={handleNewQuery}
-          selectedProject={selectedProject}
-          onSelectProject={setSelectedProject}
-          projectsRefreshKey={projectsVersion}
-          sessions={sessions}
-          loadingSessions={loadingSessions}
-          currentSessionId={currentSessionId}
-          onLoadSession={(id) => { void loadSession(id); }}
-          onDeleteSession={(id) => deleteSession(id)}
-          selectedAgents={selectedAgents}
-          onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
-          forceFullSweep={forceFullSweep}
-          onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
-          getRunForDomain={getRunFor}
-          sidebarBg={sidebarBg}
-          cardBg2={cardBg2}
-          neuExtrudedSm={neuExtrudedSm}
-          textMain={textMain}
-          textMuted={textMuted}
-          textSubtle={textSubtle}
-        />
-      )}
-
-      {/* ═══════════════════════════════════ MAIN ══ */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-
-        <DashboardHeader
-          headerIslandRef={headerIslandRef}
-          headerCompact={headerCompact}
-          sidebarCollapsed={sidebarCollapsed}
-          onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
-          headerBg={headerBg}
-          topTab={topTab}
-          onTopTabChange={setTopTab}
-          selectedAgents={selectedAgents}
-          mirofishRunning={mirofishRunning}
-          onOpenAgents={() => setAgentsDrawerOpen(true)}
-          onOpenMemory={() => setMemoryDrawerOpen(true)}
-          onOpenProfile={() => setProfileDrawerOpen(true)}
-          onOpenAlerts={() => setAlertsOpen(true)}
-          alertsUnread={alertsUnread}
-          onOpenMembers={() => setMembersOpen(true)}
-          onOpenOrgIntel={() => setOrgIntelOpen(true)}
-          onOpenKgExplorer={() => setKgExplorerOpen(true)}
-          isDark={isDark}
-          onToggleTheme={toggleTheme}
-          userEmail={userEmail}
-          showUserMenu={showUserMenu}
-          onToggleUserMenu={() => setShowUserMenu(v => !v)}
-          onSignOut={() => { void handleSignOut(); }}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-          textMuted={textMuted}
-          textSubtle={textSubtle}
-          accentInk={accentInk}
-        />
+      {/* ═══════════════════════════════════ CONTENT BODY ══ */}
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+        {topTab === 'intelligence' && (
+          <SessionSidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
+            onNewQuery={handleNewQuery}
+            selectedProject={selectedProject}
+            onSelectProject={setSelectedProject}
+            projectsRefreshKey={projectsVersion}
+            sessions={sessions}
+            loadingSessions={loadingSessions}
+            currentSessionId={currentSessionId}
+            onLoadSession={(id) => { void loadSession(id); }}
+            onDeleteSession={(id) => deleteSession(id)}
+            selectedAgents={selectedAgents}
+            onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+            forceFullSweep={forceFullSweep}
+            onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
+            getRunForDomain={getRunFor}
+            sidebarBg={sidebarBg}
+            cardBg2={cardBg2}
+            neuExtrudedSm={neuExtrudedSm}
+            textMain={textMain}
+            textMuted={textMuted}
+            textSubtle={textSubtle}
+          />
+        )}
 
         <DashboardWorkspace
           topTab={topTab}

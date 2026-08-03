@@ -102,11 +102,9 @@ export function DashboardHeader({
           </button>
         )}
 
-        {(!isIntelligence || sidebarCollapsed) && (
-          <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
-            <BrandWordmark size="md" />
-          </div>
-        )}
+        <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
+          <BrandWordmark size="md" />
+        </div>
 
         <div className="header-island-tabs flex items-center gap-1 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
           {([
