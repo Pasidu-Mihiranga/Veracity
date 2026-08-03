@@ -2878,3 +2878,66 @@ components have not been changed yet.
 Chart form for the zero-value case; evidence badges as icon + label; the
 identity-unresolved collapse (Phase 2); density and alignment of the results
 page; MiroFish.
+
+## 2026-08-03 — Five reported bugs, fixed
+
+Reported from a real session. Each was real; three had a specific cause worth
+recording.
+
+### 1. Clicking the logo did nothing
+
+It was a plain `<div>` — no handler, no role, no keyboard access. The logo is the
+universal "take me home" affordance and people click it expecting that.
+
+Now a button calling `onNewQuery(undefined)`. Passing `undefined` rather than the
+current project matters: home means a clean slate, so the project is deselected
+too and the user lands on the start screen instead of the previous project's
+panels.
+
+### 2. "New research" appeared not to work — it did
+
+`resetConversation()` clears `currentSessionId`, `messages` and `followUps`, and
+`currentResult` is derived from `messages`, so the reset was correct. But
+`New project research` passes the current project, and everything gated on
+`selectedProject` — the project dashboard, research history, overview — keeps
+rendering above the fresh empty state.
+
+So the user clicks, the conversation *does* reset, and the screen still shows a
+wall of the previous project. Nothing to fix in the reset; the fault is that
+"new research" and "project overview" share one scrolling surface. Recorded as
+the information-architecture problem it is, not patched over.
+
+### 3. Bars hundreds of pixels wide
+
+Recharts divides the available width across however many categories exist, so a
+two-category snapshot rendered two enormous columns. Capped with
+`maxBarSize={56}`. A bar's width should never encode how few categories there
+happen to be.
+
+### 4. Example questions named companies that do not resolve
+
+`DEMO_QUERIES` used "Lilian" and "Vector Agents". "Lilian" resolves to a
+real-estate business in McLean, Virginia, and "Vector Agents" to nothing — so the
+first thing a new user saw, having clicked our own suggestion, was a wall of
+"unsupported".
+
+Replaced with Sri Lankan companies that have real public footprints — pricing
+pages, app listings, press: PickMe vs Uber, Dialog Axiata vs SLT-Mobitel, Daraz
+LK vs Kapruka. Examples, not defaults.
+
+### 5. Text too small
+
+`html { font-size: 15px }` shrank every rem-based size in the app by 6.7% against
+the 16px browser default that body copy is designed around. Now 16px, which
+scales the whole type ramp rather than patching individual sizes.
+
+### Verified
+
+860 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+
+### Not fixed — needs the IA change, not a patch
+
+- Robot/empty state appearing below project panels (see 2 above).
+- Comparison limited in presentation, not capability.
+- No dashboard home; the app opens straight into chat.
+- No change feed or notification surface for tracked companies.

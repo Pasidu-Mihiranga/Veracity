@@ -147,7 +147,9 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
-  font-size: 15px;
+  /* 16px is the browser default and the size body copy is designed for.
+     15px shrank every rem-based size in the app by 6.7%. */
+  font-size: 16px;
   scroll-behavior: smooth;
 }
 

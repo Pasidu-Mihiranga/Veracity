@@ -214,8 +214,23 @@ export function SessionSidebar({
           overflow: 'hidden',
         }}
       >
+        {/*
+          The logo is the universal "take me home" affordance and people click it
+          expecting that. It was a plain div — no handler, no role, no keyboard
+          access — so it did nothing at all.
+
+          Home means a clean slate: clear the conversation *and* deselect the
+          project, so the user lands on the start screen rather than staring at
+          the previous project's panels wondering why nothing reset.
+        */}
         <div className="px-4 pt-4 pb-3">
-          <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => onNewQuery(undefined)}
+            aria-label="Veracity home"
+            title="Home"
+            className="flex items-center gap-2.5 w-full text-left rounded-xl p-1 -m-1 hover:bg-accent/5 transition-colors focus-ring cursor-pointer"
+          >
             <Image
               src="/robot.avif"
               alt=""
@@ -230,7 +245,7 @@ export function SessionSidebar({
                 Growth Intelligence
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="px-3 pt-3 pb-2">

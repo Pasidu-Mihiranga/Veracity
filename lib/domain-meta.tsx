@@ -3,10 +3,21 @@ import {
   TrendingUp, Swords, Trophy, DollarSign, Megaphone, Telescope, Rocket, Fish,
 } from 'lucide-react';
 
+/**
+ * Example questions on the empty state.
+ *
+ * Deliberately Sri Lankan companies with a real public footprint — pricing
+ * pages, app listings, press coverage — so a first run has something to actually
+ * read. The previous set named "Lilian" and "Vector Agents", which returned a
+ * McLean, Virginia real-estate business and nothing respectively, so the first
+ * thing a new user saw was a wall of "unsupported".
+ *
+ * These are examples, not defaults: the product works on any company.
+ */
 export const DEMO_QUERIES = [
-  'Is Lilian competitive in the AI SDR market right now?',
-  'Is the digital workers category accelerating or consolidating?',
-  'What should Vector Agents build to capture emerging demand?',
+  'Compare PickMe and Uber in the Sri Lankan ride-hailing market.',
+  'How is Dialog Axiata positioned against SLT-Mobitel right now?',
+  'What is Daraz LK doing on pricing that Kapruka is not?',
 ];
 
 export const ALL_DOMAINS = [

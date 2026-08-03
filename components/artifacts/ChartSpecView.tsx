@@ -233,6 +233,12 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
                   name={s.label}
                   fill={SERIES_COLORS[i % SERIES_COLORS.length]}
                   radius={[4, 4, 0, 0]}
+                  // Recharts splits the full width across however many
+                  // categories exist, so a two-category snapshot produced two
+                  // columns hundreds of pixels wide — a shape that reads as a
+                  // rendering fault rather than as data. A bar's width should
+                  // never encode how few categories there happen to be.
+                  maxBarSize={56}
                 />
               ),
             )}
