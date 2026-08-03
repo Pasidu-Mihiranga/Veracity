@@ -2583,3 +2583,71 @@ path is asserted at source level rather than by mounting the hook. Adding both
 dependencies to test one hook was not proportionate; the regression that
 actually threatens this is someone persisting the forced value, and that is
 caught.
+
+## 2026-08-03 — One command to migrate; the eight-step README was the bug
+
+### Report
+
+A second developer pulled `dev`, ran `npm run dev`, and the app started cleanly
+before failing on every request:
+
+```
+error: relation "market_projects" does not exist        GET /api/projects 500
+error: column "project_id" does not exist               GET /api/sessions 500  (x9)
+```
+
+### What was actually wrong
+
+Not a code fault, and not a missing migration file. `db/schema.sql` already
+contains `market_projects` (line 136) and `chat_sessions.project_id` (line 152),
+and it is fully idempotent — 47 of 47 tables use `CREATE TABLE IF NOT EXISTS`.
+Their database had simply never been brought up to date.
+
+The second error is the instructive one. `chat_sessions` *did* exist, from an
+older schema. `CREATE TABLE IF NOT EXISTS` therefore skipped it, and the newer
+`project_id` column was never added. The table looks present and is quietly
+behind the code. Nothing warns about it.
+
+The root cause is the README: it asked for eight separate commands in the right
+order (`db:schema:apply` plus seven `db:migrate:*`), with nothing verifying the
+result. Missing any one produced a working dev server that broke at the first
+request. That is a process defect, not a user error.
+
+### Fixed
+
+`scripts/db-migrate.mjs`, wired as `npm run db:migrate`. Applies `db/schema.sql`
+then every numbered migration in filename order, each in its own transaction so
+a failure cannot half-apply. Afterwards it verifies the five objects the app
+requests on first load actually exist — including the two that broke here —
+because a migration that runs without producing what it promised is exactly the
+failure this is meant to catch.
+
+Also added to `dev:local`, which now runs start → migrate → seed login → dev. It
+costs 0.4s on an already-current database, which is cheap for making this class
+of bug unable to reach a running app.
+
+The seven per-migration scripts stay for targeted use; the docs no longer point
+at them.
+
+### Verified against a reproduction, not a fresh database
+
+Fresh-database tests would have passed while the reported bug survived, so I
+rebuilt their exact state first: `chat_sessions` from an older schema with no
+`project_id`, and no `market_projects` at all.
+
+- Repaired that database: 12 files applied, 47 tables, all 5 required objects.
+- The two failing queries from their log both run afterwards.
+- Idempotent: second run on the now-current database is clean.
+- Empty database: same result.
+- Missing `DATABASE_URL` → points at README step 4.
+- Refused connection → names host and port and suggests `db:local:start`.
+  A refused connection carries an empty `message` and only a `code`, so the
+  first version of this printed a blank line and explained nothing.
+- Scratch databases dropped. 851 tests pass, ESLint clean.
+
+### Docs
+
+README now teaches one command, states **run it after every `git pull`**, quotes
+both errors verbatim so they are searchable, and explains why the column one
+looks so strange. `AGENTS.md` and the script table updated. No references to
+`db:schema:apply` remain in any doc.

@@ -63,7 +63,7 @@ so it cannot collide with anything else you already run.
 
 ```bash
 npm run db:local:start     # starts it
-npm run db:schema:apply    # creates all tables
+npm run db:migrate         # creates every table, column, and index
 npm run db:local:status    # confirms it is up
 ```
 
@@ -86,26 +86,39 @@ docker run -d --name veracity-db \
   -p 5432:5432 \
   pgvector/pgvector:pg17
 
-npm run db:schema:apply
+npm run db:migrate
 ```
 
 ### Option C — a hosted database
 
 Any PostgreSQL 14+ with pgvector works (Supabase, Neon, RDS). Put its
-connection string in `DATABASE_URL` and run `npm run db:schema:apply`.
+connection string in `DATABASE_URL` and run `npm run db:migrate`.
 
-### Apply the migrations
+### Keeping the database up to date
 
-After the schema, run these once. Each is safe to re-run.
+`npm run db:migrate` is the only database command you need. It applies the
+schema and every migration in order, and it is safe to run as often as you
+like — a database that is already current comes out unchanged.
+
+**Run it after every `git pull`.** `npm run dev:local` runs it for you.
+
+If you skip it, the app still starts cleanly and then fails on the first
+request with a raw Postgres error:
+
+```
+error: relation "market_projects" does not exist
+error: column "project_id" does not exist
+```
+
+That second one is the confusing case. Your `chat_sessions` table already
+existed, so `CREATE TABLE IF NOT EXISTS` skipped it and the newer column was
+never added. The table is there; it is just older than the code. `db:migrate`
+repairs it in place without touching your data.
+
+Both errors mean the same thing every time:
 
 ```bash
-npm run db:migrate:market-projects
-npm run db:migrate:project-history
-npm run db:migrate:project-decisions
-npm run db:migrate:evidence-ledger
-npm run db:migrate:swarm-scenarios
-npm run db:migrate:entity-ownership
-npm run db:migrate:conversation-summaries
+npm run db:migrate
 ```
 
 ## 4. Configure your keys
@@ -380,12 +393,9 @@ This checkout can use its own PostgreSQL 17 + pgvector cluster under the git-ign
 ```bash
 npm run db:local:status
 npm run db:local:start
-npm run db:schema:apply
-npm run db:migrate:market-projects
-npm run db:migrate:project-history
-npm run db:migrate:project-decisions
+npm run db:migrate      # schema + every migration, idempotent
 npm run db:local:stop
-npm run dev:local             # start the local DB if needed, then start Next.js
+npm run dev:local       # start + migrate + seed login + dev server             # start the local DB if needed, then start Next.js
 ```
 
 The active `.env` must point `DATABASE_URL` at that cluster. The database files and credentials are local development state and must never be committed.
@@ -427,7 +437,8 @@ npm run test:e2e:live-research
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Next.js dev server |
-| `npm run dev:local` | Local Postgres + seeded dev login + dev server |
+| `npm run dev:local` | Local Postgres + migrate + seeded dev login + dev server |
+| `npm run db:migrate` | Apply schema and every migration in order. Idempotent — run after each `git pull` |
 | `npm run dev:seed` | Create/reset the `admin@local.com` dev login (loopback databases only) |
 | `npm run dev:full` | App + MiroFish side-by-side |
 | `npm run mirofish` | MiroFish Flask service only |
