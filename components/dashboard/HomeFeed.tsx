@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { listMarketProjects, type MarketProject } from '@/lib/projects';
 import { importanceOf } from '@/lib/ux/vocabulary';
+import { CoverageBar } from '@/components/dashboard/HomeCharts';
+import { MarketExplorer } from '@/components/dashboard/MarketExplorer';
 
 interface ResearchSession {
   id: string;
@@ -42,6 +44,7 @@ interface HomeFeedProps {
   onOpenProject: (project: MarketProject) => void;
   onStartTracking: () => void;
   onOpenSession?: (sessionId: string) => void;
+  /** Put a question into the conversation. The only path here that costs. */
   onLaunchQuery?: (query: string) => void;
 }
 
@@ -94,9 +97,29 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           const response = await fetch(`/api/projects/${project.id}/dashboard`, {
             credentials: 'include',
           });
+          /*
+            A project that no longer exists is not an error to report — it is a
+            row that should not be on screen. This happens whenever the list was
+            fetched before something was deleted elsewhere: the page kept
+            rendering the stale row and showed a 404 against it forever.
+
+            Returning null drops it from the feed instead.
+          */
+          if (response.status === 404) {
+            setFeeds((prev) => (prev ?? []).filter((feed) => feed.project.id !== project.id));
+            return;
+          }
           if (!response.ok) {
+            // The raw response body is JSON meant for a developer. Keep it in
+            // the console, where it is useful, and tell the reader what it
+            // means for them.
             const body = await response.text().catch(() => '');
-            throw new Error(`${response.status}${body ? ` — ${body.slice(0, 140)}` : ''}`);
+            console.error(`dashboard ${project.id} failed: ${response.status} ${body}`);
+            throw new Error(
+              response.status >= 500
+                ? 'the server had a problem'
+                : `we could not load it (${response.status})`,
+            );
           }
           const payload = await response.json();
           const data = payload?.data ?? payload;
@@ -153,25 +176,23 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
     }
   };
 
-  if (feeds === null) {
-    return (
-      <div className="flex flex-col gap-4">
-        {[0, 1].map((i) => (
-          <div key={i} className="veracity-card p-6 flex flex-col gap-3 animate-pulse">
-            <div className="h-4 w-1/3 rounded bg-accent/10" />
-            <div className="h-3 w-2/3 rounded bg-accent/10" />
-          </div>
-        ))}
-      </div>
-    );
-  }
+  /*
+    The page used to return nothing but two skeleton bars until the project list
+    arrived, so a slow response blanked the search box, the entry cards and the
+    recent conversations — none of which depend on that request. One pending
+    fetch should cost you one pending section, not the screen.
 
-  const totalChanges = feeds.reduce((sum, feed) => sum + feed.itemCount, 0);
-  const stillLoading = feeds.some((feed) => !feed.loaded);
-  const totalSources = feeds.reduce((sum, feed) => sum + feed.sourcesChecked, 0);
-  const totalStale = feeds.reduce((sum, feed) => sum + feed.staleCount, 0);
+    `loading` is now handled where the project rows render, further down.
+  */
+  const loadingProjects = feeds === null;
+  const feedList = feeds ?? [];
 
-  const filteredFeeds = feeds.filter((feed) => {
+  const totalChanges = feedList.reduce((sum, feed) => sum + feed.itemCount, 0);
+  const stillLoading = feedList.some((feed) => !feed.loaded);
+  const totalSources = feedList.reduce((sum, feed) => sum + feed.sourcesChecked, 0);
+  const totalStale = feedList.reduce((sum, feed) => sum + feed.staleCount, 0);
+
+  const filteredFeeds = feedList.filter((feed) => {
     if (activeFilter === 'changes') return feed.itemCount > 0;
     if (activeFilter === 'stale') return feed.staleCount > 0 || !feed.ok;
     return true;
@@ -201,7 +222,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
               <p className="text-xs text-muted-foreground">Ask any research question to launch 6 specialist agents immediately</p>
             </div>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-[11px] font-semibold text-accent hidden sm:inline-block">
+          <span className="px-2.5 py-0.5 rounded-full border border-border text-[11px] font-medium text-muted-foreground hidden sm:inline-block">
             Autonomous Swarm Active
           </span>
         </div>
@@ -238,7 +259,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
                 key={idx}
                 type="button"
                 onClick={() => onLaunchQuery?.(prompt.label)}
-                className="px-3 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/20 border border-accent/25 text-xs text-foreground font-medium transition-all hover:scale-[1.02] cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl border border-border hover:border-accent/40 text-xs text-foreground font-medium transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Icon size={12} className="text-accent shrink-0" />
                 <span>{prompt.label}</span>
@@ -259,8 +280,10 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
                 : 'Nothing has moved'}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Across {feeds.length} tracked {feeds.length === 1 ? 'company' : 'companies'}.
-            We checked every source and compared it against what we already had.
+            {loadingProjects
+              ? 'Loading the companies you track…'
+              : `Across ${feedList.length} tracked ${feedList.length === 1 ? 'company' : 'companies'}. ` +
+                'We checked every source and compared it against what we already had.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -276,7 +299,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           <button
             type="button"
             onClick={onStartTracking}
-            className="flex items-center gap-1.5 rounded-xl border border-accent/30 bg-accent/10 px-3.5 py-2 text-xs font-bold text-accent hover:bg-accent/20 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors cursor-pointer"
           >
             <Plus size={13} /> Track another
           </button>
@@ -289,18 +312,18 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           onClick={() => setActiveFilter('all')}
           className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
             activeFilter === 'all'
-              ? 'bg-accent/15 border-accent shadow-md ring-2 ring-accent/20'
+              ? 'bg-accent/5 border-accent'
               : 'bg-card border-border hover:border-accent/40'
           }`}
           style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
         >
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Companies</p>
-            <span className="text-[10px] font-mono font-bold text-accent bg-accent/15 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-mono text-muted-foreground">
               {activeFilter === 'all' ? 'Filtered' : 'View All'}
             </span>
           </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{feeds.length}</p>
+          <p className="text-2xl font-bold text-foreground tabular-nums">{feedList.length}</p>
           <p className="text-xs text-muted-foreground">being watched for you</p>
         </div>
 
@@ -320,14 +343,14 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           onClick={() => setActiveFilter(activeFilter === 'changes' ? 'all' : 'changes')}
           className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
             activeFilter === 'changes'
-              ? 'bg-accent/15 border-accent shadow-md ring-2 ring-accent/20'
+              ? 'bg-accent/5 border-accent'
               : 'bg-card border-border hover:border-accent/40'
           }`}
           style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
         >
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Changes</p>
-            <span className="text-[10px] font-mono font-bold text-accent bg-accent/15 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-mono text-muted-foreground">
               {activeFilter === 'changes' ? 'Active Filter' : 'Filter Changes'}
             </span>
           </div>
@@ -339,21 +362,40 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           onClick={() => setActiveFilter(activeFilter === 'stale' ? 'all' : 'stale')}
           className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
             activeFilter === 'stale'
-              ? 'bg-amber-500/15 border-amber-500 shadow-md'
+              ? 'bg-accent/5 border-accent'
               : 'bg-card border-border hover:border-accent/40'
           }`}
           style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
         >
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Health Status</p>
-            <ShieldCheck size={14} className={totalStale > 0 ? 'text-amber-500' : 'text-emerald-500'} />
+            <ShieldCheck size={14} className={totalStale > 0 ? 'text-[var(--evidence-derived)]' : 'text-muted-foreground'} />
           </div>
           <p className="text-2xl font-bold text-foreground tabular-nums">{totalStale}</p>
           <p className="text-xs text-muted-foreground">{totalStale === 0 ? 'every source responded' : 'sources that failed'}</p>
         </div>
       </div>
 
+      {/*
+        Coverage says nothing at all when every source answered — a bar at
+        100% draws the eye to the one thing needing no attention.
+      */}
+      <CoverageBar total={totalSources} failed={totalStale} />
+
+      {/*
+        The front door into a market. Everything behind these cards is
+        already-collected data; only a follow-up costs anything.
+      */}
+      <MarketExplorer onAsk={(question) => onLaunchQuery?.(question)} />
+
       {/* 4. Interactive Project Cards List */}
+      {loadingProjects && [0, 1].map((i) => (
+        <div key={`skeleton-${i}`} className="veracity-card p-5 sm:p-6 flex flex-col gap-3">
+          <div className="h-4 w-1/3 rounded skeleton" />
+          <div className="h-3 w-2/3 rounded skeleton" />
+        </div>
+      ))}
+
       {filteredFeeds.map((feed) => (
         <div
           key={feed.project.id}
@@ -366,7 +408,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
                 <h2 className="text-base font-bold text-foreground truncate">
                   {feed.project.product}
                 </h2>
-                <span className="text-[10px] font-mono font-bold text-accent bg-accent/15 px-2 py-0.5 rounded border border-accent/25">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-border px-2 py-0.5 rounded">
                   Tracked Baseline
                 </span>
               </div>
@@ -380,7 +422,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
               <button
                 type="button"
                 onClick={() => onLaunchQuery?.(`Run full competitor benchmark for ${feed.project.product}`)}
-                className="px-3 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/20 border border-accent/25 text-xs text-accent font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl border border-border text-xs text-muted-foreground hover:text-foreground hover:border-accent/40 font-medium transition-colors cursor-pointer flex items-center gap-1"
               >
                 <Search size={12} /> Quick Research
               </button>
@@ -395,15 +437,25 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           </div>
 
           {!feed.loaded ? (
-            <div className="h-3 w-1/3 rounded bg-accent/10 animate-pulse" />
+            <div className="h-3 w-1/3 rounded skeleton" />
           ) : !feed.ok ? (
-            <p className="flex items-start gap-2 text-xs text-amber-500 font-medium">
+            <p className="flex items-start gap-2 text-xs text-[var(--evidence-unsupported)]">
               <AlertCircle size={14} className="shrink-0 mt-px" />
-              <span>Could not read this company&apos;s history — {feed.error}</span>
+              <span>
+                We could not load this company&apos;s history — {feed.error}.
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="underline hover:no-underline"
+                >
+                  Try again
+                </button>
+              </span>
             </p>
           ) : feed.itemCount === 0 ? (
-            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-              <Check size={16} className="text-emerald-500 shrink-0" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Check size={15} className="text-[var(--evidence-measured)] shrink-0" />
               <span>Nothing changed. We checked and everything is where you left it.</span>
             </div>
           ) : (
@@ -462,7 +514,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
               <h2 className="text-base font-bold text-foreground">Pick up where you left off</h2>
               <p className="text-xs text-muted-foreground">Click any past research session to resume instantly</p>
             </div>
-            <span className="text-xs font-mono font-bold text-accent bg-accent/15 px-2.5 py-1 rounded-full border border-accent/25">
+            <span className="text-xs font-mono text-muted-foreground">
               {sessions.length} Recent Sessions
             </span>
           </div>
@@ -472,10 +524,10 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
               <div
                 key={session.id}
                 onClick={() => onOpenSession?.(session.id)}
-                className="group relative p-3.5 rounded-xl bg-accent/5 border border-border/50 hover:border-accent/40 flex items-center justify-between gap-3 cursor-pointer transition-all hover:bg-accent/10"
+                className="group relative p-3.5 rounded-xl border border-border hover:border-accent/40 flex items-center justify-between gap-3 cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/25 flex items-center justify-center text-accent shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
                     <Search size={14} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -492,7 +544,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
                   <button
                     type="button"
                     onClick={(e) => handleDeleteSession(session.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:text-red-600 hover:bg-red-500/15 rounded-lg transition-all cursor-pointer"
+                    className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-[var(--evidence-unsupported)] rounded-lg transition-colors cursor-pointer"
                     title="Delete research session"
                   >
                     <Trash2 size={13} />
