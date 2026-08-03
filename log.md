@@ -3221,3 +3221,31 @@ research is a commodity** — ChatGPT, Perplexity and Gemini Deep Research all d
 it better than we will. What none of them do is remember what was true last
 month. Veracity is a monitoring product, and the chat box was the commodity
 surface it was leading with.
+
+## 2026-08-03 — Multi-industry demo data
+
+`seed:demo` now seeds three projects across three industries — ride-hailing, tea
+export, apparel — to make the point that this is not a SaaS tool. Competitive
+pressure has the same shape for a tea exporter as for a ride-hailing app: someone
+moved a price, shipped a capability, or changed who they sell to, and you found
+out late. The pipeline does not know which industry it is reading.
+
+```
+PickMe vs Uber        3 checked · 2 changed · 1 unchanged · 4 material
+Ceylon tea exporters  3 checked · 2 changed · 1 unchanged · 2 material
+Apparel manufacturing 2 checked · 2 changed · 0 unchanged · 0 material
+14 snapshots · 54 evidence spans · 24 metric observations · 8 change events
+```
+
+Apparel detecting changes but clearing **zero** material is deliberate and left
+as is: real recycled-content and lead-time movements that score below the floor.
+A demo where everything is urgent teaches a user that nothing is.
+
+Two projects carry an unchanged competitor, so the short circuit is visible more
+than once.
+
+Remaining prototype scope is recorded in `plans/UI_REDESIGN_PLAN.md` — clarifying
+questions before a sweep, non-competitor modes, the agent animation firing once,
+Home charts, and density.
+
+871 passed, 1 skipped; ESLint 0 errors.

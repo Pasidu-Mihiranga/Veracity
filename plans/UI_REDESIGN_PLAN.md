@@ -287,3 +287,59 @@ and 2: routing users to the right surface, and knowing when to show less.
 - [SaaS dashboard design examples & trends 2026 — AdminLTE](https://adminlte.io/blog/saas-dashboard-design-examples/)
 - Palette validated with the data-viz skill's `validate_palette.js`; WCAG ratios
   computed against `#FFFFFF` and `#F8FAFC`.
+
+---
+
+# Appendix — Prototype scope, requested 2026-08-03
+
+Recorded because it exceeds one working session. Ordered by demo value.
+
+## Done
+
+- **Multi-industry seed** — `npm run seed:demo`. Three projects (ride-hailing,
+  tea export, apparel), 8 pages, 14 snapshots, 54 evidence spans, 24 metric
+  observations, 8 change events, 6 material. Real pipeline; only `fetchPage` is
+  canned.
+- **Extraction fixed** — the prompt never named its output fields, so every
+  extraction failed schema validation and the ledger was permanently empty.
+- **Pricing vocabulary** — `fare`, `fee`, `tariff`, `rate` now classify as
+  pricing. Without them a competitor fare rise scored 0.2 and was withheld.
+
+## Not done
+
+### 1. Clarifying questions before a sweep
+When a user asks for a comparison, ask back what they actually want scoped:
+local demand · market saturation · global gap · capital requirements ·
+regulatory exposure. Agentic-UX research calls this *plan-before-execute*, and
+it is the single highest-value addition: it converts a vague prompt into a
+scoped run and makes the agent look like it is thinking rather than guessing.
+
+`lib/agents/orchestrator.ts` already classifies intent; this is a new turn type
+that returns questions instead of dispatching.
+
+### 2. Non-competitor modes
+Idea evaluation, market-trend scan, regulatory scan, capital-raising landscape.
+The six agents already cover the reasoning; what is missing is the *intent* that
+routes to them without a competitor named.
+
+### 3. Agent run animation fires once
+Reported: the parallel-agent animation plays on the first run only. Likely a
+mount-once effect keyed on something stable across runs. Needs a repro.
+
+### 4. Home dashboard depth
+Stat tiles and research history exist. Missing: charts (blocked until a project
+has two collection runs — now true after `seed:demo`, so this is unblocked),
+shortcuts, and per-company sparklines.
+
+### 5. Density and visual polish
+The reference set (Efferd, Firecrawl, Claude desktop) shares one property: each
+screen does one job. Veracity still stacks.
+
+## The pivot to justify in the submission
+
+One-off research is a commodity — ChatGPT, Perplexity and Gemini Deep Research
+do it better. None of them remember what was true last month. Veracity is a
+**monitoring** product; the chat box was the commodity surface it led with.
+`seed:demo` now demonstrates the difference: a competitor's fare moved, we hold
+the sentence that proves it, and the unchanged competitor short-circuits without
+paying for extraction.

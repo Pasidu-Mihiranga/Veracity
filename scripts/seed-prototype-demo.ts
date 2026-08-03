@@ -33,7 +33,7 @@ async function main() {
   const { query } = await import('@/lib/db');
   const { runCollection } = await import('@/lib/intelligence/collection-run');
   const { createProjectPorts } = await import('@/lib/intelligence/project-collection');
-  const { CANNED_PAGES, cannedPage } = await import('./seeds/prototype-pages');
+  const { CANNED_PAGES, DEMO_PROJECTS, cannedPage } = await import('./seeds/prototype-pages');
 
   const EMAIL = process.argv[2] ?? process.env.DEV_SEED_EMAIL ?? 'admin@local.com';
 
@@ -53,139 +53,116 @@ async function main() {
 
   // ── The project ─────────────────────────────────────────────────────────────
 
-  const PROJECT_NAME = 'PickMe vs Uber';
+  let totalMaterial = 0;
 
-  const { rows: projects } = await query<{ id: string }>(
-    `INSERT INTO market_projects
-       (user_id, name, product, product_url, competitors, geography, decision_context,
-        approved_sources, blocked_sources)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, '{}', '{}')
-     ON CONFLICT (user_id, name) DO UPDATE SET
-       product = EXCLUDED.product,
-       product_url = EXCLUDED.product_url,
-       competitors = EXCLUDED.competitors,
-       decision_context = EXCLUDED.decision_context,
-       updated_at = now()
-     RETURNING id`,
-    [
-      userId,
-      PROJECT_NAME,
-      'PickMe',
-      'https://pickme.lk',
-      ['Uber'],
-      'Sri Lanka',
-      'Whether to match a competitor fare increase or hold price and compete on availability.',
-    ],
-  );
-  const projectId = projects[0].id;
-  process.stdout.write(`\n  Project: ${PROJECT_NAME} (${projectId})\n`);
-
-  // ── Sources ─────────────────────────────────────────────────────────────────
-
-  /**
-   * Entity ids must be stable across both runs, or the second run has nothing to
-   * diff against and every change reads as new.
-   *
-   * This mirrors production's `resolveEntity` exactly — same `scope_key` and
-   * `entity_key` derivation — so the rows the seed creates are indistinguishable
-   * from ones a live collection would have made, and the unique index
-   * (user_id, scope_key, entity_type, entity_key) is the one being honoured.
-   */
-  async function entityIdFor(label: string, role: 'product' | 'competitor'): Promise<string> {
-    const entityKey = label.trim().toLowerCase().replace(/\s+/g, '-');
-    const scopeKey = `project:${projectId}`;
-
-    const existing = await query<{ id: string }>(
-      `SELECT id FROM canonical_entities
-        WHERE user_id = $1 AND scope_key = $2 AND entity_key = $3 AND entity_type = $4`,
-      [userId, scopeKey, entityKey, role],
-    );
-    if (existing.rows[0]) return existing.rows[0].id;
-
-    const created = await query<{ id: string }>(
-      `INSERT INTO canonical_entities (user_id, scope_key, entity_key, entity_type, display_name)
-       VALUES ($1, $2, $3, $4, $5)
+  for (const demo of DEMO_PROJECTS) {
+    const { rows: projects } = await query<{ id: string }>(
+      `INSERT INTO market_projects
+         (user_id, name, product, product_url, competitors, geography, decision_context,
+          approved_sources, blocked_sources)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '{}', '{}')
+       ON CONFLICT (user_id, name) DO UPDATE SET
+         product = EXCLUDED.product,
+         product_url = EXCLUDED.product_url,
+         competitors = EXCLUDED.competitors,
+         geography = EXCLUDED.geography,
+         decision_context = EXCLUDED.decision_context,
+         updated_at = now()
        RETURNING id`,
-      [userId, scopeKey, entityKey, role, label.trim()],
+      [userId, demo.name, demo.product, demo.productUrl, demo.competitors,
+       demo.geography, demo.decisionContext],
     );
-    return created.rows[0].id;
-  }
+    const projectId = projects[0].id;
+    process.stdout.write(`\n  ${demo.name}\n`);
 
-  const entityIds = new Map<string, string>();
-  for (const label of [...new Set(CANNED_PAGES.map((p) => p.entityLabel))]) {
-    entityIds.set(label, await entityIdFor(label, label === 'PickMe' ? 'product' : 'competitor'));
-  }
-
-  const sources = CANNED_PAGES.map((page) => ({
-    url: page.url,
-    sourceType: page.url.includes('pricing') ? 'pricing' : 'changelog',
-    entityId: entityIds.get(page.entityLabel)!,
-    entityLabel: page.entityLabel,
-    isTracked: true,
-    sourceTrust: 'official' as const,
-  }));
-
-  // ── Two runs, a month apart ─────────────────────────────────────────────────
-
-  async function collect(phase: 'before' | 'after') {
-    const ports = createProjectPorts(userId, projectId);
-
-    const result = await runCollection(
-      sources,
-      {
-        ...ports,
-        // The ONLY thing replaced. Everything else is the production path.
-        fetchPage: async (url: string) => {
-          const content = cannedPage(url, phase);
-          return content ? { content, title: url } : null;
-        },
-      },
-      {
-        decisionFocus:
-          'Whether to match a competitor fare increase or hold price and compete on availability.',
-      },
-    );
-
-    for (const o of result.outcomes ?? []) {
-      process.stdout.write(`      ${o.status.padEnd(18)} ${o.url}\n`);
+    /**
+     * Entity ids must be stable across both runs, or the second run has nothing
+     * to diff against and every change reads as new. This mirrors production's
+     * `resolveEntity` exactly, so the rows are indistinguishable from ones a
+     * live collection would have written.
+     */
+    async function entityIdFor(label: string, role: 'product' | 'competitor') {
+      const entityKey = label.trim().toLowerCase().replace(/\s+/g, '-');
+      const scopeKey = `project:${projectId}`;
+      const existing = await query<{ id: string }>(
+        `SELECT id FROM canonical_entities
+          WHERE user_id = $1 AND scope_key = $2 AND entity_key = $3 AND entity_type = $4`,
+        [userId, scopeKey, entityKey, role],
+      );
+      if (existing.rows[0]) return existing.rows[0].id;
+      const created = await query<{ id: string }>(
+        `INSERT INTO canonical_entities (user_id, scope_key, entity_key, entity_type, display_name)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [userId, scopeKey, entityKey, role, label.trim()],
+      );
+      return created.rows[0].id;
     }
-    process.stdout.write(
-      `  ${phase.padEnd(6)} → ${result.stats.sourcesChecked} checked · ` +
-        `${result.stats.changed} changed · ${result.stats.unchanged} unchanged · ` +
-        `${result.materialChanges.length} material\n`,
+
+    const pages = CANNED_PAGES.filter((page) => demo.urls.includes(page.url));
+    const entityIds = new Map<string, string>();
+    for (const label of [...new Set(pages.map((p) => p.entityLabel))]) {
+      entityIds.set(
+        label,
+        await entityIdFor(label, label === demo.product ? 'product' : 'competitor'),
+      );
+    }
+
+    const sources = pages.map((page) => ({
+      url: page.url,
+      sourceType: /pricing|trade|wholesale|products/.test(page.url) ? 'pricing' : 'changelog',
+      entityId: entityIds.get(page.entityLabel)!,
+      entityLabel: page.entityLabel,
+      isTracked: true,
+      sourceTrust: 'official' as const,
+    }));
+
+    // Start clean. Re-running otherwise means the "before" pass sees hashes from
+    // the previous run, short-circuits, and there is no diff to show.
+    await query(`DELETE FROM source_snapshots WHERE project_id = $1 AND user_id = $2`,
+      [projectId, userId]);
+    await query(`DELETE FROM change_events WHERE project_id = $1 AND user_id = $2`,
+      [projectId, userId]);
+
+    async function collect(phase: 'before' | 'after') {
+      const ports = createProjectPorts(userId, projectId);
+      const result = await runCollection(
+        sources,
+        {
+          ...ports,
+          // The ONLY thing replaced. Everything else is the production path.
+          fetchPage: async (url: string) => {
+            const content = cannedPage(url, phase);
+            return content ? { content, title: url } : null;
+          },
+        },
+        { decisionFocus: demo.decisionContext },
+      );
+      process.stdout.write(
+        `    ${phase.padEnd(6)} → ${result.stats.sourcesChecked} checked · ` +
+          `${result.stats.changed} changed · ${result.stats.unchanged} unchanged · ` +
+          `${result.materialChanges.length} material\n`,
+      );
+      return result;
+    }
+
+    await collect('before');
+
+    // Backdate the first run so the second reads as "a month later". The digest
+    // window and the timeline both key off observed_at.
+    await query(
+      `UPDATE source_snapshots SET observed_at = now() - interval '31 days'
+        WHERE project_id = $1 AND user_id = $2`,
+      [projectId, userId],
     );
-    return result;
+    await query(
+      `UPDATE evidence_spans SET created_at = now() - interval '31 days'
+        WHERE snapshot_id IN (SELECT id FROM source_snapshots WHERE project_id = $1)`,
+      [projectId],
+    );
+
+    const second = await collect('after');
+    totalMaterial += second.materialChanges.length;
   }
-
-  // Start clean. Re-running otherwise means the "before" pass sees hashes from
-  // the previous run, short-circuits, and the demo has no diff to show.
-  await query(
-    `DELETE FROM source_snapshots WHERE project_id = $1 AND user_id = $2`,
-    [projectId, userId],
-  );
-  await query(
-    `DELETE FROM change_events WHERE project_id = $1 AND user_id = $2`,
-    [projectId, userId],
-  );
-
-  process.stdout.write('\n  Running the real collection pipeline twice\n');
-  await collect('before');
-
-  // Backdate the first run so the second reads as "a month later" rather than
-  // two runs in the same second. The digest window and the timeline both key off
-  // observed_at, so without this the demo has no sense of elapsed time.
-  await query(
-    `UPDATE source_snapshots SET observed_at = now() - interval '31 days'
-      WHERE project_id = $1 AND user_id = $2`,
-    [projectId, userId],
-  );
-  await query(
-    `UPDATE evidence_spans SET created_at = now() - interval '31 days'
-      WHERE snapshot_id IN (SELECT id FROM source_snapshots WHERE project_id = $1)`,
-    [projectId],
-  );
-
-  const second = await collect('after');
 
   // ── What the demo will show ─────────────────────────────────────────────────
 
@@ -193,16 +170,16 @@ async function main() {
     snapshots: string; spans: string; observations: string; changes: string;
   }>(
     `SELECT
-       (SELECT count(*) FROM source_snapshots WHERE project_id = $1) AS snapshots,
+       (SELECT count(*) FROM source_snapshots WHERE user_id = $1) AS snapshots,
        (SELECT count(*) FROM evidence_spans s
           JOIN source_snapshots snap ON snap.id = s.snapshot_id
-         WHERE snap.project_id = $1) AS spans,
+         WHERE snap.user_id = $1) AS spans,
        (SELECT count(*) FROM metric_observations o
           JOIN evidence_spans s ON s.id = o.evidence_span_id
           JOIN source_snapshots snap ON snap.id = s.snapshot_id
-         WHERE snap.project_id = $1) AS observations,
-       (SELECT count(*) FROM change_events WHERE project_id = $1) AS changes`,
-    [projectId],
+         WHERE snap.user_id = $1) AS observations,
+       (SELECT count(*) FROM change_events WHERE user_id = $1) AS changes`,
+    [userId],
   );
 
   const c = counts[0];
@@ -221,7 +198,7 @@ async function main() {
 
   process.stdout.write(
     `\n  Ready. Sign in as ${EMAIL} and open Home.\n` +
-      `  ${second.materialChanges.length} change${second.materialChanges.length === 1 ? '' : 's'} ` +
+      `  ${totalMaterial} change${totalMaterial === 1 ? '' : 's'} ` +
       'cleared the materiality floor.\n\n',
   );
   process.exit(0);

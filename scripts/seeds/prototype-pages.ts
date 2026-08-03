@@ -23,6 +23,19 @@
  *    moved" is a real finding rather than an absence of data.
  */
 
+export interface DemoProject {
+  /** Project name shown in the sidebar. */
+  name: string;
+  /** The company whose position the user holds. */
+  product: string;
+  productUrl: string;
+  competitors: string[];
+  geography: string;
+  decisionContext: string;
+  /** Which canned pages belong to this project. */
+  urls: string[];
+}
+
 export interface CannedPage {
   url: string;
   entityLabel: string;
@@ -31,6 +44,59 @@ export interface CannedPage {
   /** What it says now. Identical to `before` when nothing changed. */
   after: string;
 }
+
+/**
+ * Three projects across three industries.
+ *
+ * The point of the spread is that this is not a SaaS tool. Competitive pressure
+ * is the same shape for a tea exporter, a garment manufacturer and a ride-hailing
+ * app: someone moved a price, shipped a capability, or changed who they sell to,
+ * and you found out late. The pipeline does not know or care which industry it
+ * is reading.
+ */
+export const DEMO_PROJECTS: DemoProject[] = [
+  {
+    name: 'PickMe vs Uber',
+    product: 'PickMe',
+    productUrl: 'https://pickme.lk',
+    competitors: ['Uber'],
+    geography: 'Sri Lanka',
+    decisionContext:
+      'Whether to match a competitor fare increase or hold price and compete on availability.',
+    urls: [
+      'https://pickme.lk/pricing',
+      'https://pickme.lk/changelog',
+      'https://uber.com/lk/en/ride/how-it-works',
+    ],
+  },
+  {
+    name: 'Ceylon tea exporters',
+    product: 'Dilmah',
+    productUrl: 'https://dilmahtea.com',
+    competitors: ['Akbar Brothers', 'Mlesna'],
+    geography: 'Sri Lanka · export',
+    decisionContext:
+      'Whether to move into direct-to-consumer export or hold the bulk wholesale channel.',
+    urls: [
+      'https://dilmahtea.com/trade',
+      'https://akbar.lk/products',
+      'https://mlesna.com/wholesale',
+    ],
+  },
+  {
+    name: 'Apparel manufacturing',
+    product: 'MAS Holdings',
+    productUrl: 'https://masholdings.com',
+    competitors: ['Brandix'],
+    geography: 'Sri Lanka · apparel',
+    decisionContext:
+      'Whether to invest in sustainable-materials capacity ahead of EU regulatory deadlines.',
+    urls: [
+      'https://masholdings.com/capabilities',
+      'https://brandix.com/sustainability',
+    ],
+  },
+];
 
 export const CANNED_PAGES: CannedPage[] = [
   {
@@ -113,6 +179,94 @@ Request a ride from the app and get matched with a nearby driver.
 UberGo and UberXL are available in Colombo, Kandy and Galle.
 Fares are calculated from time and distance, plus a base fare and booking fee.
 Pay with cash or card. Upfront pricing is shown before you confirm.`,
+  },
+  {
+    url: 'https://dilmahtea.com/trade',
+    entityLabel: 'Dilmah',
+    before: `Trade and Wholesale
+
+Bulk Ceylon black tea, minimum order 500 kg.
+Indicative price USD 4.20 per kg FOB Colombo.
+Lead time 21 days from confirmed order.
+Certifications: Ozone Friendly, Ethical Tea Partnership.
+Packing: 50 kg multiwall paper sacks.`,
+    after: `Trade and Wholesale
+
+Bulk Ceylon black tea, minimum order 250 kg.
+Indicative price USD 5.10 per kg FOB Colombo.
+Lead time 14 days from confirmed order.
+Certifications: Ozone Friendly, Ethical Tea Partnership, EU Organic, Rainforest Alliance.
+Packing: 50 kg multiwall paper sacks, or retail-ready cartons for direct export.
+
+New: direct-to-consumer fulfilment for EU and UK orders, shipped from Colombo.`,
+  },
+  {
+    url: 'https://akbar.lk/products',
+    entityLabel: 'Akbar Brothers',
+    before: `Product Range
+
+Ceylon black tea in bulk and value-added packs.
+Minimum order 1000 kg for bulk grades.
+Indicative price USD 3.90 per kg FOB Colombo.
+Private label available for orders above 5000 kg.`,
+    after: `Product Range
+
+Ceylon black tea in bulk and value-added packs.
+Minimum order 1000 kg for bulk grades.
+Indicative price USD 4.60 per kg FOB Colombo.
+Private label available for orders above 3000 kg.
+Green tea and flavoured ranges added for export markets.`,
+  },
+  {
+    url: 'https://mlesna.com/wholesale',
+    entityLabel: 'Mlesna',
+    // Unchanged on purpose, so the short circuit is visible in a second project.
+    before: `Wholesale
+
+Ceylon tea in gift and retail packaging.
+Minimum order 200 kg.
+Indicative price USD 6.40 per kg FOB Colombo.
+Boutique and duty-free channels supported.`,
+    after: `Wholesale
+
+Ceylon tea in gift and retail packaging.
+Minimum order 200 kg.
+Indicative price USD 6.40 per kg FOB Colombo.
+Boutique and duty-free channels supported.`,
+  },
+  {
+    url: 'https://masholdings.com/capabilities',
+    entityLabel: 'MAS Holdings',
+    before: `Capabilities
+
+Apparel manufacturing across intimates, sportswear and performance wear.
+52 manufacturing facilities across 17 countries.
+Lead time 45 days for standard programmes.
+Recycled polyester content across 22 percent of output.`,
+    after: `Capabilities
+
+Apparel manufacturing across intimates, sportswear and performance wear.
+54 manufacturing facilities across 17 countries.
+Lead time 38 days for standard programmes.
+Recycled polyester content across 41 percent of output.
+
+New: digital product passport support ahead of EU ESPR requirements.
+Closed-loop water treatment at 12 facilities.`,
+  },
+  {
+    url: 'https://brandix.com/sustainability',
+    entityLabel: 'Brandix',
+    before: `Sustainability
+
+Water usage reduced 34 percent against a 2019 baseline.
+Recycled material content across 18 percent of output.
+Six facilities certified LEED Platinum.`,
+    after: `Sustainability
+
+Water usage reduced 41 percent against a 2019 baseline.
+Recycled material content across 29 percent of output.
+Nine facilities certified LEED Platinum.
+Committed to EU digital product passport readiness by 2027.`,
   },
 ];
 
