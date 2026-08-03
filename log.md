@@ -3055,3 +3055,47 @@ derived) plus two new guards for N-company support and the placeholder ban.
 The reported "home page looks like chat history" — density and hierarchy of the
 feed itself. And the Research tab still stacks project panels above the
 conversation.
+
+## 2026-08-03 — Home was a headline and one card
+
+Reported repeatedly: the landing screen looks blank. It was — a headline, a
+subtitle, and one card that on a quiet week said "Nothing changed". No sense that
+anything was being watched, and nowhere to go.
+
+Researched what a competitive-intelligence landing screen carries (Klue, Valona,
+Klipfolio; sources in `plans/UI_REDESIGN_PLAN.md`). Consistent answer: KPI tiles,
+recent activity, and a route back into prior work — teams use the dashboard to
+see shifts faster than reading individual reports, and to jump from a number into
+the thing behind it.
+
+### Added
+
+**Four stat tiles.** Companies watched · Sources read · Changes · Could not read.
+These say what the system is doing for you even when the answer is "nothing
+moved", which is the state the old screen handled worst. Each tile carries a
+label *and* what it counts, because a bare figure is decoration — nobody can tell
+whether "9" is good.
+
+"Could not read" is deliberately its own tile rather than folded into a total.
+"We looked and nothing changed" and "we could not look" mean opposite things and
+the product must never merge them.
+
+**Pick up where you left off.** Recent research sessions, clickable, switching to
+the Research tab and loading that session. This list existed only in the sidebar,
+which is hidden outside the Research tab — so from Home there was no way back to
+your own work. That is what made the whole screen feel like a dead end.
+
+The route already returned `sourcesChecked` and `staleSources`; the first version
+of this component threw both away.
+
+### Verified
+
+862 passed, 1 skipped; typecheck clean; ESLint 0 errors; dev compiles with no
+errors.
+
+### Still not done
+
+Charts on Home. The stat tiles are the honest floor — a chart needs a time series,
+and with one company and no collection runs there is nothing truthful to plot yet.
+Adding a chart now would mean inventing data, which is the one thing this product
+must not do.

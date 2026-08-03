@@ -21,6 +21,12 @@ import {
   ArrowRight, Plus, RefreshCw, Circle, AlertCircle, Check,
 } from 'lucide-react';
 import { listMarketProjects, type MarketProject } from '@/lib/projects';
+
+interface ResearchSession {
+  id: string;
+  title: string;
+  updated_at: string;
+}
 import { importanceOf } from '@/lib/ux/vocabulary';
 
 interface DigestItem {
@@ -45,11 +51,33 @@ interface ProjectFeed {
   error?: string;
   /** False while this company's own read is still in flight. */
   loaded: boolean;
+  /** Distinct sources we have read for this company. */
+  sourcesChecked: number;
+  /** Sources whose last fetch did not succeed — "we could not look". */
+  staleCount: number;
 }
 
 interface HomeFeedProps {
   onOpenProject: (project: MarketProject) => void;
   onStartTracking: () => void;
+  /** Reopen a past piece of research. */
+  onOpenSession?: (sessionId: string) => void;
+}
+
+/**
+ * One number and what it means.
+ *
+ * A figure with no unit and no explanation is decoration. Every tile says what
+ * it counts, so nobody has to guess whether "9" is good.
+ */
+function StatTile({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="veracity-card p-4 sm:p-5 flex flex-col gap-1">
+      <p className="ui-section-label text-muted-foreground">{label}</p>
+      <p className="text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+      <p className="text-xs text-muted-foreground">{detail}</p>
+    </div>
+  );
 }
 
 function relativeTime(iso: string): string {
@@ -63,9 +91,22 @@ function relativeTime(iso: string): string {
   return `${Math.floor(days / 30)} months ago`;
 }
 
-export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
+export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession }: HomeFeedProps) {
   const [feeds, setFeeds] = useState<ProjectFeed[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sessions, setSessions] = useState<ResearchSession[]>([]);
+
+  // Past research is how people navigate back to what they were doing. It was
+  // only reachable from the sidebar, which is hidden outside the Research tab.
+  useEffect(() => {
+    fetch('/api/sessions', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => {
+        const rows = payload?.data?.sessions ?? payload?.sessions ?? payload?.data ?? [];
+        if (Array.isArray(rows)) setSessions(rows.slice(0, 6));
+      })
+      .catch(() => setSessions([]));
+  }, []);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -78,6 +119,7 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
       setFeeds(
         projects.map((project) => ({
           project, headline: '', itemCount: 0, items: [], ok: true, loaded: false,
+          sourcesChecked: 0, staleCount: 0,
         })),
       );
 
@@ -96,7 +138,8 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
             );
           }
           const payload = await response.json();
-          const digest = payload?.data?.digest ?? payload?.digest;
+          const data = payload?.data ?? payload;
+          const digest = data?.digest;
           const items: DigestItem[] = (digest?.sections ?? []).flatMap(
             (section: { items: DigestItem[] }) => section.items ?? [],
           );
@@ -107,10 +150,13 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
             items: items.slice(0, 4),
             ok: true,
             loaded: true,
+            sourcesChecked: data?.sourcesChecked ?? 0,
+            staleCount: (data?.staleSources ?? []).length,
           };
         } catch (err) {
           next = {
             project, headline: '', itemCount: 0, items: [], ok: false, loaded: true,
+            sourcesChecked: 0, staleCount: 0,
             error: err instanceof Error ? err.message : String(err),
           };
         }
@@ -163,6 +209,8 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
 
   const totalChanges = feeds.reduce((sum, feed) => sum + feed.itemCount, 0);
   const stillLoading = feeds.some((feed) => !feed.loaded);
+  const totalSources = feeds.reduce((sum, feed) => sum + feed.sourcesChecked, 0);
+  const totalStale = feeds.reduce((sum, feed) => sum + feed.staleCount, 0);
 
   return (
     <div className="flex flex-col gap-5">
@@ -198,6 +246,35 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
             <Plus size={13} /> Track another
           </button>
         </div>
+      </div>
+
+      {/*
+        The numbers first. The landing screen was a headline and one card, so on a
+        quiet week it looked like a blank page and gave no sense that anything was
+        being watched at all. These four say what the system is doing for you even
+        when the answer is "nothing moved".
+      */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatTile
+          label="Companies"
+          value={String(feeds.length)}
+          detail="being watched for you"
+        />
+        <StatTile
+          label="Sources read"
+          value={String(totalSources)}
+          detail={totalSources === 0 ? 'no pages read yet' : 'pages we check each run'}
+        />
+        <StatTile
+          label="Changes"
+          value={String(totalChanges)}
+          detail="worth your attention"
+        />
+        <StatTile
+          label="Could not read"
+          value={String(totalStale)}
+          detail={totalStale === 0 ? 'every source responded' : 'sources that failed'}
+        />
       </div>
 
       {feeds.map((feed) => (
@@ -282,6 +359,38 @@ export function HomeFeed({ onOpenProject, onStartTracking }: HomeFeedProps) {
           )}
         </div>
       ))}
+
+      {/*
+        Past research, so the landing screen is somewhere you navigate *from*.
+        This list previously existed only in the sidebar, which is hidden outside
+        the Research tab — so from Home there was no way back to your own work.
+      */}
+      {sessions.length > 0 && (
+        <div className="veracity-card p-5 sm:p-6 flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold text-foreground">Pick up where you left off</h2>
+            <span className="text-xs text-muted-foreground">{sessions.length} recent</span>
+          </div>
+          <ul className="flex flex-col divide-y divide-border">
+            {sessions.map((session) => (
+              <li key={session.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenSession?.(session.id)}
+                  className="w-full text-left py-2.5 flex items-center justify-between gap-3 group"
+                >
+                  <span className="text-sm text-foreground truncate group-hover:text-accent transition-colors">
+                    {session.title}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {relativeTime(session.updated_at)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

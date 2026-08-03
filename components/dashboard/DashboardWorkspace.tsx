@@ -83,6 +83,8 @@ type Props = {
   onProjectCreated?: (project: MarketProject) => void;
   /** Home links into the research tab, so it needs to switch tabs. */
   onTopTabChange?: (tab: TopTab) => void;
+  /** Reopen a past research session from Home. */
+  onOpenSession?: (sessionId: string) => void;
   messages: ChatMessage[];
   followUps: FollowUp[];
   followUpEndRef: React.RefObject<HTMLDivElement | null>;
@@ -148,6 +150,7 @@ export function DashboardWorkspace({
   selectedProject,
   onProjectCreated,
   onTopTabChange,
+  onOpenSession,
   messages,
   followUps,
   followUpEndRef,
@@ -253,6 +256,10 @@ export function DashboardWorkspace({
                 onTopTabChange?.('intelligence');
               }}
               onStartTracking={() => onTopTabChange?.('intelligence')}
+              onOpenSession={(sessionId) => {
+                onOpenSession?.(sessionId);
+                onTopTabChange?.('intelligence');
+              }}
             />
           )}
           {topTab === 'usage' && (

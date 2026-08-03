@@ -319,6 +319,7 @@ export default function VeracityDashboard() {
           currentSessionId={currentSessionId}
           selectedProject={selectedProject}
           onTopTabChange={setTopTab}
+          onOpenSession={(id) => { void loadSession(id); }}
           onProjectCreated={(project) => {
             // Select it immediately so the dashboard, ledger, charts and
             // timeline render straight away, and refresh the sidebar list.
