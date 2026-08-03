@@ -3152,3 +3152,72 @@ Verified by removing the badge and confirming exactly one test fails.
 
 871 passed, 1 skipped (9 new); typecheck clean; ESLint 0 errors; build
 successful.
+
+## 2026-08-03 — Prototype seed, and the bug that made the ledger empty
+
+Switched to `dev2`. Prototype rules permit canned source data but require the
+agent logic to be real and running. `scripts/seed-prototype-demo.ts` honours
+both: it calls `runCollection` — the production pipeline — with the production
+ports from `createProjectPorts`, replacing **only** `fetchPage`. Hashing, the
+no-change short circuit, extraction, evidence spans, metric observations, change
+detection and materiality all execute unchanged.
+
+It runs twice, a month apart, because a single run cannot produce a change.
+
+### Two real production bugs, found by seeding
+
+**1. Extraction never worked. At all.**
+
+The extractor's prompt listed rules but never named the output fields. The model
+returned its own invention:
+
+```json
+{"excerpt":"…","entity":"PickMe","category":"Tuk pricing"}
+```
+
+`statement` is required, so **every extraction failed schema validation** and
+returned `status: 'failed'` with zero spans.
+
+This is why the evidence ledger has been empty the entire time, why every
+comparison rendered `UNSUPPORTED`, and why the coverage chart read "0 supported,
+42 unsupported". It was never a research-quality problem or a missing API key. It
+was a prompt that never stated its own schema.
+
+Fixed by declaring the exact shape in the prompt. Same page, same model:
+**5 spans, 0 hallucinated.**
+
+**2. Fare and fee were not recognised as price.**
+
+`metricKeyToEventType` matched `price`, `cost`, `plan`. A metric key of
+`base_fare` or `booking_fee` matched none, fell through to
+`documentation_changed`, scored 0.2, and sank below the 0.5 materiality floor —
+so a genuine competitor fare increase was detected, stored, and then silently
+withheld from the user.
+
+That is SaaS vocabulary imposed on every other industry: transport, logistics,
+utilities and banking all write price as fare, fee, tariff or rate. Added, along
+with `tier` and `subscription`.
+
+### Result
+
+```
+before → 3 checked · 3 new
+after  → 3 checked · 2 changed · 1 unchanged · 4 material
+5 snapshots · 21 evidence spans · 10 metric observations · 4 change events
+```
+
+The `unchanged` line is the one worth watching in a demo: Uber's page is byte
+identical across both runs, so the short circuit fires and no extraction is paid
+for. "We looked and nothing moved" is a real finding, produced by real code.
+
+### Verified
+
+871 passed, 1 skipped; typecheck clean; ESLint 0 errors.
+
+### On the product question
+
+The honest position, and the pivot to justify in the submission: **one-off
+research is a commodity** — ChatGPT, Perplexity and Gemini Deep Research all do
+it better than we will. What none of them do is remember what was true last
+month. Veracity is a monitoring product, and the chat box was the commodity
+surface it was leading with.

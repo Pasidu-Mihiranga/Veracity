@@ -223,7 +223,13 @@ async function structuredSpans(
 }
 
 /** Ports backed by real HTTP and the real ledger. */
-function createProjectPorts(userId: string, projectId: string): CollectionPorts {
+/**
+ * Exported so the prototype seed can reuse the real persistence path and
+ * override only `fetchPage`. Everything downstream — hashing, the no-change
+ * short circuit, extraction, evidence spans, metric observations, change
+ * detection and materiality — then runs exactly as it does in production.
+ */
+export function createProjectPorts(userId: string, projectId: string): CollectionPorts {
   return {
     async fetchPage(url) {
       try {

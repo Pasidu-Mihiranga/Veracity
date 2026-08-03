@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:seed": "node scripts/seed-dev-user.mjs",
+    "seed:demo": "npx tsx --env-file=.env scripts/seed-prototype-demo.ts",
     "dev:local": "npm run db:local:start && npm run db:migrate && npm run dev:seed && npm run dev",
     "db:setup": "psql -U postgres -h localhost -c \"CREATE DATABASE veracity;\" || true && psql -U postgres -h localhost -d veracity -f db/schema.sql",
     "db:migrate": "node scripts/db-migrate.mjs",
