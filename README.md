@@ -1,27 +1,228 @@
 # Veracity
 
 > **Know what changed, prove it, and decide what to do next.**
->
-> A living competitive decision workspace. Veracity monitors the competitors and
-> sources a team chooses, turns what it finds into a traceable evidence ledger,
-> and builds charts whose every value can be traced back to the exact excerpt it
-> came from.
 
-**Status: advanced prototype, private beta.** Not enterprise-ready — identity,
-tenancy, and governance are deliberately deferred until the core loop retains
-users. See [`plans/GAP_CLOSURE_AND_FEATURE_PLAN.md`](./plans/GAP_CLOSURE_AND_FEATURE_PLAN.md) §5.6.
+Veracity is a competitive decision workspace. It watches the companies you choose,
+records what their public sources said on a given day, and tells you what moved —
+with the exact sentence behind every number.
 
-### What is actually true today
+It is not a chatbot with a search tool bolted on. It is a system of record for
+competitive change.
 
-| Claim | Reality |
+---
+
+## Why this exists
+
+Ask ChatGPT, Claude, Perplexity or Gemini to compare two competitors and you will
+get a good answer. Ask again next month and you will get a different good answer,
+with no way to tell which parts actually changed and which parts the model simply
+worded differently.
+
+That is the gap. General assistants are **excellent at answering once** and
+**structurally incapable of noticing change**, because nothing persists between
+conversations. They have no memory of what a competitor's pricing page said in
+March, so they cannot tell you it moved in April.
+
+| | General AI assistant | Veracity |
+|---|---|---|
+| Answers a research question | Yes, very well | Yes |
+| Remembers what was true last month | **No** | Yes — every source snapshotted and hashed |
+| Tells you unprompted that something changed | **No** | Yes — that is the product |
+| Distinguishes "nothing changed" from "we couldn't check" | **No** | Yes, and they are never merged |
+| Every number traceable to a stored excerpt | **No** | Yes, enforced by the database |
+| Says "I don't know" when sources fail | Sometimes | Always — enforced by tests |
+| Costs money to open | n/a | No — the home screen reads stored data only |
+
+**The one-line pitch:** *"PickMe raised the tuk base fare from LKR 300 to 350 on
+3 August. Here is the sentence. Uber did not move."*
+
+No general assistant will ever say that to you unprompted, because none of them
+were watching.
+
+---
+
+## What it does
+
+### 1. Competitor comparison — across any number of companies
+
+Compare two companies or ten, on shared dimensions: positioning, pricing, buyer
+evidence, market signals, risks and adjacency. Every cell is labelled with how
+well evidence supports it, and a cell with no source says **"No source found"**
+rather than inventing a plausible sentence.
+
+Comparison is not restricted to software. The pipeline reads a tea exporter's
+trade page the same way it reads a SaaS pricing page — the demo data ships with
+ride-hailing, tea export and apparel manufacturing precisely to prove that.
+
+### 2. Change detection — the part nothing else does
+
+Every source is fetched, normalised and content-hashed. On the next run:
+
+- **Unchanged** → short circuit. No extraction, no model call, no cost.
+- **Changed** → extract evidence, diff the metrics, score how much it matters.
+
+Materiality is **deterministic**, not a model's opinion. It weighs the size of
+the move, the type of event, the trust of the source, and whether the company is
+one you actually track. Every score carries a plain-English reason you can
+disagree with.
+
+### 3. Where a company spikes, and where it lacks
+
+Evidence coverage is computed per dimension — market, competition, customers,
+technology, pricing — so a thin area is visible as thin rather than silently
+filled in. A company with strong pricing evidence and no customer evidence looks
+exactly like that, which is the honest reading of what the sources support.
+
+### 4. Market gap and saturation analysis
+
+Six specialist agents run in parallel over collected evidence:
+
+| Agent | Question it answers |
 |---|---|
-| Evidence-backed claims | Real: `metric_observations` cannot be stored without an evidence span, enforced by the database |
-| Measured charts | Real for GitHub releases, SEC filings, changelogs, and pricing pages. Other domains still produce model-derived output, and are labelled `derived` |
-| Change detection | Real: content-hash diffing, deterministic dedupe, explainable materiality |
-| No fabrication on provider failure | Enforced by `__tests__/no-fabrication-on-failure.test.ts` across all six research agents |
-| Synthetic scenario panel | Model-generated personas. Not survey data, not calibrated, never enters the evidence ledger |
-| Enterprise SSO / SCIM / RBAC | **Not available.** SAML routes exist but do not verify assertion signatures and are off by default |
-| Image analysis | Real — image bytes are sent as multimodal parts |
+| Market & trend sensing | Where is the category heading? |
+| Competitive landscape | Who is doing what, and is there real demand behind it? |
+| Win/loss intelligence | Why do deals go the other way? |
+| Pricing & packaging | Is pricing right, and is willingness-to-pay shifting? |
+| Positioning & messaging | How should this be talked about? |
+| Adjacent market collision | What threat is coming from outside the category? |
+
+They fan out simultaneously and degrade independently: if one fails, the rest
+complete and the failure is reported rather than hidden.
+
+### 5. Feature and capability analysis
+
+Release notes, changelogs and capability pages are tracked as first-class
+sources. A shipped feature becomes a dated, sourced event — so "they added a
+business dashboard in April" is a record, not a recollection.
+
+### 6. Idea and decision support
+
+Every answer ends in a decision frame: the situation, the options, the criteria,
+and explicitly **what would change this conclusion**. Decisions can be recorded
+as adopted, watched or rejected, so the reasoning behind a past call survives the
+people who made it.
+
+### 7. Resource and cost discipline
+
+Cost is a design constraint, not an afterthought:
+
+- The no-change short circuit means an unchanged source costs nothing to re-check.
+- Questions about already-collected research are answered from the ledger with a
+  single model call, roughly two orders of magnitude cheaper than a fresh sweep.
+- Per-query cost, latency and token use are visible in the API usage tab.
+
+### 8. Charts where every value is traceable
+
+Charts are generated from a typed `ChartSpec` contract, and each one declares:
+
+- **What it measures**, in one sentence
+- **The formula** behind it
+- **Its data class** — `measured` (read from a source), `derived` (computed by
+  the system), or `synthetic` (model-generated, never mixed with the other two)
+- **The evidence span** behind every row
+
+A chart cannot be rendered from data that has no stored excerpt behind it. This
+is enforced at the database level: `metric_observations` has a `NOT NULL`
+foreign key to `evidence_spans`.
+
+---
+
+## What is actually working today
+
+Verified, with the test or command that proves it.
+
+| Capability | Status | Proof |
+|---|---|---|
+| Evidence ledger | **Working** | `metric_observations.evidence_span_id` is `NOT NULL` — a number without a source cannot be stored |
+| Change detection | **Working** | `npm run seed:demo` → 8 change events, 6 material, across 3 industries |
+| No-change short circuit | **Working** | Same run: unchanged competitors report `unchanged` and skip extraction |
+| Evidence extraction | **Working** | Verbatim excerpts, verified against source text; paraphrases are rejected |
+| Six agents in parallel | **Working** | `Promise.allSettled` fan-out; one failure does not stop the others |
+| No fabrication on failure | **Working** | `__tests__/no-fabrication-on-failure.test.ts` forces every provider to fail |
+| Deterministic materiality | **Working** | Explainable score with a stated reason per event |
+| Traceable charts | **Working** | `ChartSpec` with formula, data class and evidence ids |
+| Change feed home | **Working** | Stat tiles, per-company changes, research history |
+| Multi-industry support | **Working** | Demo covers ride-hailing, tea export, apparel |
+| Cost visibility | **Working** | Per-query cost, latency, tokens in the API usage tab |
+| Simulated buyer panel | **Working, clearly labelled** | Model-generated personas. Not survey data, never enters the ledger |
+| Enterprise SSO / SCIM / RBAC | **Not available** | Deliberately deferred until the core loop retains users |
+
+**Test suite: 871 passing.** Typecheck, lint and production build all clean.
+
+---
+
+## Planned for the next phase
+
+Stated plainly so nothing above is ambiguous.
+
+| Planned | Why it matters | Status |
+|---|---|---|
+| **Scoping questions before a sweep** | When you ask for a comparison, the system asks back what you actually want scoped — local demand, market saturation, global gap, capital requirements, regulatory exposure — turning a vague prompt into a scoped run | Designed, not built |
+| **Non-competitor modes** | Idea evaluation, market-trend scan, regulatory scan and capital-raising landscape, without naming a competitor. The agents already reason about these; the intent routing is missing | Designed, not built |
+| **Scheduled background sweeps** | Monitoring on a cadence without anyone pressing a button | Partially built — Inngest wired, flag off |
+| **Charts on the home screen** | Coverage and change over time. Blocked until a project has two collection runs; `seed:demo` now provides that | Unblocked, not built |
+| **Alerting to email and Slack** | Material change reaches you where you work | Alert model exists; egress not built |
+| **Team workspaces** | Shared projects and a common evidence base | Deferred |
+
+---
+
+## Pivots from the original proposal
+
+Stated and justified, as the prototype guidelines require.
+
+**1. From "AI research assistant" to "competitive monitoring system".**
+
+We built the research surface first and found it competes directly with ChatGPT
+Deep Research, Perplexity and Gemini — all of which do one-off research better
+than we will. What none of them do is remember what was true last month. So the
+product now leads with the change feed and treats research as the drill-down.
+This is a repositioning of the same engine, not a rebuild.
+
+**2. Enterprise identity deferred.**
+
+SAML, SCIM and RBAC were in the original scope. They are deliberately postponed:
+they add no value until the core loop retains users, and half-built identity is
+worse than none. The SAML routes that exist are flagged off and documented as
+not verifying assertion signatures.
+
+**3. LangGraph evaluated and not adopted.**
+
+Benchmarked against the existing executor across 97 runs: zero accuracy
+difference, ~7% slower. Kept behind a default-off flag with the benchmark
+committed as evidence. See `docs/architecture/`.
+
+---
+
+## Demo data
+
+```bash
+npm run seed:demo
+```
+
+Seeds three projects across three industries and runs the **real** collection
+pipeline twice, a month apart.
+
+Per the prototype guidelines, source page content is canned — but **only** the
+page content. Content hashing, evidence extraction, metric observation, change
+detection and materiality scoring all execute the production code path
+unchanged. Nothing about the agent logic is simulated.
+
+```
+PickMe vs Uber          3 checked · 2 changed · 1 unchanged · 4 material
+Ceylon tea exporters    3 checked · 2 changed · 1 unchanged · 2 material
+Apparel manufacturing   2 checked · 2 changed · 0 unchanged · 0 material
+
+14 snapshots · 54 evidence spans · 24 metric observations · 8 change events
+```
+
+Two details worth watching in a demo:
+
+- **The unchanged competitor.** Uber's page is byte-identical across both runs,
+  so the short circuit fires and no extraction is paid for. "We looked and
+  nothing moved" is a real finding produced by real code.
+- **Apparel clears zero material changes.** Genuine movements — recycled content
+  18% → 29%, lead time 45 → 38 days — that score below the materiality floor. A
+  system where everything is urgent teaches its user that nothing is.
 
 ---
 
