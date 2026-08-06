@@ -300,7 +300,7 @@ export function WatchlistsView() {
 
   const toggleCollapse = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setCollapsedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    setCollapsedIds((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
   };
 
   const selectedWatchlist = lists.find((w) => w.id === selectedWatchlistId) ?? null;
@@ -608,7 +608,7 @@ export function WatchlistsView() {
               ) : (
                 lists.map((wl) => {
                   const isSelected = selectedWatchlistId === wl.id;
-                  const isCollapsed = Boolean(collapsedIds[wl.id]);
+                  const isCollapsed = collapsedIds[wl.id] ?? true;
 
                   return (
                     <div

@@ -211,13 +211,13 @@ export function DashboardHeader({
               </button>
               {showUserMenu && (
                 <div
-                  className="absolute right-0 top-12 mt-1 w-56 p-2 z-50 rounded-2xl border border-border shadow-2xl animate-fadeIn"
+                  className="absolute right-0 top-full mt-2.5 w-64 p-2 z-50 rounded-2xl border border-border shadow-2xl animate-fadeIn"
                   style={{ backgroundColor: 'var(--card)' }}
                 >
                   {userEmail && (
                     <div className="px-3 py-2 border-b border-border/40 mb-1">
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Signed in as</p>
-                      <p className="text-[12px] font-semibold truncate text-foreground mt-0.5">{userEmail}</p>
+                      <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">Signed in as</p>
+                      <p className="text-[12px] font-semibold truncate text-foreground mt-0.5" title={userEmail}>{userEmail}</p>
                     </div>
                   )}
                   <button
@@ -227,18 +227,20 @@ export function DashboardHeader({
                       onTopTabChange('profile');
                       if (onOpenProfile) onOpenProfile();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-left transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
+                    className="w-full flex items-center justify-start gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-left transition-colors hover:bg-accent/10 hover:text-accent cursor-pointer"
                     style={{ color: textMuted }}
                   >
-                    <User size={14} style={{ color: textSubtle }} /> Profile & Settings
+                    <User size={15} className="shrink-0" style={{ color: textSubtle }} />
+                    <span>Profile & Settings</span>
                   </button>
                   <button
                     type="button"
                     onClick={onSignOut}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-left transition-colors hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                    className="w-full flex items-center justify-start gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-left transition-colors hover:bg-destructive/10 hover:text-destructive cursor-pointer"
                     style={{ color: textMuted }}
                   >
-                    <LogOut size={14} style={{ color: textSubtle }} /> Sign out
+                    <LogOut size={15} className="shrink-0" style={{ color: textSubtle }} />
+                    <span>Sign out</span>
                   </button>
                 </div>
               )}
