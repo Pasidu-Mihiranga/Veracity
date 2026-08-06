@@ -100,5 +100,83 @@ export async function GET(req: NextRequest, context: Context) {
     staleSources,
     sourcesChecked: freshness.rows.length,
     unchangedCount: freshness.rows.length - digest.itemCount - staleSources.length,
+    analytics: buildAnalytics(candidates, threshold),
   });
+}
+
+/** Days of history the landing-screen charts plot. Two weeks either side of the
+ *  current week, so "this week vs last week" is a comparison and not a guess. */
+const ANALYTICS_DAYS = 28;
+
+export interface DashboardAnalytics {
+  /** Oldest → newest, one entry per day, no gaps. A missing day is a zero, not
+   *  an absent point — a gap would draw as if nothing were ever checked. */
+  daily: Array<{ date: string; changes: number; material: number }>;
+  /** Change counts by event type, largest first. */
+  byType: Array<{ type: string; count: number }>;
+  /** Material changes in the last 7 days and the 7 before it, for the delta. */
+  thisWeek: number;
+  lastWeek: number;
+  /** Highest materiality seen this week, 0–1. */
+  peakMateriality: number;
+}
+
+/**
+ * Roll the already-fetched change events into the series the home screen plots.
+ *
+ * Done in-process rather than as extra SQL: the rows are in hand, the volume is
+ * capped at 200, and a second round trip per project would slow the one screen
+ * that is supposed to open instantly.
+ */
+function buildAnalytics(
+  candidates: DigestCandidate[],
+  threshold: number,
+): DashboardAnalytics {
+  const dayMs = 86_400_000;
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const start = today.getTime() - (ANALYTICS_DAYS - 1) * dayMs;
+
+  const daily = Array.from({ length: ANALYTICS_DAYS }, (_, i) => ({
+    date: new Date(start + i * dayMs).toISOString().slice(0, 10),
+    changes: 0,
+    material: 0,
+  }));
+  const byType = new Map<string, number>();
+
+  let thisWeek = 0;
+  let lastWeek = 0;
+  let peakMateriality = 0;
+
+  for (const candidate of candidates) {
+    const at = new Date(candidate.observedAt).getTime();
+    if (Number.isNaN(at)) continue;
+    const material = candidate.materiality >= threshold;
+
+    const bucket = Math.floor((at - start) / dayMs);
+    if (bucket >= 0 && bucket < ANALYTICS_DAYS) {
+      daily[bucket].changes += 1;
+      if (material) daily[bucket].material += 1;
+    }
+
+    byType.set(candidate.eventType, (byType.get(candidate.eventType) ?? 0) + 1);
+
+    const ageDays = (today.getTime() + dayMs - at) / dayMs;
+    if (material && ageDays <= 7) {
+      thisWeek += 1;
+      peakMateriality = Math.max(peakMateriality, candidate.materiality);
+    } else if (material && ageDays <= 14) {
+      lastWeek += 1;
+    }
+  }
+
+  return {
+    daily,
+    byType: [...byType.entries()]
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count),
+    thisWeek,
+    lastWeek,
+    peakMateriality,
+  };
 }

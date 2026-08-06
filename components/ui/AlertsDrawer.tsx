@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Bell, X, Trash2, CheckCheck } from 'lucide-react';
+import { Bell, X, Trash2 } from 'lucide-react';
 import { featureFlags } from '@/lib/feature-flags';
 import { unwrapApiPayload } from '@/lib/api-client';
 
@@ -214,14 +214,6 @@ export function AlertsDrawer({ open, onClose }: Props) {
           >
             <Trash2 size={13} />
             Clear All
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-accent text-white hover:bg-accent/90 transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
-          >
-            <CheckCheck size={14} />
-            Close Window
           </button>
         </div>
       </div>

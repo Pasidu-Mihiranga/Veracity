@@ -247,7 +247,7 @@ export function SessionSidebar({
               <button
                 type="button"
                 onClick={openCreateProject}
-                className="hover:text-accent p-1 text-muted-foreground transition-colors"
+                className="icon-btn hover:text-accent" aria-label="New folder"
                 title="Create Market Project"
               >
                 <FolderPlus size={13} />

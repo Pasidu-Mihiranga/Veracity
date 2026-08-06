@@ -302,6 +302,27 @@ async function handleChatPost(req: NextRequest, userId: string) {
         ),
       );
 
+      /**
+       * Attach what we already know about the companies named.
+       *
+       * The agents research the open web, which is the right default and the
+       * wrong answer for a company this workspace has been collecting on for
+       * months: it re-derives, badly, facts already sitting in the dataset, and
+       * a comparison comes back reading "not established by retrieved evidence"
+       * about a company we hold eight months of history for. Attaching the
+       * briefing here rather than inside an agent keeps the agents unchanged and
+       * makes the enrichment additive — no match, no payload, same answer.
+       */
+      try {
+        const { attachMarketBriefing } = await import('@/lib/market/attach');
+        const briefing = attachMarketBriefing(query);
+        if (briefing) result.marketBriefing = briefing;
+      } catch (err) {
+        logger.warn(
+          `market_briefing.attach_failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       write({ type: 'progress', pct: 100, label: 'completed' });
       write({ type: 'result', output: result });
 

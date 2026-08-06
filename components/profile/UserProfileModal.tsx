@@ -74,7 +74,7 @@ export function UserProfileModal({ isOpen, onClose, onSave }: UserProfileModalPr
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-sm font-medium p-1 rounded-lg hover:bg-accent/10 transition-colors"
+            className="icon-btn text-sm" aria-label="Close"
           >
             ✕
           </button>
