@@ -108,7 +108,15 @@ export function DashboardHeader({
           </button>
         )}
 
-        <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3">
+        <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3 gap-2.5">
+          <img
+            src="/robot.avif"
+            alt="Veracity Robot"
+            width={42}
+            height={46}
+            className="brand-mascot h-10 w-auto shrink-0 transition-transform hover:scale-105"
+            draggable={false}
+          />
           <BrandWordmark size="md" />
         </div>
 

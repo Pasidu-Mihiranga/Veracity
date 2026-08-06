@@ -213,10 +213,15 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
         style={{ boxShadow: 'var(--shadow-extruded)' }}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
-              <Sparkles size={16} />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/robot.avif"
+              alt="Robot"
+              width={32}
+              height={34}
+              className="brand-mascot h-8 w-auto shrink-0 object-contain drop-shadow-sm"
+              draggable={false}
+            />
             <div>
               <h2 className="text-base font-bold text-foreground">Ask about your market</h2>
               <p className="text-xs text-muted-foreground">Name a company or a market and say what you want to decide</p>
@@ -303,75 +308,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
         </div>
       </div>
 
-      {/* 3. Interactive Stat Tiles (Clickable Quick Filters) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div
-          onClick={() => setActiveFilter('all')}
-          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
-            activeFilter === 'all'
-              ? 'bg-accent/5 border-accent'
-              : 'bg-card border-border hover:border-accent/40'
-          }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Companies</p>
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{feedList.length}</p>
-          <p className="text-xs text-muted-foreground">being watched for you</p>
-        </div>
 
-        <div
-          className="p-4 sm:p-5 rounded-2xl border bg-card border-border hover:border-accent/40 transition-all flex flex-col gap-1"
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Sources read</p>
-            <Globe size={14} className="text-accent" />
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{totalSources}</p>
-          <p className="text-xs text-muted-foreground">{totalSources === 0 ? 'no pages read yet' : 'pages checked each run'}</p>
-        </div>
-
-        <div
-          onClick={() => setActiveFilter(activeFilter === 'changes' ? 'all' : 'changes')}
-          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
-            activeFilter === 'changes'
-              ? 'bg-accent/5 border-accent'
-              : 'bg-card border-border hover:border-accent/40'
-          }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Changes</p>
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{totalChanges}</p>
-          <p className="text-xs text-muted-foreground">worth your attention</p>
-        </div>
-
-        <div
-          onClick={() => setActiveFilter(activeFilter === 'stale' ? 'all' : 'stale')}
-          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
-            activeFilter === 'stale'
-              ? 'bg-accent/5 border-accent'
-              : 'bg-card border-border hover:border-accent/40'
-          }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Could not read</p>
-            <ShieldCheck size={14} className={totalStale > 0 ? 'text-[var(--evidence-derived)]' : 'text-muted-foreground'} />
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{totalStale}</p>
-          <p className="text-xs text-muted-foreground">{totalStale === 0 ? 'every source responded' : 'sources that failed'}</p>
-        </div>
-      </div>
-
-      {/*
-        Coverage says nothing at all when every source answered — a bar at
-        100% draws the eye to the one thing needing no attention.
-      */}
-      <CoverageBar total={totalSources} failed={totalStale} />
 
       {/*
         The front door into a market. Everything behind these cards is

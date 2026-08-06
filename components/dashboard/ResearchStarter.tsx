@@ -171,9 +171,14 @@ export function ResearchStarter({ onAsk, onTrackNew }: ResearchStarterProps) {
       {/* What this is, in one sentence, before anything is asked of you. */}
       <div data-starter style={rise(0)} className="veracity-card p-5 sm:p-6 flex flex-col gap-2">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/10 text-accent">
-            <Sparkles size={15} />
-          </span>
+          <img
+            src="/robot.avif"
+            alt="Robot"
+            width={32}
+            height={34}
+            className="brand-mascot h-8 w-auto shrink-0 object-contain drop-shadow-sm"
+            draggable={false}
+          />
           <h2 className="text-lg font-semibold text-foreground">What do you want to know?</h2>
         </div>
         <p className="text-sm text-muted-foreground">
