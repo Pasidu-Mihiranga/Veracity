@@ -29,8 +29,8 @@ import {
   X, ChevronLeft, ChevronRight, Plus, ArrowUpRight, ArrowDownRight,
   Sparkles, TrendingUp, Building2, Swords, Target, ArrowRight,
 } from 'lucide-react';
-import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { HOME_STORIES, type Story, type StorySegment, type StoryKind } from '@/lib/mock/home-stories';
+import { StoryHero } from '@/components/dashboard/story-art';
 
 /** How long each segment shows before auto-advancing, in ms. */
 const SEGMENT_MS = 6000;
@@ -532,8 +532,6 @@ function PreviewStory({ story, onClick }: { story: Story; onClick: () => void })
 
 function SegmentBody({ segment, onAsk }: { segment: StorySegment; onAsk: (q: string) => void }) {
   const Icon = KIND_ICON[segment.kind];
-  const spark = (segment.spark ?? []).map((v, i) => ({ i, v }));
-  const hasSpark = spark.length >= 3;
   const delta = segment.metric?.delta;
   const Trend = delta === undefined ? null : delta >= 0 ? ArrowUpRight : ArrowDownRight;
 
@@ -551,40 +549,12 @@ function SegmentBody({ segment, onAsk }: { segment: StorySegment; onAsk: (q: str
       </div>
 
       {/*
-        Hero — fills what used to be dead space between the header and the copy.
-        Segments carrying a series get a large ghosted area chart; the rest get a
-        watermark of their kind icon, so the top of every card reads as content.
+        Hero — a kind-appropriate illustration filling what used to be dead space
+        between the header and the copy, so the top of every card reads as an
+        intentional image rather than an empty gradient.
       */}
       <div className="relative my-3 min-h-0 flex-1">
-        {hasSpark ? (
-          <div className="absolute inset-x-0 bottom-0 top-1 opacity-60" aria-hidden>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={spark} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
-                <defs>
-                  <linearGradient id={`hero-${segment.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#fff" stopOpacity={0.32} />
-                    <stop offset="100%" stopColor="#fff" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="v"
-                  stroke="#fff"
-                  strokeOpacity={0.75}
-                  strokeWidth={2.5}
-                  fill={`url(#hero-${segment.id})`}
-                  dot={false}
-                  isAnimationActive
-                  animationDuration={800}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="grid h-full place-items-center" aria-hidden>
-            <Icon size={128} strokeWidth={1} className="text-white/[0.09]" />
-          </div>
-        )}
+        <StoryHero kind={segment.kind} id={segment.id} />
       </div>
 
       {/* Bottom copy */}
