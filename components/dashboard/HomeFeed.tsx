@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowRight, Plus, RefreshCw, Circle, AlertCircle, Check,
   Search, Sparkles, TrendingUp, Play, Trash2, Globe, ShieldCheck,
-  Zap, DollarSign, Rocket, Target
+  Zap, DollarSign, Rocket, Target, Building2, History, type LucideIcon
 } from 'lucide-react';
 import { listMarketProjects, type MarketProject } from '@/lib/projects';
 import { importanceOf } from '@/lib/ux/vocabulary';
 import { CoverageBar } from '@/components/dashboard/HomeCharts';
+import { HomeInsightCharts } from '@/components/dashboard/HomeInsightCharts';
+import { IntelligenceStories } from '@/components/dashboard/IntelligenceStories';
 import { MarketExplorer } from '@/components/dashboard/MarketExplorer';
 
 interface ResearchSession {
@@ -57,6 +59,20 @@ function relativeTime(iso: string): string {
   if (days < 7) return `${days} days ago`;
   if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
   return `${Math.floor(days / 30)} months ago`;
+}
+
+/*
+  A section label that names the block that follows it. Static — it scrolls with
+  its section rather than pinning, so it never overlaps the cards beneath it.
+*/
+function SectionHeader({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <Icon size={15} className="text-accent shrink-0" />
+      <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground">{title}</h2>
+      {hint && <span className="ml-auto text-xs text-muted-foreground">{hint}</span>}
+    </div>
+  );
 }
 
 export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaunchQuery }: HomeFeedProps) {
@@ -207,6 +223,9 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
 
   return (
     <div className="flex flex-col gap-6">
+      {/* 0. Personalised, AI-generated intelligence stories — Home only */}
+      <IntelligenceStories onAsk={(query) => onLaunchQuery?.(query)} />
+
       {/* 1. Quick Interactive Executive Intelligence Search Box */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm relative overflow-hidden"
@@ -310,6 +329,9 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
 
 
 
+      {/* 3. Market at a glance — KPI strip + momentum + share of voice */}
+      <HomeInsightCharts />
+
       {/*
         The front door into a market. Everything behind these cards is
         already-collected data; only a follow-up costs anything.
@@ -317,6 +339,12 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
       <MarketExplorer onAsk={(question) => onLaunchQuery?.(question)} />
 
       {/* 4. Interactive Project Cards List */}
+      <section className="relative flex flex-col gap-5">
+        <SectionHeader
+          icon={Building2}
+          title="Companies you're tracking"
+          hint={loadingProjects ? undefined : `${feedList.length} tracked · what changed while you were away`}
+        />
       {loadingProjects && [0, 1].map((i) => (
         <div key={`skeleton-${i}`} className="veracity-card p-5 sm:p-6 flex flex-col gap-3">
           <div className="h-4 w-1/3 rounded skeleton" />
@@ -430,22 +458,17 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           )}
         </div>
       ))}
+      </section>
 
       {/* 5. Interactive "Pick up where you left off" Recent Sessions Card */}
       {sessions.length > 0 && (
+        <section className="relative flex flex-col gap-4">
+        <SectionHeader icon={History} title="Pick up where you left off" hint={`${sessions.length} recent sessions`} />
         <div
           className="rounded-2xl p-5 sm:p-6 bg-card border border-border flex flex-col gap-4 shadow-sm"
           style={{ boxShadow: 'var(--shadow-extruded)' }}
         >
-          <div className="flex items-center justify-between pb-3 border-b border-border/40">
-            <div>
-              <h2 className="text-base font-bold text-foreground">Pick up where you left off</h2>
-              <p className="text-xs text-muted-foreground">Click any past research session to resume instantly</p>
-            </div>
-            <span className="text-xs font-mono text-muted-foreground">
-              {sessions.length} Recent Sessions
-            </span>
-          </div>
+          <p className="text-xs text-muted-foreground">Click any past research session to resume instantly</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {sessions.map((session) => (
@@ -483,6 +506,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
             ))}
           </div>
         </div>
+        </section>
       )}
     </div>
   );
