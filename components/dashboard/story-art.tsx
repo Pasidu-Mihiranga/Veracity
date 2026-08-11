@@ -140,8 +140,21 @@ const ART: Record<StoryKind, (props: { id: string }) => React.JSX.Element> = {
   opportunity: OpportunityArt,
 };
 
-/** The hero illustration for a story segment, chosen by its kind. */
-export function StoryHero({ kind, id }: { kind: StoryKind; id: string }) {
+/** The hero illustration for a story segment, chosen by its kind or custom content image. */
+export function StoryHero({ kind, id, image }: { kind: StoryKind; id: string; image?: string }) {
+  if (image) {
+    return (
+      <div className="relative w-full h-full min-h-[140px] rounded-xl overflow-hidden border border-white/20 shadow-lg group">
+        <img
+          src={image}
+          alt={`${kind} illustration`}
+          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
+      </div>
+    );
+  }
+
   const Art = ART[kind];
   return <Art id={id} />;
 }

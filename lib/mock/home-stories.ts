@@ -26,6 +26,8 @@ export interface StorySegment {
   headline: string;
   /** The AI-written narrative paragraph. */
   body: string;
+  /** Optional custom content image path. */
+  image?: string;
   /** Optional headline metric shown as a chip. `delta` sign drives its colour. */
   metric?: { label: string; value: string; delta?: number };
   /** Optional sparkline, oldest → newest. Rendered as a mini area under the metric. */
@@ -62,6 +64,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'Veracity AI · Weekly briefing',
         headline: 'Three moves across your market this week',
         body: 'Telecom got busier while tea stayed quiet. Dialog cut 5G add-on pricing, SLT-Mobitel answered within 48 hours, and buyer chatter shifted toward data caps. Here is what actually matters for your next decision.',
+        image: '/stories/briefing-1.png',
         metric: { label: 'Material changes', value: '3', delta: 2 },
         spark: [1, 0, 2, 1, 3, 2, 3],
         timeAgo: '2m ago',
@@ -73,6 +76,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'Veracity AI · Signal',
         headline: 'Price is now the battleground in telecom',
         body: 'Two of the last three material moves were pricing, not features. When the leaders start competing on price, the window to defend margin narrows. Worth deciding your line before the next round.',
+        image: '/stories/briefing-2.png',
         metric: { label: 'Pricing moves', value: '2 of 3' },
         timeAgo: '2m ago',
         cta: { label: 'Where is telecom pricing heading?', query: 'Where is telecom pricing heading and how should we respond?' },
@@ -92,6 +96,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'Dialog Axiata · Pricing',
         headline: 'Cut its 5G add-on price 18%',
         body: 'The first pricing move in the segment this quarter. Dialog dropped the monthly 5G data add-on from LKR 1,490 to LKR 1,220 and pushed it hard on prepaid — a clear grab for volume ahead of the holiday cycle.',
+        image: '/stories/dialog-1.png',
         metric: { label: 'Add-on price', value: '−18%', delta: -18 },
         spark: [1490, 1490, 1490, 1350, 1350, 1220, 1220],
         timeAgo: '2h ago',
@@ -103,6 +108,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'Dialog Axiata · Positioning',
         headline: 'Leaning into "fastest 5G" messaging',
         body: 'Alongside the price cut, homepage and ad copy shifted from coverage to speed. This pairs a cheaper entry point with a performance claim — harder to counter on price alone.',
+        image: '/stories/dialog-2.png',
         timeAgo: '5h ago',
       },
     ],
@@ -120,6 +126,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'SLT-Mobitel · Response',
         headline: 'Answered Dialog within 48 hours',
         body: 'SLT-Mobitel matched the effective price with a bundled data boost rather than a headline cut — protecting its list price while neutralising the offer. A measured, margin-aware response.',
+        image: '/stories/slt-1.png',
         metric: { label: 'Response time', value: '48h' },
         timeAgo: '1d ago',
         cta: { label: 'Compare Dialog and SLT-Mobitel', query: 'Compare Dialog Axiata and SLT-Mobitel. Who is winning right now?' },
@@ -139,6 +146,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'Telecom · Share of voice',
         headline: 'Dialog is pulling ahead on attention',
         body: 'Across search, news and social over the last 12 weeks, Dialog’s share of voice rose from 34% to 41% while SLT-Mobitel slipped. Attention is a leading indicator — it tends to move a quarter before subscriptions.',
+        image: '/stories/market-1.png',
         metric: { label: 'Dialog share of voice', value: '41%', delta: 7 },
         spark: [34, 35, 34, 36, 38, 37, 39, 40, 39, 41, 41, 41],
         timeAgo: '3h ago',
@@ -159,6 +167,7 @@ export const HOME_STORIES: Story[] = [
         eyebrow: 'Veracity AI · Opening',
         headline: 'Nobody owns "data caps" in the conversation',
         body: 'Buyer complaints about throttling are rising, but none of the three leaders is addressing caps head-on in their messaging. A clear, honest cap policy could be a wedge — the demand is showing up before anyone has answered it.',
+        image: '/stories/opp-1.png',
         metric: { label: 'Complaint volume', value: '+31%', delta: 31 },
         spark: [8, 9, 11, 10, 13, 15, 18],
         timeAgo: '6h ago',

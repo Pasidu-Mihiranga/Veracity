@@ -549,12 +549,11 @@ function SegmentBody({ segment, onAsk }: { segment: StorySegment; onAsk: (q: str
       </div>
 
       {/*
-        Hero — a kind-appropriate illustration filling what used to be dead space
-        between the header and the copy, so the top of every card reads as an
-        intentional image rather than an empty gradient.
+        Hero — a kind-appropriate illustration or custom generated content image
+        filling what used to be dead space between the header and the copy.
       */}
       <div className="relative my-3 min-h-0 flex-1">
-        <StoryHero kind={segment.kind} id={segment.id} />
+        <StoryHero kind={segment.kind} id={segment.id} image={segment.image} />
       </div>
 
       {/* Bottom copy */}
