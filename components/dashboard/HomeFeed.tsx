@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowRight, Plus, RefreshCw, Circle, AlertCircle, Check,
   Search, Sparkles, TrendingUp, Play, Trash2, Globe, ShieldCheck,
-  Zap, DollarSign, Rocket, Target
+  Zap, DollarSign, Rocket, Target, Building2, History, type LucideIcon
 } from 'lucide-react';
 import { listMarketProjects, type MarketProject } from '@/lib/projects';
 import { importanceOf } from '@/lib/ux/vocabulary';
 import { CoverageBar } from '@/components/dashboard/HomeCharts';
+import { HomeInsightCharts } from '@/components/dashboard/HomeInsightCharts';
+import { IntelligenceStories } from '@/components/dashboard/IntelligenceStories';
 import { MarketExplorer } from '@/components/dashboard/MarketExplorer';
 
 interface ResearchSession {
@@ -57,6 +59,20 @@ function relativeTime(iso: string): string {
   if (days < 7) return `${days} days ago`;
   if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
   return `${Math.floor(days / 30)} months ago`;
+}
+
+/*
+  A section label that names the block that follows it. Static — it scrolls with
+  its section rather than pinning, so it never overlaps the cards beneath it.
+*/
+function SectionHeader({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <Icon size={15} className="text-accent shrink-0" />
+      <h2 className="text-sm font-mono uppercase tracking-wider text-muted-foreground">{title}</h2>
+      {hint && <span className="ml-auto text-xs text-muted-foreground">{hint}</span>}
+    </div>
+  );
 }
 
 export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaunchQuery }: HomeFeedProps) {
@@ -207,16 +223,24 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
 
   return (
     <div className="flex flex-col gap-6">
+      {/* 0. Personalised, AI-generated intelligence stories — Home only */}
+      <IntelligenceStories onAsk={(query) => onLaunchQuery?.(query)} />
+
       {/* 1. Quick Interactive Executive Intelligence Search Box */}
       <div
         className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm relative overflow-hidden"
         style={{ boxShadow: 'var(--shadow-extruded)' }}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
-              <Sparkles size={16} />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/robot.avif"
+              alt="Robot"
+              width={32}
+              height={34}
+              className="brand-mascot h-8 w-auto shrink-0 object-contain drop-shadow-sm"
+              draggable={false}
+            />
             <div>
               <h2 className="text-base font-bold text-foreground">Ask about your market</h2>
               <p className="text-xs text-muted-foreground">Name a company or a market and say what you want to decide</p>
@@ -303,75 +327,10 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
         </div>
       </div>
 
-      {/* 3. Interactive Stat Tiles (Clickable Quick Filters) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div
-          onClick={() => setActiveFilter('all')}
-          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
-            activeFilter === 'all'
-              ? 'bg-accent/5 border-accent'
-              : 'bg-card border-border hover:border-accent/40'
-          }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Companies</p>
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{feedList.length}</p>
-          <p className="text-xs text-muted-foreground">being watched for you</p>
-        </div>
 
-        <div
-          className="p-4 sm:p-5 rounded-2xl border bg-card border-border hover:border-accent/40 transition-all flex flex-col gap-1"
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Sources read</p>
-            <Globe size={14} className="text-accent" />
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{totalSources}</p>
-          <p className="text-xs text-muted-foreground">{totalSources === 0 ? 'no pages read yet' : 'pages checked each run'}</p>
-        </div>
 
-        <div
-          onClick={() => setActiveFilter(activeFilter === 'changes' ? 'all' : 'changes')}
-          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
-            activeFilter === 'changes'
-              ? 'bg-accent/5 border-accent'
-              : 'bg-card border-border hover:border-accent/40'
-          }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Changes</p>
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{totalChanges}</p>
-          <p className="text-xs text-muted-foreground">worth your attention</p>
-        </div>
-
-        <div
-          onClick={() => setActiveFilter(activeFilter === 'stale' ? 'all' : 'stale')}
-          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1 ${
-            activeFilter === 'stale'
-              ? 'bg-accent/5 border-accent'
-              : 'bg-card border-border hover:border-accent/40'
-          }`}
-          style={{ boxShadow: 'var(--shadow-extruded-sm)' }}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Could not read</p>
-            <ShieldCheck size={14} className={totalStale > 0 ? 'text-[var(--evidence-derived)]' : 'text-muted-foreground'} />
-          </div>
-          <p className="text-2xl font-bold text-foreground tabular-nums">{totalStale}</p>
-          <p className="text-xs text-muted-foreground">{totalStale === 0 ? 'every source responded' : 'sources that failed'}</p>
-        </div>
-      </div>
-
-      {/*
-        Coverage says nothing at all when every source answered — a bar at
-        100% draws the eye to the one thing needing no attention.
-      */}
-      <CoverageBar total={totalSources} failed={totalStale} />
+      {/* 3. Market at a glance — KPI strip + momentum + share of voice */}
+      <HomeInsightCharts />
 
       {/*
         The front door into a market. Everything behind these cards is
@@ -380,6 +339,12 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
       <MarketExplorer onAsk={(question) => onLaunchQuery?.(question)} />
 
       {/* 4. Interactive Project Cards List */}
+      <section className="relative flex flex-col gap-5">
+        <SectionHeader
+          icon={Building2}
+          title="Companies you're tracking"
+          hint={loadingProjects ? undefined : `${feedList.length} tracked · what changed while you were away`}
+        />
       {loadingProjects && [0, 1].map((i) => (
         <div key={`skeleton-${i}`} className="veracity-card p-5 sm:p-6 flex flex-col gap-3">
           <div className="h-4 w-1/3 rounded skeleton" />
@@ -493,22 +458,17 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
           )}
         </div>
       ))}
+      </section>
 
       {/* 5. Interactive "Pick up where you left off" Recent Sessions Card */}
       {sessions.length > 0 && (
+        <section className="relative flex flex-col gap-4">
+        <SectionHeader icon={History} title="Pick up where you left off" hint={`${sessions.length} recent sessions`} />
         <div
           className="rounded-2xl p-5 sm:p-6 bg-card border border-border flex flex-col gap-4 shadow-sm"
           style={{ boxShadow: 'var(--shadow-extruded)' }}
         >
-          <div className="flex items-center justify-between pb-3 border-b border-border/40">
-            <div>
-              <h2 className="text-base font-bold text-foreground">Pick up where you left off</h2>
-              <p className="text-xs text-muted-foreground">Click any past research session to resume instantly</p>
-            </div>
-            <span className="text-xs font-mono text-muted-foreground">
-              {sessions.length} Recent Sessions
-            </span>
-          </div>
+          <p className="text-xs text-muted-foreground">Click any past research session to resume instantly</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {sessions.map((session) => (
@@ -546,6 +506,7 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
             ))}
           </div>
         </div>
+        </section>
       )}
     </div>
   );

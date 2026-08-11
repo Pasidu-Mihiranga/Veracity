@@ -15,15 +15,15 @@ type Props = {
 export function BrandWordmark({ className = '', size = 'sm' }: Props) {
   const { isDark } = useTheme();
   const src = isDark ? '/logo-text-dark.png' : '/logo-text.png';
-  const h = size === 'md' ? 'h-8' : 'h-6';
+  const h = size === 'md' ? 'h-6.5' : 'h-5.5';
 
   return (
     <img
       src={src}
       alt="Veracity"
-      width={size === 'md' ? 160 : 140}
-      height={size === 'md' ? 44 : 40}
-      className={`brand-logo object-left object-contain ${h} w-auto max-w-[160px] ${className}`}
+      width={size === 'md' ? 140 : 120}
+      height={size === 'md' ? 36 : 32}
+      className={`brand-logo object-left object-contain ${h} w-auto max-w-[140px] ${className}`}
       draggable={false}
     />
   );

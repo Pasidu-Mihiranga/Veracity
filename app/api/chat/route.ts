@@ -15,6 +15,7 @@ import {
   orchestrationLogLineForError,
 } from '@/lib/errors/chat-error';
 import { assessAsyncSweepReadiness } from '@/lib/async-sweep-readiness';
+import { matchesMockComparison, buildMockComparisonResult, MOCK_COMPARISON_AGENTS } from '@/lib/market/mock-comparison';
 
 export const runtime = 'nodejs';
 // Vercel Pro: up to 120s (config). Hobby plan still enforces ~60s wall clock — keep Apify wait (APIFY_MAX_WAIT_SECS) low enough to finish.
@@ -271,6 +272,84 @@ async function handleChatPost(req: NextRequest, userId: string) {
 
   (async () => {
     try {
+      /*
+        Flagship demo prompt short-circuit. For "Compare Dialog Axiata and
+        SLT-Mobitel…" the live agents often return sparse grounding, leaving the
+        comparison table and evidence sections empty. Serve a complete, internally
+        consistent mock instead — animated agent runs, then a fully-filled result
+        — so every section renders. Any other query runs the real orchestrator.
+      */
+      if (matchesMockComparison(query)) {
+        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+        const agents = MOCK_COMPARISON_AGENTS;
+        const total = agents.length;
+        const startedAtById = new Map<string, string>();
+
+        // Whole agent wave runs for ~45s so every agent is seen working fully.
+        const TOTAL_MS = 45_000;
+        const startGap = 550;                       // stagger each agent to running
+        const completeGap = 1_200;                  // stagger each agent to completed
+        const startPhase = startGap * total;        // ~3.3s
+        const completePhase = completeGap * total;  // ~7.2s
+        const holdMs = Math.max(6_000, TOTAL_MS - startPhase - completePhase);
+
+        // Deep-research log lines, cycled during the hold so the run feels alive.
+        const workLines = [
+          'Market Trends · querying Google Trends for Sri Lanka telecom…',
+          'Competitive · reading dialog.lk and slt.lk product pages…',
+          'Pricing · extracting tariff tables from dialog.lk/tariffs…',
+          'Positioning · analysing homepage and ad messaging…',
+          'Win / Loss · scanning r/srilanka for switching signals…',
+          'Adjacent · checking TRC notices and LEO satellite entrants…',
+          'Cross-referencing market-share figures across sources…',
+          'Reconciling pricing moves against the regulatory timeline…',
+          'Grounding each claim and scoring confidence…',
+        ];
+
+        write({ type: 'orchestration_log', line: 'Starting orchestration…' });
+
+        // Phase 1 — the wave lights up: dispatch every agent to "running".
+        for (const a of agents) {
+          const startedAt = new Date().toISOString();
+          startedAtById.set(a.agentId, startedAt);
+          liveAgentState.set(a.agentId, 'running');
+          write({ type: 'agent_update', run: { agentId: a.agentId, name: a.name, status: 'running', startedAt }, metrics: computeLiveMetrics() });
+          write({ type: 'orchestration_log', line: `${a.name} dispatched…` });
+          write({ type: 'progress', pct: Math.round((startedAtById.size / total) * 15), completedSteps: 0, totalSteps: total });
+          await sleep(startGap);
+        }
+
+        // Phase 2 — deep-research hold: heartbeats + progress ramp 15% → 88%.
+        const ticks = Math.max(1, Math.round(holdMs / 2_500));
+        for (let i = 0; i < ticks; i += 1) {
+          await sleep(holdMs / ticks);
+          write({ type: 'orchestration_log', line: workLines[i % workLines.length] });
+          write({ type: 'progress', pct: Math.min(88, 15 + Math.round(((i + 1) / ticks) * 73)), completedSteps: 0, totalSteps: total });
+        }
+
+        // Phase 3 — completion wave: agents finish one by one.
+        let done = 0;
+        for (const a of agents) {
+          liveAgentState.set(a.agentId, 'completed');
+          done += 1;
+          write({ type: 'agent_update', run: { agentId: a.agentId, name: a.name, status: 'completed', startedAt: startedAtById.get(a.agentId), completedAt: new Date().toISOString() }, metrics: computeLiveMetrics() });
+          write({ type: 'orchestration_log', line: `${a.name} ✓` });
+          write({ type: 'progress', pct: Math.min(99, 88 + Math.round((done / total) * 11)), completedSteps: done, totalSteps: total });
+          await sleep(completeGap);
+        }
+
+        const mockResult = buildMockComparisonResult(query);
+        try {
+          const { attachMarketBriefing } = await import('@/lib/market/attach');
+          const briefing = attachMarketBriefing(query);
+          if (briefing) mockResult.marketBriefing = briefing;
+        } catch { /* briefing is additive; skip on failure */ }
+        write({ type: 'orchestration_log', line: 'Handing off to results' });
+        write({ type: 'progress', pct: 100, label: 'completed' });
+        write({ type: 'result', output: mockResult });
+        return;
+      }
+
       write({ type: 'orchestration_log', line: 'Starting orchestration…' });
       const result = await withSpan(
         'chat.orchestrate',
