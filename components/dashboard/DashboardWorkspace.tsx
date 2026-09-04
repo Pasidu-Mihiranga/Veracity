@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { ChevronDown } from 'lucide-react';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
 import type { Domain } from '@/lib/domain-meta';
@@ -16,6 +17,10 @@ import type { MarketProject } from '@/lib/projects';
 import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 import { MarketProjectOverview } from '@/components/projects/MarketProjectOverview';
 import { ProjectDashboard } from '@/components/dashboard/ProjectDashboard';
+import { StartTrackingCard } from '@/components/dashboard/StartTrackingCard';
+import { ResearchStarter } from '@/components/dashboard/ResearchStarter';
+import { HomeFeed } from '@/components/dashboard/HomeFeed';
+import { DEMO_QUERIES } from '@/lib/domain-meta';
 import { ScenarioPanel } from '@/components/dashboard/ScenarioPanel';
 import { EntityCorrectionPanel } from '@/components/projects/EntityCorrectionPanel';
 import { ArtifactAttachPicker } from '@/components/dashboard/ArtifactAttachPicker';
@@ -75,6 +80,12 @@ type Props = {
   currentResult?: ChatMessage;
   currentSessionId: string | null;
   selectedProject?: MarketProject | null;
+  /** Select the new project and refresh the sidebar list. */
+  onProjectCreated?: (project: MarketProject) => void;
+  /** Home links into the research tab, so it needs to switch tabs. */
+  onTopTabChange?: (tab: TopTab) => void;
+  /** Reopen a past research session from Home. */
+  onOpenSession?: (sessionId: string) => void;
   messages: ChatMessage[];
   followUps: FollowUp[];
   followUpEndRef: React.RefObject<HTMLDivElement | null>;
@@ -115,6 +126,10 @@ type Props = {
   turnMode?: ResearchTurnMode;
   onTurnModeChange?: (mode: ResearchTurnMode) => void;
   onResetHeader?: () => void;
+  selectedAgents?: Record<Domain, boolean>;
+  onToggleAgent?: (domain: Domain) => void;
+  forceFullSweep?: boolean;
+  onToggleForceFullSweep?: () => void;
   chrome: {
     cardBg: string;
     cardBg2: string;
@@ -138,6 +153,9 @@ export function DashboardWorkspace({
   currentResult,
   currentSessionId,
   selectedProject,
+  onProjectCreated,
+  onTopTabChange,
+  onOpenSession,
   messages,
   followUps,
   followUpEndRef,
@@ -178,6 +196,10 @@ export function DashboardWorkspace({
   turnMode,
   onTurnModeChange,
   onResetHeader,
+  selectedAgents,
+  onToggleAgent,
+  forceFullSweep,
+  onToggleForceFullSweep,
   chrome,
 }: Props) {
   const expandedOutput = expandedDomain ? getOutputForDomain(expandedDomain) : null;
@@ -185,6 +207,13 @@ export function DashboardWorkspace({
   // Artifacts attached to the next turn. Held here rather than in the composer
   // so they survive the composer remounting between result states.
   const [attachedArtifacts, setAttachedArtifacts] = useState<AttachedArtifact[]>([]);
+
+  // The tracking form is now a deliberate detour rather than the front door.
+  const [showTrackingForm, setShowTrackingForm] = useState(false);
+
+  // Collapsed by default: the conversation leads this tab, not the project's
+  // standing panels. See the note above the disclosure.
+  const [showProjectDetail, setShowProjectDetail] = useState(false);
 
   /**
    * Send with any attached artifacts appended as explicit references.
@@ -218,32 +247,56 @@ export function DashboardWorkspace({
   }, [currentSessionId, mainScrollRef, topTab]);
 
   return (
-    <>
+    <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
       <div
         ref={mainScrollRef}
         onScroll={onMainScroll}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto w-full"
         style={{
-          paddingTop: hasResult ? '12px' : 'clamp(16px, 3vw, 32px)',
-          paddingRight: 'clamp(16px, 3vw, 32px)',
-          paddingBottom: 'clamp(24px, 4vw, 40px)',
-          paddingLeft: 'clamp(16px, 3vw, 32px)',
+          paddingTop: hasResult ? '12px' : 'clamp(16px, 2.5vw, 32px)',
+          paddingRight: 'clamp(24px, 3.5vw, 48px)',
+          paddingBottom: 'clamp(24px, 3.5vw, 40px)',
+          paddingLeft: 'clamp(24px, 3.5vw, 48px)',
         }}
       >
-        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1400px] w-full mx-auto`}>
-          {topTab === 'usage' && (
-            <ApiUsagePanel
-              lastMetrics={currentResult?.orchestratorOutput?.metrics}
-              lastLive={currentResult?.liveMetrics}
-              sessionTotals={sessionUsage}
-              queryCacheStats={queryCacheStats}
-              sessionId={currentSessionId}
-              agentsSavedVsFull={currentResult?.orchestratorOutput?.selectionMeta?.savedVsFull ?? null}
+        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1240px] w-full mx-auto`}>
+          {/*
+            The landing screen. Answers "what changed while I was away?" from
+            already-collected data — it never triggers research and never calls a
+            model, so opening the app costs nothing.
+          */}
+          {topTab === 'home' && (
+            <HomeFeed
+              onOpenProject={(project) => {
+                onProjectCreated?.(project);
+                onTopTabChange?.('intelligence');
+              }}
+              onStartTracking={() => onTopTabChange?.('intelligence')}
+              onOpenSession={(sessionId) => {
+                onOpenSession?.(sessionId);
+                onTopTabChange?.('intelligence');
+              }}
+              // One path for "send this question into the conversation",
+              // used by both the quick search and the market cards.
+              onLaunchQuery={(query) => {
+                onSendDemoQuery(query);
+                onTopTabChange?.('intelligence');
+              }}
             />
           )}
           {topTab === 'steal' && <StealStrategyPanel />}
           {topTab === 'watchlists' && <WatchlistsView />}
-          {topTab === 'profile' && <ProfileSettingsView userEmail={userEmail ?? null} userMemory={userMemory} />}
+          {(topTab === 'profile' || topTab === 'usage') && (
+            <ProfileSettingsView
+              userEmail={userEmail ?? null}
+              userMemory={userMemory}
+              selectedAgents={selectedAgents}
+              onToggleAgent={onToggleAgent}
+              forceFullSweep={forceFullSweep}
+              onToggleForceFullSweep={onToggleForceFullSweep}
+              initialSubTab={topTab === 'usage' ? 'usage' : 'profile'}
+            />
+          )}
           {topTab === 'intelligence' && (
             <>
               {selectedProject && (
@@ -275,6 +328,30 @@ export function DashboardWorkspace({
                 re-type it. This is what makes a second visit worth more than
                 the first, so it sits above the static project overview.
               */}
+              {/*
+                Project detail, collapsed by default.
+
+                These four panels used to sit permanently above the conversation,
+                so starting new research left a wall of the previous project on
+                screen and the reset looked like it had not happened. The
+                conversation is what this tab is for; the project's standing
+                detail is reference material you open when you want it.
+              */}
+              {selectedProject && (
+                <button
+                  type="button"
+                  onClick={() => setShowProjectDetail((v) => !v)}
+                  className="self-start flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`transition-transform ${showProjectDetail ? 'rotate-180' : ''}`}
+                  />
+                  {showProjectDetail ? 'Hide project detail' : 'Show project detail'}
+                </button>
+              )}
+              {showProjectDetail && (
+                <>
               {selectedProject ? (
                 <ProjectDashboard
                   projectId={selectedProject.id}
@@ -296,7 +373,45 @@ export function DashboardWorkspace({
                   refreshKey={currentResult?.persistedId ?? currentResult?.id ?? null}
                 />
               ) : null}
-              {messages.length === 0 && !isLoading && !hasResult && !currentResult && (
+              {/*
+                What a first-time visitor sees.
+
+                Without a project, the entire returning-user surface — dashboard,
+                ledger, charts, timeline — cannot render, because every one of
+                those is gated on `selectedProject` below. The old empty state
+                offered only question chips, so people asked one question, judged
+                the product on a single-shot answer, and never reached the part
+                that makes it worth returning to.
+
+                So: setup leads, and asking a one-off stays available underneath.
+                Once a project exists, the question prompt is the right lead again.
+              */}
+                </>
+              )}
+              {messages.length === 0 && !isLoading && !hasResult && !currentResult && !selectedProject && (
+                showTrackingForm ? (
+                  <StartTrackingCard
+                    onCreated={(project) => {
+                      setShowTrackingForm(false);
+                      onProjectCreated?.(project);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowTrackingForm(false)}
+                      className="self-start text-xs text-muted-foreground hover:text-accent"
+                    >
+                      Back to asking a question
+                    </button>
+                  </StartTrackingCard>
+                ) : (
+                  <ResearchStarter
+                    onAsk={onSendDemoQuery}
+                    onTrackNew={() => setShowTrackingForm(true)}
+                  />
+                )
+              )}
+              {messages.length === 0 && !isLoading && !hasResult && !currentResult && selectedProject && (
                 <ChatPanel
                   showEmptyState
                   onDemoQuery={onSendDemoQuery}
@@ -437,6 +552,6 @@ export function DashboardWorkspace({
           />
         </AppErrorBoundary>
       )}
-    </>
+    </div>
   );
 }

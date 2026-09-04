@@ -31,7 +31,21 @@ export interface ChartSpecViewProps {
   onOpenEvidence?: (spanIds: string[]) => void;
 }
 
-const SERIES_COLORS = ['#0052FF', '#4D7CFF', '#7C3AED', '#0891B2', '#DB2777'];
+// Read from the theme rather than hardcoded, so charts follow light/dark and a
+// palette change reaches them. These were five hardcoded hex values — four of
+// them blue — which is why multi-series charts came out looking like one colour
+// and why editing the theme tokens did nothing to them.
+//
+// Fixed order, never cycled: colour must follow the entity, so filtering series
+// cannot repaint the survivors. Past three slots the all-pairs colourblind
+// floors cannot be cleared, so wide comparisons fold into "Other" instead.
+const SERIES_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+];
 
 // Wording and colour both come from the shared vocabulary, so "Read from the
 // source" reads and looks identical here, in the digest, and in the drawer.
@@ -219,6 +233,12 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
                   name={s.label}
                   fill={SERIES_COLORS[i % SERIES_COLORS.length]}
                   radius={[4, 4, 0, 0]}
+                  // Recharts splits the full width across however many
+                  // categories exist, so a two-category snapshot produced two
+                  // columns hundreds of pixels wide — a shape that reads as a
+                  // rendering fault rather than as data. A bar's width should
+                  // never encode how few categories there happen to be.
+                  maxBarSize={56}
                 />
               ),
             )}

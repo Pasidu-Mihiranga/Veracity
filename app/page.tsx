@@ -62,6 +62,8 @@ export default function VeracityDashboard() {
   const [ratedRecs, setRatedRecs] = useState<Record<string, RecommendationRating>>({});
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  // Bumped when a project is created outside the sidebar, so its list re-reads.
+  const [projectsVersion, setProjectsVersion] = useState(0);
   const [agentsDrawerOpen, setAgentsDrawerOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertsUnread, setAlertsUnread] = useState(0);
@@ -72,7 +74,7 @@ export default function VeracityDashboard() {
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [topTab, setTopTab] = useState<TopTab>('intelligence');
+  const [topTab, setTopTab] = useState<TopTab>('home');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
   const [turnMode, setTurnMode] = useState<ResearchTurnMode>('verify');
 
@@ -244,67 +246,67 @@ export default function VeracityDashboard() {
 
   return (
     <div className={isDark ? 'dark' : 'light'} style={{ display: 'contents' }}>
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground font-sans">
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground font-sans">
+      {/* ═══════════════════════════════════ TOP HEADER NAV ══ */}
+      <DashboardHeader
+        headerIslandRef={headerIslandRef}
+        headerCompact={headerCompact}
+        sidebarCollapsed={sidebarCollapsed}
+        onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
+        headerBg={headerBg}
+        topTab={topTab}
+        onTopTabChange={setTopTab}
+        selectedAgents={selectedAgents}
+        mirofishRunning={mirofishRunning}
+        onOpenAgents={() => setAgentsDrawerOpen(true)}
+        onOpenMemory={() => setMemoryDrawerOpen(true)}
+        onOpenProfile={() => setProfileDrawerOpen(true)}
+        onOpenAlerts={() => setAlertsOpen(true)}
+        alertsUnread={alertsUnread}
+        onOpenMembers={() => setMembersOpen(true)}
+        onOpenOrgIntel={() => setOrgIntelOpen(true)}
+        onOpenKgExplorer={() => setKgExplorerOpen(true)}
+        isDark={isDark}
+        onToggleTheme={toggleTheme}
+        userEmail={userEmail}
+        showUserMenu={showUserMenu}
+        onToggleUserMenu={() => setShowUserMenu(v => !v)}
+        onSignOut={() => { void handleSignOut(); }}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        textMuted={textMuted}
+        textSubtle={textSubtle}
+        accentInk={accentInk}
+      />
 
-      {topTab === 'intelligence' && (
-        <SessionSidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
-          onNewQuery={handleNewQuery}
-          selectedProject={selectedProject}
-          onSelectProject={setSelectedProject}
-          sessions={sessions}
-          loadingSessions={loadingSessions}
-          currentSessionId={currentSessionId}
-          onLoadSession={(id) => { void loadSession(id); }}
-          onDeleteSession={(id) => deleteSession(id)}
-          selectedAgents={selectedAgents}
-          onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
-          forceFullSweep={forceFullSweep}
-          onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
-          getRunForDomain={getRunFor}
-          sidebarBg={sidebarBg}
-          cardBg2={cardBg2}
-          neuExtrudedSm={neuExtrudedSm}
-          textMain={textMain}
-          textMuted={textMuted}
-          textSubtle={textSubtle}
-        />
-      )}
-
-      {/* ═══════════════════════════════════ MAIN ══ */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-
-        <DashboardHeader
-          headerIslandRef={headerIslandRef}
-          headerCompact={headerCompact}
-          sidebarCollapsed={sidebarCollapsed}
-          onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
-          headerBg={headerBg}
-          topTab={topTab}
-          onTopTabChange={setTopTab}
-          selectedAgents={selectedAgents}
-          mirofishRunning={mirofishRunning}
-          onOpenAgents={() => setAgentsDrawerOpen(true)}
-          onOpenMemory={() => setMemoryDrawerOpen(true)}
-          onOpenProfile={() => setProfileDrawerOpen(true)}
-          onOpenAlerts={() => setAlertsOpen(true)}
-          alertsUnread={alertsUnread}
-          onOpenMembers={() => setMembersOpen(true)}
-          onOpenOrgIntel={() => setOrgIntelOpen(true)}
-          onOpenKgExplorer={() => setKgExplorerOpen(true)}
-          isDark={isDark}
-          onToggleTheme={toggleTheme}
-          userEmail={userEmail}
-          showUserMenu={showUserMenu}
-          onToggleUserMenu={() => setShowUserMenu(v => !v)}
-          onSignOut={() => { void handleSignOut(); }}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-          textMuted={textMuted}
-          textSubtle={textSubtle}
-          accentInk={accentInk}
-        />
+      {/* ═══════════════════════════════════ CONTENT BODY ══ */}
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+        {topTab === 'intelligence' && (
+          <SessionSidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
+            onNewQuery={handleNewQuery}
+            selectedProject={selectedProject}
+            onSelectProject={setSelectedProject}
+            projectsRefreshKey={projectsVersion}
+            sessions={sessions}
+            loadingSessions={loadingSessions}
+            currentSessionId={currentSessionId}
+            onLoadSession={(id) => { void loadSession(id); }}
+            onDeleteSession={(id) => deleteSession(id)}
+            selectedAgents={selectedAgents}
+            onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+            forceFullSweep={forceFullSweep}
+            onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
+            getRunForDomain={getRunFor}
+            sidebarBg={sidebarBg}
+            cardBg2={cardBg2}
+            neuExtrudedSm={neuExtrudedSm}
+            textMain={textMain}
+            textMuted={textMuted}
+            textSubtle={textSubtle}
+          />
+        )}
 
         <DashboardWorkspace
           topTab={topTab}
@@ -315,6 +317,14 @@ export default function VeracityDashboard() {
           currentResult={currentResult}
           currentSessionId={currentSessionId}
           selectedProject={selectedProject}
+          onTopTabChange={setTopTab}
+          onOpenSession={(id) => { void loadSession(id); }}
+          onProjectCreated={(project) => {
+            // Select it immediately so the dashboard, ledger, charts and
+            // timeline render straight away, and refresh the sidebar list.
+            setSelectedProject(project);
+            setProjectsVersion((v) => v + 1);
+          }}
           messages={messages}
           followUps={followUps}
           followUpEndRef={followUpEndRef}
@@ -356,6 +366,10 @@ export default function VeracityDashboard() {
           turnMode={turnMode}
           onTurnModeChange={setTurnMode}
           onResetHeader={resetHeaderCompress}
+          selectedAgents={selectedAgents}
+          onToggleAgent={(domain) => setSelectedAgents((prev) => ({ ...prev, [domain]: !prev[domain] }))}
+          forceFullSweep={forceFullSweep}
+          onToggleForceFullSweep={() => setForceFullSweep((v) => !v)}
           chrome={{ cardBg, cardBg2, textMain, textMuted, textSubtle, accentInk, borderC, neuExtruded, neuExtrudedSm, isDark }}
         />
       </div>

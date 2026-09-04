@@ -100,6 +100,17 @@ export function summariseChart(spec: ChartSpec): PlainChartSummary {
 
   if (points.length === 1) {
     headline = `${spec.title}: ${formatValue(last.value, spec.unit)} as of ${last.period}.`;
+  } else if (spec.period.cadence === 'snapshot') {
+    // A snapshot's points are categories, not moments. The movement sentence
+    // below reads them as a before and an after, which produced the nonsense
+    // "Evidence coverage went from 0 claims to 42 claims between Supported and
+    // Unsupported" — a trend across two things that never moved.
+    const total = points.reduce((sum, point) => sum + point.value, 0);
+    const largest = points.reduce((max, point) => (point.value > max.value ? point : max), points[0]);
+    headline =
+      total > 0
+        ? `${spec.title}: ${largest.period} accounts for ${formatValue(largest.value, spec.unit)} of ${formatValue(total, spec.unit)}.`
+        : `${spec.title}: nothing recorded yet.`;
   } else if (first.value === last.value) {
     // Stability is a finding. Saying "unchanged" is more useful than a chart
     // the user has to read to discover nothing happened.

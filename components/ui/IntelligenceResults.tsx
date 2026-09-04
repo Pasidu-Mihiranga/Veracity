@@ -24,10 +24,12 @@ import { ExecutiveBoardMode } from '@/components/ui/ExecutiveBoardMode';
 import { StrategyCanvas } from '@/components/ui/StrategyCanvas';
 import { MissionSummaryCard } from '@/components/ui/MissionSummaryCard';
 import { ResearchWorkflowPack } from '@/components/ui/ResearchWorkflowPack';
+import { MarketBriefingSection } from '@/components/artifacts/MarketBriefingSection';
 import { DecisionSupportPack } from '@/components/ui/DecisionSupportPack';
 import { ResearchReplay } from '@/components/ui/ResearchReplay';
 import { ScenarioCompare } from '@/components/ui/ScenarioCompare';
 import { CompetitiveTimeline } from '@/components/ui/CompetitiveTimeline';
+import { FormattedResearchContent } from '@/components/ui/FormattedResearchContent';
 import { DOMAIN_META, domainAccent, type Domain } from '@/lib/domain-meta';
 import { featureFlags } from '@/lib/feature-flags';
 import {
@@ -347,7 +349,7 @@ export function IntelligenceResults({
           </div>
         </div>
         <div className="p-6 lg:p-8 flex flex-col gap-4">
-          <p className="prose-answer whitespace-pre-wrap">{currentResult.content}</p>
+          <FormattedResearchContent content={currentResult.content} />
           {trust ? (
             <p className="text-[12px] leading-relaxed" style={{ color: textMuted }}>
               {trust}
@@ -380,6 +382,14 @@ export function IntelligenceResults({
           ) : null}
         </div>
       </section>
+
+      {/*
+        What we already knew, before what the agents went and found.
+        A market we have been collecting on for months answers the question
+        better than a fresh web sweep can, so it goes above the sweep's own
+        output rather than below it.
+      */}
+      <MarketBriefingSection briefing={currentResult.orchestratorOutput?.marketBriefing} />
 
       <ResearchWorkflowPack output={currentResult.orchestratorOutput} />
       <DecisionSupportPack

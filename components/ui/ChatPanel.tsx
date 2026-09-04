@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import type { AttachedImage, FollowUp } from '@/types/chat-ui';
 import { DEMO_QUERIES } from '@/lib/domain-meta';
-import { RESEARCH_TURN_MODE_COPY, type ResearchTurnMode } from '@/lib/research-turn-mode';
+import type { ResearchTurnMode } from '@/lib/research-turn-mode';
 
 export type ChatPanelProps = {
   /** Empty-state + suggestions (when no messages). */
@@ -260,27 +260,11 @@ export function ChatPanel({
                       <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-accent shrink-0 opacity-80" />
                     </div>
                   ) : null}
-                  {onTurnModeChange ? (
-                    <div className="relative inline-flex items-center">
-                      <select
-                        aria-label="Select research action"
-                        value={turnMode}
-                        onChange={(event) => onTurnModeChange(event.target.value as ResearchTurnMode)}
-                        className="appearance-none ui-mono text-[10.5px] font-medium pl-3 pr-7 py-1.5 rounded-xl bg-muted/60 hover:bg-muted text-foreground border border-border cursor-pointer outline-none transition-colors"
-                        disabled={composerBusy}
-                      >
-                        {(Object.keys(RESEARCH_TURN_MODE_COPY) as ResearchTurnMode[]).map((mode) => (
-                          <option key={mode} value={mode}>{RESEARCH_TURN_MODE_COPY[mode].label}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-muted-foreground" />
-                    </div>
-                  ) : null}
+                  {/* Turn mode dropdown removed as requested */}
                   <button
                     type="button"
                     onClick={onAttachClick}
-                    className="neu-extruded-sm w-9 h-9 flex items-center justify-center rounded-xl"
-                    style={{ color: textSubtle }}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-accent/5 hover:bg-accent/12 border border-border/50 text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs hover:border-accent/30"
                     aria-label="Attach image"
                     disabled={composerBusy}
                   >

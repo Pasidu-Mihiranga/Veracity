@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUpRight, Bot, LoaderCircle, UserRound } from 'lucide-react';
+import { ArrowUpRight, Bot, UserRound } from 'lucide-react';
 import Image from 'next/image';
 import type { ChatMessage } from '@/types/chat-ui';
 
@@ -52,6 +52,11 @@ export function ConversationTimeline({
           message.id === currentResultId && Boolean(message.orchestratorOutput);
         const isPending = !isUser && !message.content && !message.streamError;
 
+        // Omit current structured assistant message or pending assistant message in timeline
+        if (!isUser && (isCurrentStructuredResult || isPending)) {
+          return null;
+        }
+
         return (
           <article
             key={`${message.role}-${message.id}`}
@@ -84,14 +89,7 @@ export function ConversationTimeline({
                 </span>
               </div>
 
-              {isPending ? (
-                <div className="flex items-center gap-2 text-[13px]" style={{ color: textMuted }}>
-                  <LoaderCircle size={13} className="animate-spin" />
-                  Researching and checking sources…
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap text-[13px] leading-6">{message.content}</p>
-              )}
+              <p className="whitespace-pre-wrap text-[13px] leading-6">{message.content}</p>
 
               {message.images && message.images.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">

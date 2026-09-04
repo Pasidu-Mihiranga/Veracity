@@ -77,6 +77,20 @@ export interface ExtractionOutcome {
 
 const PROMPT = `You extract verifiable evidence from a web page.
 
+Return JSON of exactly this shape:
+
+{"items":[{
+  "excerpt": "text copied verbatim from the page",
+  "statement": "what that excerpt establishes, in your own words",
+  "kind": "price" | "feature" | "release" | "positioning" | "quote" | "metric" | "other",
+  "entityMatch": "confirmed" | "probable" | "unverified" | "mismatch",
+  "metric": {"key":"base_fare","value":350,"unit":"LKR"} | null
+}]}
+
+Use exactly these field names. "excerpt", "statement", "kind" and "entityMatch"
+are required on every item; "metric" is null unless the excerpt states a number
+with a unit.
+
 Rules:
 - Every "excerpt" MUST be copied VERBATIM from the page text. Do not paraphrase, summarise, correct, or reformat it. If you cannot copy it exactly, omit the item.
 - Only include a "metric" when the excerpt itself states a number AND a unit. Never infer, estimate, convert, or complete a number that is not written on the page.

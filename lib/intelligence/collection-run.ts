@@ -53,6 +53,16 @@ export interface CollectionPorts {
     normalizedContent: string;
     entityName: string;
     sourceUrl: string;
+    /**
+     * What the caller said this source is — 'pricing', 'changelog', 'feed'.
+     *
+     * Passed through because the extractor previously inferred it from the URL
+     * path, which silently skipped structured price extraction for every real
+     * pricing page not literally served at `/pricing`: `/tariffs`, `/plans`,
+     * `/rates`, `/packages`. Those pages then produced no measured metrics and
+     * so no measured change could ever be detected on them.
+     */
+    sourceType?: string;
   }) => Promise<{ spans: ExtractedSpan[]; status: 'ok' | 'partial' | 'failed' }>;
   /** Persist spans and their observations. */
   saveEvidence: (params: {
@@ -169,6 +179,7 @@ export async function runCollection(
         normalizedContent: prepared.snapshot.normalizedContent,
         entityName: source.entityLabel,
         sourceUrl: source.url,
+        sourceType: source.sourceType,
       });
 
       if (extraction.status === 'failed') {

@@ -43,14 +43,18 @@ export async function extractAndUpdateMemory(
   existingMemory: UserMemory,
 ): Promise<void> {
   try {
-    await fetch('/api/memory', {
+    const res = await fetch('/api/memory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ sessionId, userQuery, assistantAnswer, existingMemory }),
-    });
-  } catch (err) {
-    console.error('memory extraction failed:', err);
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      // Non-fatal background memory extraction failure
+      return;
+    }
+  } catch {
+    // Prevent unhandled promise rejection
   }
 }
 
@@ -61,9 +65,9 @@ export async function updateUserMemoryFacts(facts: MemoryFact[]): Promise<void> 
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ facts }),
-    });
-  } catch (err) {
-    console.error('updateUserMemoryFacts failed:', err);
+    }).catch(() => null);
+  } catch {
+    // Prevent unhandled promise rejection
   }
 }
 

@@ -138,35 +138,38 @@ export function EvidenceDrawer({
   const hasNothing = supporting.length === 0 && contradicting.length === 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end p-2.5 sm:p-4 pointer-events-none">
       <button
         type="button"
-        aria-label="Close evidence"
+        aria-label="Close evidence backdrop"
         onClick={onClose}
-        className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity animate-fadeIn pointer-events-auto"
       />
 
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Evidence"
-        className="relative w-full max-w-lg h-full bg-card border-l border-border shadow-xl flex flex-col"
+        aria-label="Evidence Ledger"
+        className="relative w-full max-w-lg h-full rounded-2xl bg-card/95 backdrop-blur-xl border border-border/80 flex flex-col overflow-hidden shadow-2xl pointer-events-auto animate-slideInRight"
+        style={{
+          boxShadow: 'var(--shadow-extruded), 0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        }}
       >
-        <header className="flex items-start justify-between gap-3 p-5 border-b border-border">
-          <div className="flex flex-col gap-1.5 min-w-0">
-            <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-              Evidence
+        <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border/60 bg-accent/5 shrink-0">
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent flex items-center gap-1.5">
+              Evidence Ledger
             </span>
-            <p className="text-sm text-foreground font-medium break-words">{claim}</p>
+            <p className="text-sm font-bold text-foreground break-words leading-tight">{claim}</p>
           </div>
           <button
             ref={closeRef}
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 p-1.5 rounded-lg hover:bg-muted transition-colors"
+            className="shrink-0 p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/15 border border-border/50 transition-all cursor-pointer"
           >
-            <X size={16} className="text-muted-foreground" />
+            <X size={16} />
           </button>
         </header>
 

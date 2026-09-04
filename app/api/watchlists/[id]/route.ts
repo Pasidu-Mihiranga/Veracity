@@ -98,6 +98,7 @@ export async function PATCH(
     max_competitors: body.maxCompetitors,
     weekly_alert_budget: body.weeklyAlertBudget,
     alert_channels: body.alertChannels,
+    last_sweep_at: body.runNow ? new Date().toISOString() : undefined,
   });
 
   if (body.runNow && featureFlags.alerts) {
@@ -125,6 +126,10 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   const { id } = await ctx.params;
+
+  const { deleteAlertsForWatchlist } = await import('@/lib/alerts');
+  await deleteAlertsForWatchlist(id, user.id);
+
   const ok = await deleteWatchlist(id, user.id);
   if (!ok) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ ok: true });

@@ -26,6 +26,8 @@ export type SessionSidebarProps = {
   onNewQuery: (project?: MarketProject) => void;
   selectedProject?: MarketProject | null;
   onSelectProject?: (project: MarketProject | null) => void;
+  /** Bump to force a re-read of the project list. */
+  projectsRefreshKey?: number;
   sessions: ChatSession[];
   loadingSessions: boolean;
   currentSessionId: string | null;
@@ -50,6 +52,7 @@ export function SessionSidebar({
   onNewQuery,
   selectedProject,
   onSelectProject,
+  projectsRefreshKey,
   sessions,
   loadingSessions,
   currentSessionId,
@@ -82,9 +85,12 @@ export function SessionSidebar({
     displayTitle: string;
   } | null>(null);
 
+  // Re-reads when `projectsRefreshKey` changes. A project created from the
+  // empty state lives outside this component, so without the key the sidebar
+  // would keep showing an empty list until a full reload.
   useEffect(() => {
     listMarketProjects().then(setProjects).catch(() => setProjects([]));
-  }, []);
+  }, [projectsRefreshKey]);
 
   const toggleFolder = (folderName: string) => {
     setExpandedFolders((prev) => ({
@@ -208,31 +214,24 @@ export function SessionSidebar({
           overflow: 'hidden',
         }}
       >
-        <div className="px-4 pt-4 pb-3">
-          <div className="flex items-center gap-2.5">
-            <Image
-              src="/robot.avif"
-              alt=""
-              width={40}
-              height={40}
-              className="brand-mascot w-10 h-10 shrink-0"
-              draggable={false}
-            />
-            <div className="min-w-0">
-              <BrandWordmark size="sm" />
-              <p className="ui-section-label mt-1.5" style={{ color: textSubtle }}>
-                Growth Intelligence
-              </p>
-            </div>
-          </div>
-        </div>
+        {/*
+          The logo is the universal "take me home" affordance and people click it
+          expecting that. It was a plain div — no handler, no role, no keyboard
+          access — so it did nothing at all.
+
+          Home means a clean slate: clear the conversation *and* deselect the
+          project, so the user lands on the start screen rather than staring at
+          the previous project's panels wondering why nothing reset.
+        */}
+        <div className="pt-3" />
 
         <div className="px-3 pt-3 pb-2">
           <button
-            onClick={() => onNewQuery(selectedProject ?? undefined)}
-            className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11"
+            type="button"
+            onClick={() => onNewQuery(undefined)}
+            className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11 cursor-pointer rounded-xl"
           >
-            <Plus size={14} /> {selectedProject ? 'New project research' : 'New research'}
+            <Plus size={14} /> New research
           </button>
         </div>
 
@@ -248,7 +247,7 @@ export function SessionSidebar({
               <button
                 type="button"
                 onClick={openCreateProject}
-                className="hover:text-accent p-1 text-muted-foreground transition-colors"
+                className="icon-btn hover:text-accent" aria-label="New folder"
                 title="Create Market Project"
               >
                 <FolderPlus size={13} />

@@ -90,10 +90,11 @@ export function StealStrategyPanel() {
                   key={ex}
                   type="button"
                   onClick={() => setCompany(ex)}
-                  className="ui-mono px-2.5 py-1 rounded-lg"
+                  className="ui-mono px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
                   style={{
-                    fontSize: 10,
-                    color: 'var(--foreground-subtle)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--foreground-muted)',
                     background: 'var(--surface-raised)',
                     border: '1px solid var(--border)',
                   }}

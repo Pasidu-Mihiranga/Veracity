@@ -141,7 +141,7 @@ export async function upsertAlertEventWithinBudget(
 
 export async function listAlerts(
   userId: string,
-  filters: { unread?: boolean; severity?: string; competitor?: string; limit?: number } = {},
+  filters: { unread?: boolean; severity?: string; competitor?: string; watchlistId?: string; limit?: number } = {},
 ): Promise<AlertEventRow[]> {
   const clauses = ['user_id = $1'];
   const vals: unknown[] = [userId];
@@ -156,6 +156,10 @@ export async function listAlerts(
   if (filters.competitor) {
     clauses.push(`lower(competitor) = lower($${i++})`);
     vals.push(filters.competitor);
+  }
+  if (filters.watchlistId) {
+    clauses.push(`watchlist_id = $${i++}::uuid`);
+    vals.push(filters.watchlistId);
   }
   const limit = Math.min(Math.max(filters.limit ?? 40, 1), 100);
   vals.push(limit);
@@ -180,6 +184,28 @@ export async function markAlertRead(
     [id, userId],
   );
   return rows[0] ?? null;
+}
+
+export async function deleteAlert(
+  id: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM alert_events WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function deleteAlertsForWatchlist(
+  watchlistId: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await query(
+    `DELETE FROM alert_events WHERE watchlist_id = $1 AND user_id = $2`,
+    [watchlistId, userId],
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function insertCompetitiveEvent(input: {

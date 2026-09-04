@@ -36,9 +36,9 @@ export interface ArtifactMethodologyProps {
 }
 
 const DATA_CLASS_STYLE: Record<string, string> = {
-  observed: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-  derived: 'bg-accent/5 text-accent border-accent/20',
-  synthetic: 'bg-amber-50 text-amber-700 border-amber-200',
+  observed: 'bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border-emerald-500/30 font-semibold',
+  derived: 'bg-blue-500/10 text-blue-900 dark:text-blue-300 border-blue-500/30 font-semibold',
+  synthetic: 'bg-amber-500/10 text-amber-900 dark:text-amber-300 border-amber-500/30 font-semibold',
 };
 
 const DATA_CLASS_NOTE: Record<string, string> = {

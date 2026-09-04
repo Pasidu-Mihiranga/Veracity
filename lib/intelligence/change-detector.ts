@@ -69,7 +69,18 @@ export function detectMetricChange(params: {
 
 function metricKeyToEventType(metricKey: string): ChangeEventType {
   const key = metricKey.toLowerCase();
-  if (key.includes('price') || key.includes('cost') || key.includes('plan')) return 'pricing_changed';
+  // "fare", "fee", "tariff" and "rate" are how price is written outside SaaS —
+  // transport, logistics, utilities, banking. Without them a genuine fare
+  // increase was classed `documentation_changed`, scored 0.2, and fell below the
+  // materiality floor, so the single most decision-relevant change a competitor
+  // can make was silently withheld from the user.
+  if (
+    key.includes('price') || key.includes('cost') || key.includes('plan') ||
+    key.includes('fare') || key.includes('fee') || key.includes('tariff') ||
+    key.includes('rate') || key.includes('tier') || key.includes('subscription')
+  ) {
+    return 'pricing_changed';
+  }
   if (key.includes('release') || key.includes('version')) return 'feature_launched';
   if (key.includes('headcount') || key.includes('job') || key.includes('hiring')) return 'hiring_signal';
   if (key.includes('revenue') || key.includes('funding')) return 'funding_or_filing';
