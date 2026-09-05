@@ -1665,3 +1665,27 @@ a:has(> svg:only-child) {
 @media (pointer: coarse) {
   .icon-btn { min-width: 44px; min-height: 44px; }
 }
+
+/* ─── Print / PDF Export Styles ──────────────────────────── */
+@media print {
+  header, nav, .app-header, button, select, input {
+    display: none !important;
+  }
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .printable-strategy-area {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .veracity-card {
+    border: 1px solid #CCCCCC !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 24px !important;
+  }
+}
+
