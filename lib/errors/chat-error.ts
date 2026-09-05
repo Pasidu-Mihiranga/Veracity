@@ -19,7 +19,33 @@ export function buildChatErrorPayload(
   err: unknown,
   correlationId?: string,
 ): ChatErrorPayload {
-  const detail = err instanceof Error ? err.message : String(err);
+  let detail = '';
+  if (err instanceof Error) {
+    detail = err.message || err.name;
+  } else if (typeof err === 'string') {
+    detail = err;
+  } else if (err && typeof err === 'object') {
+    if ('message' in err && typeof (err as any).message === 'string') {
+      detail = (err as any).message;
+    } else if ('error' in err && typeof (err as any).error === 'string') {
+      detail = (err as any).error;
+    } else if ('type' in err && (err as any).type === 'error') {
+      detail = 'Connection interrupted or network stream event failed';
+    } else {
+      try {
+        detail = JSON.stringify(err);
+      } catch {
+        detail = 'A network or stream event error occurred';
+      }
+    }
+  } else {
+    detail = String(err);
+  }
+
+  if (detail === '[object Event]' || detail === '[object Object]') {
+    detail = 'Connection interrupted or network stream disconnected';
+  }
+
   const lower = detail.toLowerCase();
 
   if (/429|rate limit|quota|resource exhausted|too many requests/i.test(lower)) {

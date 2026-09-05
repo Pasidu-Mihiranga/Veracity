@@ -1,68 +1,244 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { getCurrentUser } from '@/lib/auth';
 import { generateHuggingFaceJson } from '@/lib/agents/gemini';
-import {
-  markStealStrategyUngrounded,
-  type StealStrategyModelResult,
-} from '@/lib/steal-strategy-grounding';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-function jsonError(message: string, status: number) {
-  return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });
+function jsonError(message: string, status: number, extra?: Record<string, any>) {
+  return new Response(JSON.stringify({ error: message, ...extra }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export interface SuggestedLeader {
+  name: string;
+  tagline: string;
+  whyModelThem: string;
+}
+
+export interface GrowthPlaybookResult {
+  isRecognized: boolean;
+  correctedCompanyName?: string;
+  company: string;
+  summary: string;
+  leaderTeardown: {
+    coreWedge: string;
+    whyItWorked: string;
+    keyMilestone: string;
+  };
+  growthLevers: {
+    leverName: string;
+    howToApplyNow: string;
+    actionableTactics: string[];
+  }[];
+  executionTimeline: {
+    phase: string;
+    timeframe: string;
+    title: string;
+    objectives: string[];
+    deliverables: string[];
+  }[];
+  keyMetrics: {
+    metric: string;
+    target: string;
+    whyItMatters: string;
+  }[];
+  ethicalGuardrails: string;
+}
+
+interface ValidationAndRoadmapResponse extends GrowthPlaybookResult {
+  isValidEntity: boolean;
+  correctionSuggestion?: string;
+  rejectionReason?: string;
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return jsonError('Not authenticated', 401);
   }
 
-  let body: { company?: string; newCompanyContext?: string; market?: string };
+  let body: {
+    mode?: 'suggest_leaders' | 'generate_roadmap';
+    company?: string;
+    market?: string;
+    stage?: string;
+    goal?: string;
+    productDescription?: string;
+    customContext?: string;
+  };
+
   try {
     body = await req.json();
   } catch {
-    return jsonError('Invalid JSON', 400);
+    return jsonError('Invalid JSON payload', 400);
   }
 
-  const company = (body.company ?? '').trim();
-  if (company.length < 2) {
-    return jsonError('company is required (at least 2 characters)', 400);
-  }
-  const newCo = (body.newCompanyContext ?? '').trim();
-  const market = (body.market ?? '').trim();
+  const mode = body.mode ?? 'generate_roadmap';
+  const market = (body.market ?? 'Business Software & Services').trim();
+  const stage = (body.stage ?? 'Early Stage / Small Team (1-10 people)').trim();
+  const goal = (body.goal ?? 'Get First 100 Paying Customers').trim();
 
-  const system = `You are a business strategy analyst. Respond with valid JSON only, no markdown fences.
-This is a case-study style analysis of widely reported business history and competitive strategy — not instructions to break laws, harm competitors, or act unethically.
-This endpoint does not retrieve sources. Frame every move as an educational analogy, never as a verified fact or current recommendation. Use "commonly cited" and state uncertainty.`;
+  // ════════════════════════════════════════════════════════════════════════
+  // MODE 1: Dynamically Suggest Best Benchmark Companies in Plain English
+  // ════════════════════════════════════════════════════════════════════════
+  if (mode === 'suggest_leaders') {
+    const desc = (body.productDescription ?? body.customContext ?? '').trim();
+    const systemPrompt = `You are a friendly business growth advisor. Return valid JSON only, no markdown.
+Provide 5 real, successful companies in the user's field that are great examples to learn from.
+Use simple, everyday English without technical jargon.`;
 
-  const userPrompt = `Company to analyse: ${company}
-${market ? `Market / category: ${market}\n` : ''}${newCo ? `New entrant or reader context: ${newCo}\n` : ''}
-Produce a JSON object with this exact shape:
+    const userPrompt = `Industry / Market: ${market}
+${desc ? `Business Description: ${desc}\n` : ''}
+Goal: ${goal}
+
+Generate a JSON object:
 {
-  "summary": "2-3 sentences",
-  "historicalCompetitiveMoves": [ { "move": "", "context": "timeframe / product area", "effectOnRivals": "strategic effect on same-type competitors" } ],
-  "modernEntrantPlaybook": [ { "analogy": "which past pattern maps here", "applicationToday": "how a new company competes in the same type of market now (channels, product, GTM, data)", "exampleTactics": ["concrete, ethical levers"] } ],
-  "guardrails": "one paragraph: legal, ethical, and IP boundaries; this is education not a playbook to harm"
+  "leaders": [
+    {
+      "name": "Real Company Name",
+      "tagline": "Short simple summary of what they do (e.g. Simple Online Invoicing & Bookkeeping)",
+      "whyModelThem": "One friendly sentence on why their early growth is a great example to follow."
+    }
+  ]
 }
-Include 3-5 items in each array. Use English.`;
+Include 5 real, well-known companies.`;
+
+    try {
+      const data = await generateHuggingFaceJson<{ leaders: SuggestedLeader[] }>(systemPrompt, userPrompt, {
+        maxNewTokens: 1500,
+        temperature: 0.2,
+      });
+
+      if (!Array.isArray(data.leaders) || data.leaders.length === 0) {
+        return jsonError('Could not find benchmark companies for this category', 502);
+      }
+
+      return new Response(JSON.stringify({ leaders: data.leaders }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (err) {
+      console.error('Leader suggestion error:', err);
+      return jsonError('Failed to suggest benchmark companies.', 500);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MODE 2: Generate Plain-English, Step-by-Step Growth Plan
+  // ════════════════════════════════════════════════════════════════════════
+  const rawCompany = (body.company ?? '').trim();
+  if (rawCompany.length < 2) {
+    return jsonError('Please enter a company name (at least 2 characters)', 400);
+  }
+
+  const customContext = (body.customContext ?? '').trim();
+
+  const systemPrompt = `You are a friendly, encouraging business coach and growth strategist.
+You help small business owners, creators, and founders grow by learning from what worked for successful market leaders.
+
+Crucial Language & Tone Guidelines:
+1. Use 100% simple, everyday, friendly English.
+2. DO NOT use technical engineering or developer jargon (avoid words like "reverse-engineering", "APIs", "PLG loops", "infrastructure", "wedge", "SDKs" unless the user's category specifically asks for it).
+3. Explain everything like you're giving advice to a smart friend starting a business: focus on how to attract customers, how to price simply, and how to get people talking about the product.
+4. Validate that "${rawCompany}" is a real, recognizable company. If it is random gibberish (e.g. "asdfg", "xyz123"), set "isValidEntity": false. If it is a slight typo (e.g. "Stripeee"), correct it in "correctedCompanyName".
+5. Tailor all advice to their current stage: "${stage}" and goal: "${goal}".
+6. Output valid JSON only, no markdown.`;
+
+  const userPrompt = `Company to learn from: ${rawCompany}
+Market / Field: ${market}
+Current Team Size / Stage: ${stage}
+Main Goal: ${goal}
+${customContext ? `More details about the business: ${customContext}\n` : ''}
+
+Generate JSON matching this exact structure:
+{
+  "isValidEntity": true,
+  "correctedCompanyName": "Corrected Company Name or original",
+  "rejectionReason": null,
+  "isRecognized": true,
+  "company": "Company Name",
+  "summary": "2-3 clear, encouraging sentences explaining how ${rawCompany} became successful and how a ${stage} business in ${market} can use their best ideas to reach '${goal}'.",
+  "leaderTeardown": {
+    "coreWedge": "How they attracted their very first customers",
+    "whyItWorked": "Why customers loved them and chose them over traditional options",
+    "keyMilestone": "The key moment that made their business take off"
+  },
+  "growthLevers": [
+    {
+      "leverName": "Name of Growth Idea (e.g. Super-Fast Setup, Word-of-Mouth Referral, Simple Transparent Pricing)",
+      "howToApplyNow": "Clear, friendly explanation of how to use this idea right now at ${stage}",
+      "actionableTactics": [
+        "Simple practical step 1 you can do this week",
+        "Simple practical step 2 you can do this week",
+        "Simple practical step 3 you can do this week"
+      ]
+    }
+  ],
+  "executionTimeline": [
+    {
+      "phase": "Phase 1",
+      "timeframe": "Months 1–2",
+      "title": "Getting Started & Finding First Customers",
+      "objectives": ["Simple goal 1", "Simple goal 2"],
+      "deliverables": ["First deliverable to launch", "First key offer to share"]
+    },
+    {
+      "phase": "Phase 2",
+      "timeframe": "Months 3–6",
+      "title": "Growing Your Audience & Getting Regular Sales",
+      "objectives": ["Simple goal 1", "Simple goal 2"],
+      "deliverables": ["Key milestone to launch", "Key customer channel to grow"]
+    },
+    {
+      "phase": "Phase 3",
+      "timeframe": "Months 6–12",
+      "title": "Scaling Up & Increasing Revenue",
+      "objectives": ["Simple goal 1", "Simple goal 2"],
+      "deliverables": ["Higher-tier offer to introduce", "Long-term customer retention plan"]
+    }
+  ],
+  "keyMetrics": [
+    {
+      "metric": "Simple Metric Name (e.g. New Weekly Signups, Paying Customer Retention, Average Monthly Spend)",
+      "target": "Realistic, encouraging target",
+      "whyItMatters": "Why tracking this number helps you grow"
+    }
+  ],
+  "ethicalGuardrails": "1-2 friendly sentences reminding the user to borrow the smart growth ideas and business models while bringing their own unique personality and genuine customer care."
+}
+
+If the company name is invalid/gibberish, return:
+{
+  "isValidEntity": false,
+  "rejectionReason": "We couldn't find a recognized company named '${rawCompany}'. Please check the spelling or pick one of the recommended examples above.",
+  "correctionSuggestion": "Name of closest known company if applicable"
+}`;
 
   try {
-    const data = await generateHuggingFaceJson<StealStrategyModelResult>(system, userPrompt, {
-      maxNewTokens: 3500,
+    const data = await generateHuggingFaceJson<ValidationAndRoadmapResponse>(systemPrompt, userPrompt, {
+      maxNewTokens: 4000,
       temperature: 0.25,
     });
-    if (!data.summary || !Array.isArray(data.historicalCompetitiveMoves)) {
-      return jsonError('Model returned an incomplete structure', 502);
+
+    if (!data.isValidEntity && data.rejectionReason) {
+      return jsonError(data.rejectionReason, 422, {
+        correctionSuggestion: data.correctionSuggestion || null,
+      });
     }
-    return new Response(
-      JSON.stringify(markStealStrategyUngrounded(data)),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    );
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Strategy generation failed';
-    return jsonError(msg, 500);
+
+    if (!data.summary || !Array.isArray(data.growthLevers) || !Array.isArray(data.executionTimeline)) {
+      return jsonError('Strategy plan generation was incomplete. Please try again.', 502);
+    }
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('Roadmap generation error:', err);
+    return jsonError('Failed to generate growth plan. Please try again.', 500);
   }
 }

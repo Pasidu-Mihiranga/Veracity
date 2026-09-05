@@ -125,7 +125,7 @@ export function DashboardHeader({
             { id: 'home' as const, label: 'Home' },
             { id: 'intelligence' as const, label: 'Research' },
             ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists' }] : []),
-            { id: 'steal' as const, label: 'Steal strategy' },
+            { id: 'steal' as const, label: 'Strategy Playbook' },
             { id: 'profile' as const, label: 'Profile & Settings' },
           ]).map(tab => {
             const active = topTab === tab.id;
