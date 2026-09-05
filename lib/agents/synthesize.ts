@@ -131,6 +131,7 @@ export async function synthesize(
   competitor?: string,
   injectedContext?: string,
   researchIntent?: ResearchIntentClass,
+  industryVertical?: import('@/lib/agents/types').IndustryVertical,
 ): Promise<SynthesisResult> {
   const heuristic = extractEntitiesFromQuery(query);
   const scopedMemory = gateMemoryContext(query, memoryContext, heuristic);
@@ -165,6 +166,7 @@ export async function synthesize(
     outputSummariesJson: JSON.stringify(outputSummaries, null, 2),
     citedTitlesJson: JSON.stringify(citedTitles, null, 2),
     agentCount: scopedOutputs.length,
+    industryVertical,
     researchIntent,
   });
 

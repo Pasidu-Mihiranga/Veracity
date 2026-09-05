@@ -163,6 +163,8 @@ export const ChartKind = z.enum([
   'scatter',
   'timeline',
   'matrix',
+  'radar',
+  'grouped_bar',
 ]);
 export type ChartKind = z.infer<typeof ChartKind>;
 

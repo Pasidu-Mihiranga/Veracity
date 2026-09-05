@@ -2,6 +2,7 @@ import { detectExecutionIntent } from '@/lib/agents/execution-intent';
 import { generateHuggingFaceJson } from '@/lib/agents/gemini';
 import {
   extractEntitiesFromQuery,
+  normalizeEntitiesWithLlm,
   resolveCompetitorName,
   resolveProductName,
 } from '@/lib/agents/extract-entities';
@@ -20,6 +21,7 @@ import {
 import type {
   ConversationMessage,
   ImageAttachment,
+  IndustryVertical,
   IntelligenceDomain,
 } from '@/lib/agents/types';
 
@@ -31,6 +33,7 @@ export interface ClassificationResult {
   productUrl?: string;
   competitorUrl?: string;
   entities: string[];
+  industryVertical: IndustryVertical;
   domains: IntelligenceDomain[];
   intent: string;
   intentClass: ResearchIntentClass;
@@ -103,7 +106,7 @@ export function isMetaOrGreetingWithoutEntities(query: string, heuristic: Return
 
 export async function classifyQuery(
   query: string,
-  history: ConversationMessage[],
+  history: ConversationMessage[] = [],
   images: ImageAttachment[] = [],
   memoryContext?: string,
 ): Promise<ClassificationResult> {
@@ -115,6 +118,7 @@ export async function classifyQuery(
     return {
       product: 'Veracity AI',
       entities: ['Veracity AI'],
+      industryVertical: 'GENERAL',
       intent: 'Unclear or typo input',
       intentClass: 'market',
       domains: [],
@@ -129,6 +133,7 @@ export async function classifyQuery(
     return {
       product: 'Veracity AI',
       entities: ['Veracity AI'],
+      industryVertical: 'GENERAL',
       intent: query,
       intentClass: 'market',
       domains: [],
@@ -139,6 +144,9 @@ export async function classifyQuery(
     };
   }
 
+  // Pre-normalize canonical entities and industry vertical
+  const canonicalResolution = await normalizeEntitiesWithLlm(query);
+
   const explicitInvestigationFollowUp =
     /\b(?:run|deepen|investigate)\s+(?:market trends?|competitive|win loss|pricing|positioning|adjacent)\b/i.test(query);
   const priorWorkflowMessage = explicitInvestigationFollowUp
@@ -146,6 +154,13 @@ export async function classifyQuery(
     : undefined;
   const effectiveHeuristic = heuristic.product || heuristic.competitor
     ? heuristic
+    : canonicalResolution.product !== 'unknown product'
+    ? {
+        product: canonicalResolution.product,
+        competitor: canonicalResolution.competitor,
+        entities: canonicalResolution.entities,
+        industryVertical: canonicalResolution.industryVertical,
+      }
     : {
         product: priorWorkflowMessage?.researchProduct,
         competitor: priorWorkflowMessage?.researchCompetitor,
@@ -158,14 +173,14 @@ export async function classifyQuery(
 
   const systemPrompt = `You are a query classifier for a growth intelligence system. Extract structured information from the CURRENT query first; use history/memory only when the current query is ambiguous and refers to the same entities.
 
-Always return valid JSON. Never use placeholder product names. Prefer company/product entities over people with the same name. Never replace brands named in the current query with brands from memory or prior turns.`;
+Always return valid JSON. Fix typos and use clean canonical company names. Detect the industry vertical accurately. Never replace brands named in the current query with brands from memory or prior turns.`;
 
   const userPrompt = `${scopedMemory ? `${scopedMemory}\n\n` : ''}Conversation history (same entities only):
 ${priorContext || 'None'}
 
 Current query: "${query}"
 ${images.length > 0 ? `\n${images.length} image(s) are attached below. Read them and use what they show — do not guess from the filename or the count.` : ''}
-${effectiveHeuristic.product ? `\nHeuristic hint — product: "${effectiveHeuristic.product}"${effectiveHeuristic.competitor ? `, competitor: "${effectiveHeuristic.competitor}"` : ''}. Prefer these when they match the query.` : ''}
+${canonicalResolution.product && canonicalResolution.product !== 'unknown product' ? `\nCanonical entity hint — product: "${canonicalResolution.product}"${canonicalResolution.competitor ? `, competitor: "${canonicalResolution.competitor}"` : ''} (Industry: ${canonicalResolution.industryVertical}). Prefer these canonical names.` : ''}
 
 Respond with JSON:
 {
@@ -174,6 +189,7 @@ Respond with JSON:
   "productUrl": string | null,
   "competitorUrl": string | null,
   "entities": string[],
+  "industryVertical": "FMCG_RETAIL" | "B2B_SAAS" | "CONSUMER_TECH" | "FINANCE" | "GENERAL",
   "domains": string[],
   "intent": string,
   "intentClass": "compare" | "market" | "dd_acquisition" | "risk" | "tech_assessment" | "executive_strategy" | "monitoring",
@@ -183,6 +199,7 @@ Respond with JSON:
 }
 
 Field rules:
+- industryVertical: choose FMCG_RETAIL for food/beverages/biscuits/consumer goods, B2B_SAAS for software/cloud/devtools, FINANCE for banks/rates/fintech, CONSUMER_TECH for consumer apps/ride-hailing, GENERAL otherwise.
 - needsResearch: true → run specialist search agents (market/competitive/pricing evidence). Use for product comparisons, positioning, pricing, market trends, and strategic research.
 - needsResearch: false → answer from general knowledge only (Tier 0). Use for greetings, Veracity meta questions, definitions, and conceptual "what role does X play" questions with no request for live market evidence.
 - tier: 0 direct, 1 single lookup, 2 focused compare, 3 full swarm, 4 execution deliverables, 5 persona simulation. Tier must match needsResearch (if needsResearch is true, tier must be >= 1).
@@ -194,9 +211,7 @@ Field rules:
     const parsed = await generateHuggingFaceJson<Record<string, unknown>>(systemPrompt, userPrompt, {
       maxNewTokens: 512,
       temperature: 0.1,
-      // The actual bytes, not just a count. Until this was wired the model was
-      // told "Attached images: 2. Metadata only." and the product implied it
-      // had examined a screenshot it never saw.
+      // The actual bytes, not just a count.
       images: images.map((image) => ({ data: image.data, mimeType: image.mimeType })),
     });
 
@@ -204,6 +219,11 @@ Field rules:
       ? 'Veracity AI'
       : resolveProductName(parsed.product, effectiveHeuristic);
     const competitor = resolveCompetitorName(parsed.competitor, effectiveHeuristic);
+    const industryVertical: IndustryVertical =
+      (typeof parsed.industryVertical === 'string' && ['FMCG_RETAIL', 'B2B_SAAS', 'CONSUMER_TECH', 'FINANCE', 'GENERAL'].includes(parsed.industryVertical))
+        ? (parsed.industryVertical as IndustryVertical)
+        : canonicalResolution.industryVertical;
+
     const normalizeEntity = (value: string | undefined) =>
       value?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     const entityResolutionConflict = Boolean(
@@ -266,15 +286,16 @@ Field rules:
     return {
       product,
       competitor,
-      productUrl: (parsed.productUrl as string) || undefined,
-      competitorUrl: (parsed.competitorUrl as string) || undefined,
+      productUrl: (parsed.productUrl as string) || canonicalResolution.productUrl || undefined,
+      competitorUrl: (parsed.competitorUrl as string) || canonicalResolution.competitorUrl || undefined,
       entities,
+      industryVertical,
       domains,
       intent: (parsed.intent as string) || query,
       intentClass,
       runExecution: Boolean(parsed.runExecution) || regexExecution,
       tier,
-      tierReason: `Classifier: tier ${tier}, needsResearch=${String(resolvedNeedsResearch)}${entityResolutionConflict ? '; entity extraction conflict' : ''}`,
+      tierReason: `Classifier: tier ${tier}, needsResearch=${String(resolvedNeedsResearch)}, vertical=${industryVertical}`,
       needsResearch: resolvedNeedsResearch,
       entityResolutionConflict,
     };
@@ -291,6 +312,7 @@ Field rules:
       product,
       competitor,
       entities: resolveComparedEntities({ query, product, competitor }),
+      industryVertical: canonicalResolution.industryVertical,
       domains: ['market-trends', 'competitive', 'win-loss', 'pricing', 'positioning', 'adjacent'],
       intent: query,
       intentClass: resolveResearchIntent(query, undefined),

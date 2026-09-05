@@ -319,6 +319,7 @@ export async function orchestrate(
     productUrl,
     competitorUrl,
     entities,
+    industryVertical: classification.industryVertical,
     researchIntent: intentClass,
     priorContext: combinedPriorContext || undefined,
     images: images.length > 0 ? images : undefined,
@@ -602,6 +603,7 @@ export async function orchestrate(
       competitor,
       options?.injectedContext,
       intentClass,
+      classification.industryVertical,
     ),
     generateMindMap(query, product, researchOutputs, {
       identityFirst: earlyQuality.shouldAbstainFromStrongClaims,
@@ -833,6 +835,7 @@ export async function orchestrate(
     query,
     product,
     competitor,
+    industryVertical: classification.industryVertical,
     agentRuns,
     outputs: outputsFinal,
     synthesizedAnswer: answer,

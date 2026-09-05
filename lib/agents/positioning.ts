@@ -26,14 +26,22 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
-
+  const { query, product, competitor, priorContext, evidencePackBlock } = ctx;
+  const vertical = ctx.industryVertical || 'GENERAL';
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || product;
   const compUrl = competitorSiteUrl(ctx);
   const prodUrl = productSiteUrl(ctx);
 
-  // ── Parallel data fetch ────────────────────────────────────────────────────
+  // ── Parallel data fetch with vertical awareness ────────────────────────────
+  const messagingQuery = vertical === 'FMCG_RETAIL'
+    ? `${searchSubject} advertising campaign brand slogan packaging taste heritage 2025`
+    : vertical === 'FINANCE'
+    ? `${searchSubject} banking brand trust campaign interest rates customer service`
+    : competitorName
+    ? `${competitorName} vs ${product} messaging positioning marketing`
+    : `${product} messaging positioning marketing brand`;
+
   const [
     compHomeResult,
     prodHomeResult,
@@ -47,13 +55,11 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     prodUrl ? scrapePage(prodUrl) : skippedScrapePromise(),
     competitorName ? searchAdsTransparency(competitorName) : searchAdsTransparency(product),
     searchAdsTransparency(product),
-    searchWeb(competitorName
-      ? `${competitorName} vs ${product} messaging positioning marketing`
-      : `${product} messaging positioning marketing brand`),
+    searchWeb(messagingQuery),
     searchReddit(competitorName
-      ? `how does ${competitorName} market itself brand positioning`
-      : `how does ${product} market itself brand positioning`),
-    searchWeb(`${searchSubject} OR ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com positioning messaging`),
+      ? `how does ${competitorName} market itself brand perception`
+      : `how does ${product} market itself brand perception`),
+    searchWeb(`${searchSubject} OR ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com positioning brand`),
   ]);
 
   const compAboutUrl = compUrl ? `${compUrl.replace(/\/$/, '')}/about` : '';
@@ -86,47 +92,57 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
   if (isUsableScrapePage(prodAboutResult)) {
     rawContent.push(`[OUR ABOUT] ${prodAboutResult.value.data.excerpt}`);
   }
-  if (compAdsResult.status === 'fulfilled') {
-    compAdsResult.value.data.slice(0, 3).forEach(r => {
+  if (compAdsResult.status === 'fulfilled' && 'data' in compAdsResult.value) {
+    compAdsResult.value.data.slice(0, 3).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: compAdsResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[COMPETITOR AD] ${r.title}: ${r.snippet}`);
     });
   }
-  if (prodAdsResult.status === 'fulfilled') {
-    prodAdsResult.value.data.slice(0, 3).forEach(r => {
+  if (prodAdsResult.status === 'fulfilled' && 'data' in prodAdsResult.value) {
+    prodAdsResult.value.data.slice(0, 3).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: prodAdsResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[OUR AD] ${r.title}: ${r.snippet}`);
     });
   }
-  if (messagingSearchResult.status === 'fulfilled') {
-    messagingSearchResult.value.data.slice(0, 4).forEach(r => {
+  if (messagingSearchResult.status === 'fulfilled' && 'data' in messagingSearchResult.value) {
+    messagingSearchResult.value.data.slice(0, 4).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: messagingSearchResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[MESSAGING SEARCH] ${r.title}: ${r.snippet}`);
     });
   }
-  if (redditPerceptionResult.status === 'fulfilled') {
-    redditPerceptionResult.value.data.slice(0, 3).forEach(p => {
+  if (redditPerceptionResult.status === 'fulfilled' && 'data' in redditPerceptionResult.value) {
+    (redditPerceptionResult.value.data as any[]).slice(0, 3).forEach((p: any) => {
       sources.push({ url: p.url, title: p.title, timestamp: p.created, tool: 'reddit' });
       rawContent.push(`[REDDIT PERCEPTION] ${p.title}: ${p.snippet}`);
     });
   }
-  if (socialVoiceResult.status === 'fulfilled') {
-    socialVoiceResult.value.data.slice(0, 3).forEach(r => {
+  if (socialVoiceResult.status === 'fulfilled' && 'data' in socialVoiceResult.value) {
+    socialVoiceResult.value.data.slice(0, 3).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: socialVoiceResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[SOCIAL VOICE] ${r.title}: ${r.snippet}`);
     });
   }
 
   // ── Gemini synthesis ───────────────────────────────────────────────────────
-  const systemPrompt = `You are a brand positioning strategist. You analyse how companies talk about themselves — their hero message, value frame, audience language — and find gaps and opportunities.
+  const positioningGuidelines = vertical === 'FMCG_RETAIL'
+    ? `- Brand heritage, trust, and national identity
+- Taste, freshness, and quality assurance
+- Packaging claims and shelf visibility
+- Everyday consumer vs premium indulgence framing`
+    : vertical === 'FINANCE'
+    ? `- Financial security, trust, and stability
+- Interest rate and loan advantages
+- Branch access vs digital banking convenience`
+    : `- Value framing differences (technology-first vs outcome-first)
+- Audience language differences
+- Category claim differences`;
 
-Key insight: Positioning is not what you build, it's how you talk about what already exists. A company can have the same product but win or lose based on messaging.
+  const systemPrompt = `You are a brand positioning strategist. You analyse how companies talk about themselves — their hero message, value frame, audience language — and find gaps and opportunities. Use established corporate knowledge when web signals are minimal.
+
+Key insight: Positioning is how companies connect with their audience and claim market territory.
 
 Look for:
-- Value framing differences (technology-first vs outcome-first)
-- Audience language differences
-- Emotional vs functional emphasis
-- Category claim differences (e.g. "AI SDR" vs "Revenue automation")
+${positioningGuidelines}
 ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"

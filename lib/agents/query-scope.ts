@@ -57,15 +57,16 @@ export function gateMemoryContext(
 
 /** History turns that mention the same entities as the current query (or recent window if none). */
 export function filterHistoryForQueryScope<T extends { content: string }>(
-  history: T[],
+  history: T[] = [],
   heuristic: ExtractedEntities,
   limit = 4,
 ): T[] {
+  const safeHistory = Array.isArray(history) ? history : [];
   const focus = entityTokens(heuristic.product, heuristic.competitor);
   if (focus.length === 0) {
-    return history.slice(-Math.min(2, limit));
+    return safeHistory.slice(-Math.min(2, limit));
   }
-  const matched = history.filter((m) => textMentionsAnyToken(m.content, focus));
+  const matched = safeHistory.filter((m) => textMentionsAnyToken(m.content, focus));
   if (matched.length === 0) return [];
   return matched.slice(-limit);
 }

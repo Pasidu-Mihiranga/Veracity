@@ -26,14 +26,26 @@ import {
 } from './synthesis-fallback';
 
 async function run(ctx: AgentContext): Promise<AgentOutput> {
-  const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
-
+  const { query, product, competitor, priorContext, evidencePackBlock } = ctx;
+  const vertical = ctx.industryVertical || 'GENERAL';
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || `${product} category pricing`;
   const compUrl = competitorSiteUrl(ctx);
   const prodUrl = productSiteUrl(ctx);
 
-  // ── Parallel data fetch ────────────────────────────────────────────────────
+  // ── Parallel data fetch with vertical awareness ────────────────────────────
+  const pricingSearchQuery = vertical === 'FMCG_RETAIL'
+    ? `${searchSubject} pack price packet weight retail price supermarket 2025 2026`
+    : vertical === 'FINANCE'
+    ? `${searchSubject} interest rates deposit rates loan interest lending fee 2025 2026`
+    : `${searchSubject} pricing plans cost per seat 2025`;
+
+  const wtpSearchQuery = vertical === 'FMCG_RETAIL'
+    ? `${product}${competitorName ? ` OR ${competitorName}` : ''} retail margin wholesale price discount consumer value`
+    : vertical === 'FINANCE'
+    ? `${product}${competitorName ? ` OR ${competitorName}` : ''} banking fees interest rates spreads value`
+    : `${product}${competitorName ? ` OR ${competitorName}` : ''} pricing model SaaS willingness to pay`;
+
   const [
     webResult,
     compPricingResult,
@@ -41,19 +53,19 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     redditPricingResult,
     pricingNewsResult,
   ] = await Promise.allSettled([
-    searchWeb(`${searchSubject} pricing plans cost per seat 2025`),
+    searchWeb(pricingSearchQuery),
     compUrl ? scrapeCompetitorPricing(compUrl) : skippedScrapePromise(),
     prodUrl ? scrapeCompetitorPricing(prodUrl) : skippedScrapePromise(),
     searchReddit(`${product} pricing expensive cheap worth it`),
-    searchWeb(`${product}${competitorName ? ` OR ${competitorName}` : ''} pricing model SaaS willingness to pay`),
+    searchWeb(wtpSearchQuery),
   ]);
 
   // ── Collect sources ────────────────────────────────────────────────────────
   const sources: AgentSource[] = [];
   const rawContent: string[] = [];
 
-  if (webResult.status === 'fulfilled') {
-    webResult.value.data.slice(0, 5).forEach(r => {
+  if (webResult.status === 'fulfilled' && 'data' in webResult.value) {
+    webResult.value.data.slice(0, 5).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: webResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[PRICING WEB] ${r.title}: ${r.snippet}`);
     });
@@ -70,21 +82,27 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     sources.push({ url: page.url, title, timestamp: prodPricingResult.value.timestamp, tool: 'firecrawl' });
     rawContent.push(`[OUR PRICING PAGE] ${page.excerpt}`);
   }
-  if (redditPricingResult.status === 'fulfilled') {
-    redditPricingResult.value.data.slice(0, 4).forEach(p => {
+  if (redditPricingResult.status === 'fulfilled' && 'data' in redditPricingResult.value) {
+    (redditPricingResult.value.data as any[]).slice(0, 4).forEach((p: any) => {
       sources.push({ url: p.url, title: p.title, timestamp: p.created, tool: 'reddit' });
       rawContent.push(`[REDDIT PRICING] sentiment=${p.sentiment} | ${p.title}: ${p.snippet}`);
     });
   }
-  if (pricingNewsResult.status === 'fulfilled') {
-    pricingNewsResult.value.data.slice(0, 3).forEach(r => {
+  if (pricingNewsResult.status === 'fulfilled' && 'data' in pricingNewsResult.value) {
+    pricingNewsResult.value.data.slice(0, 3).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: pricingNewsResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[PRICING NEWS] ${r.title}: ${r.snippet}`);
     });
   }
 
   // ── Gemini synthesis ───────────────────────────────────────────────────────
-  const systemPrompt = `You are a pricing strategist who analyses SaaS pricing models, buyer willingness-to-pay signals, and competitive pricing dynamics. You extract concrete pricing data and identify strategic opportunities.
+  const pricingSpecialty = vertical === 'FMCG_RETAIL'
+    ? 'FMCG & Retail consumer goods pricing, pack sizing/weights (e.g. grams, packets), retail margins, wholesale trade discounts, and consumer price elasticity'
+    : vertical === 'FINANCE'
+    ? 'financial products, interest rates, basis points (bps), deposit schemes, lending fees, and customer yield'
+    : 'pricing models, buyer willingness-to-pay signals, and competitive pricing dynamics';
+
+  const systemPrompt = `You are a pricing strategist who analyses ${pricingSpecialty}. You extract concrete pricing data and identify strategic opportunities. Use parametric category pricing knowledge when web data is sparse.
 ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"

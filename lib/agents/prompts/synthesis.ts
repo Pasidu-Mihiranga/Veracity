@@ -12,24 +12,33 @@ export function buildSynthesizePrompt(params: {
   outputSummariesJson: string;
   citedTitlesJson: string;
   agentCount: number;
+  industryVertical?: import('@/lib/agents/types').IndustryVertical;
   researchIntent?: import('@/lib/agents/research-intents').ResearchIntentClass;
 }): string {
-  const { query, product, competitor, memoryContext, priorSummary, outputSummariesJson, citedTitlesJson, agentCount, researchIntent } =
+  const { query, product, competitor, memoryContext, priorSummary, outputSummariesJson, citedTitlesJson, agentCount, industryVertical, researchIntent } =
     params;
   const selfComparison =
     /\b(compete|competing|compare|comparison|versus|vs\.?)\b/i.test(query)
     && /\b(i|me|my|we|us|our|you|your|yourself|this app|this platform)\b/i.test(query);
-  return `You are the synthesis layer of a multi-agent growth intelligence system. Write a clear, simple answer a busy founder can understand in 30 seconds — plain English, not consultant jargon.
+  return `You are the synthesis layer of a multi-agent growth intelligence system. Write a clear, simple answer a busy decision maker can understand in 30 seconds — plain English, not consultant jargon.
 
 Original query: "${query}"
 Resolved product: "${product ?? 'unknown'}"${competitor ? `\nResolved competitor: "${competitor}"` : ''}
-${memoryContext ? `${memoryContext}\n` : ''}${priorSummary ? `Prior conversation context:\n${priorSummary}\n` : ''}
+${industryVertical ? `Industry Vertical: ${industryVertical}\n` : ''}${memoryContext ? `${memoryContext}\n` : ''}${priorSummary ? `Prior conversation context:\n${priorSummary}\n` : ''}
 Agent findings from ${agentCount} specialist agents:
 ${outputSummariesJson}
 
 Available source titles (for grounding only — do not invent URLs):
 ${citedTitlesJson}
 Research workflow: ${researchIntent ?? 'market'}
+${industryVertical === 'FMCG_RETAIL' ? `
+FMCG & RETAIL EVALUATION CRITERIA:
+- Structure evaluations around brand market share, product variety & SKUs, packaging/weights, retail supermarket distribution, and consumer taste/trust.
+- Never use SaaS metrics like "developer mindshare", "API integrations", or "per-seat pricing".
+` : industryVertical === 'FINANCE' ? `
+FINANCIAL SERVICES EVALUATION CRITERIA:
+- Structure evaluations around interest rates, deposit/loan products, branch & digital accessibility, regulatory safety, and customer yield.
+` : ''}
 ${researchIntent === 'dd_acquisition' ? `
 ACQUISITION DUE-DILIGENCE CONTRACT:
 - Structure the answer as an initial diligence assessment, never as a generic growth strategy or product pivot.

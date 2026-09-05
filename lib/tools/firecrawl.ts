@@ -37,7 +37,7 @@ function selectExtractPrompt(url: string): string {
 }
 
 /**
- * Call Firecrawl with standard options.
+ * Call Firecrawl with standard options and strict 4.5s timeout.
  */
 async function firecrwlFetch(
   url: string,
@@ -61,6 +61,7 @@ async function firecrwlFetch(
         extract: { prompt: extractPrompt },
         ...(isStrict && { waitForSelector: 'body', onlyMainContent: true, removeTags: ['script', 'style'] }),
       }),
+      signal: AbortSignal.timeout(4500),
     });
 
     if (!res.ok) return { page: null, providerError: `HTTP ${res.status}` };
@@ -90,9 +91,7 @@ async function firecrwlFetch(
 
 export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> {
   return withToolLatency('firecrawl.scrapePage', async () => {
-    // Validate before spending anything — including before handing the URL to a
-    // third-party crawler, which would otherwise reach the endpoint on our
-    // behalf and return its contents.
+    // Validate before spending anything
     try {
       await assertPublicUrl(url);
     } catch (err) {
@@ -121,47 +120,34 @@ export async function scrapePage(url: string): Promise<ToolResult<ScrapedPage>> 
       return scrapeBasic(url);
     }
 
-  const policy = getPolicyForDomain(url);
-  const extractPrompt = selectExtractPrompt(url);
-  let markdown = '';
-  let title = url;
-  let attemptsMade = 0;
+    const extractPrompt = selectExtractPrompt(url);
+    let markdown = '';
+    let title = url;
 
-  // ── Multi-attempt strategy with escalating fallbacks ─────────────────────
-  // Attempt 1: Standard Firecrawl
-  let providerError: string | undefined;
-  let firecrawlAttempt = await firecrwlFetch(url, extractPrompt, apiKey, false);
-  let result = firecrawlAttempt.page;
-  providerError = firecrawlAttempt.providerError;
-  attemptsMade++;
+    // ── Fast-Fail Strategy: 4.5s max per step with direct fallbacks ─────────
+    // Attempt 1: Firecrawl (4.5s timeout)
+    let providerError: string | undefined;
+    let attemptsMade = 1;
+    const firecrawlAttempt = await firecrwlFetch(url, extractPrompt, apiKey, false);
+    let result = firecrawlAttempt.page;
+    providerError = firecrawlAttempt.providerError;
 
-  if (!result && policy.useFirecrawlStrict && attemptsMade < policy.maxAttempts) {
-    // Attempt 2: Strict Firecrawl (for flaky sites like LinkedIn)
-    await delay(computeRetryDelay(policy, attemptsMade));
-    firecrawlAttempt = await firecrwlFetch(url, extractPrompt, apiKey, true);
-    result = firecrawlAttempt.page;
-    providerError = firecrawlAttempt.providerError ?? providerError;
-    attemptsMade++;
-  }
+    // Attempt 2: Scrape.do (if Firecrawl failed/timed out)
+    if (!result && process.env.SCRAPE_DO_TOKEN) {
+      attemptsMade++;
+      result = await scrapeDoFetch(url);
+    }
 
-  if (!result && attemptsMade < policy.maxAttempts) {
-    // Attempt 3: Scrape.do (free tier — anti-bot, proxy rotation, optional JS render)
-    await delay(computeRetryDelay(policy, attemptsMade));
-    result = await scrapeDoFetch(url);
-    attemptsMade++;
-  }
+    // Attempt 3: Smart direct fetch (if still empty)
+    if (!result) {
+      attemptsMade++;
+      result = await smartDirectFetch(url);
+    }
 
-  if (!result && attemptsMade < policy.maxAttempts) {
-    // Attempt 4: Smart direct fetch (rotating UA, realistic headers, structured extraction)
-    await delay(computeRetryDelay(policy, attemptsMade));
-    result = await smartDirectFetch(url);
-    attemptsMade++;
-  }
-
-  if (result) {
-    markdown = result.markdown;
-    title = result.title;
-  }
+    if (result) {
+      markdown = result.markdown;
+      title = result.title;
+    }
 
   // ── Quality assessment ──────────────────────────────────────────────────
   const quality = assessScrapeQuality(markdown, url);
@@ -235,7 +221,7 @@ async function scrapeDoFetch(url: string): Promise<{ markdown: string; title: st
     }
 
     const res = await fetch(`${SCRAPE_DO_BASE}/?${params.toString()}`, {
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(4500),
     });
 
     if (!res.ok) return null;
@@ -326,7 +312,7 @@ async function smartDirectFetch(url: string): Promise<{ markdown: string; title:
         'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1',
       },
-      timeoutMs: 15_000,
+      timeoutMs: 4500,
     });
 
     if (!res.ok) return null;

@@ -2,8 +2,8 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, PolarAngleAxis, PolarGrid,
+  PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { Download, Info } from 'lucide-react';
 import type { ChartSpec } from '@/lib/intelligence/types';
@@ -32,13 +32,7 @@ export interface ChartSpecViewProps {
 }
 
 // Read from the theme rather than hardcoded, so charts follow light/dark and a
-// palette change reaches them. These were five hardcoded hex values — four of
-// them blue — which is why multi-series charts came out looking like one colour
-// and why editing the theme tokens did nothing to them.
-//
-// Fixed order, never cycled: colour must follow the entity, so filtering series
-// cannot repaint the survivors. Past three slots the all-pairs colourblind
-// floors cannot be cleared, so wide comparisons fold into "Other" instead.
+// palette change reaches them.
 const SERIES_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -46,10 +40,6 @@ const SERIES_COLORS = [
   'var(--chart-4)',
   'var(--chart-5)',
 ];
-
-// Wording and colour both come from the shared vocabulary, so "Read from the
-// source" reads and looks identical here, in the digest, and in the drawer.
-// A user should learn each cue once.
 
 function formatPeriod(period: ChartSpec['period']): string {
   const fmt = (iso: string) => {
@@ -64,9 +54,6 @@ function formatPeriod(period: ChartSpec['period']): string {
 
 /**
  * Empty state shown when the planner refused to build the chart.
- *
- * The reasons are surfaced verbatim. "Observations use incompatible units" tells
- * a user something real; a blank panel tells them the product is broken.
  */
 function UnavailableChart({ title, reasons }: { title: string; reasons: string[] }) {
   return (
@@ -138,15 +125,9 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-1.5 min-w-0">
-          {/*
-            The sentence leads, not the label. "Lilian's entry tier went from
-            $49 to $59, a 20% rise" needs no translation; a `measured` chip and
-            a title do.
-          */}
           <p className="text-sm text-foreground font-medium">{plain.headline}</p>
           <p className="text-xs text-muted-foreground">{plain.provenance}</p>
           {plain.caveat ? (
-            // One caveat maximum. Stacking them teaches users to ignore all.
             <p className="text-xs text-amber-700">{plain.caveat}</p>
           ) : null}
         </div>
@@ -176,73 +157,92 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
         </div>
       </div>
 
-      <div className="h-64 w-full">
+      <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <Chart data={chartRows} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
-            <XAxis
-              dataKey={dimensionKey}
-              tick={{ fill: tickFill, fontSize: 11 }}
-              tickLine={false}
-              axisLine={{ stroke: gridStroke }}
-            />
-            <YAxis
-              tick={{ fill: tickFill, fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              label={{
-                value: spec.unit,
-                angle: -90,
-                position: 'insideLeft',
-                fill: tickFill,
-                fontSize: 10,
-              }}
-            />
-            <Tooltip
-              contentStyle={{
-                background: isDark ? '#0F172A' : '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                borderRadius: 12,
-                fontSize: 12,
-              }}
-              // A null cell reaches the tooltip as undefined; say so rather
-              // than rendering "undefined USD/month".
-              formatter={(value) =>
-                value == null ? ['No observation', ''] : [`${value} ${spec.unit}`, '']
-              }
-            />
-            {spec.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
-            {spec.series.map((s, i) =>
-              spec.kind === 'line' ? (
-                <Line
+          {spec.kind === 'radar' ? (
+            <RadarChart data={chartRows} margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+              <PolarGrid stroke={gridStroke} />
+              <PolarAngleAxis dataKey={dimensionKey} tick={{ fill: tickFill, fontSize: 11 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: tickFill, fontSize: 9 }} />
+              <Tooltip
+                contentStyle={{
+                  background: isDark ? '#0F172A' : '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 12,
+                  fontSize: 12,
+                }}
+                formatter={(value) => [`${value} / 100`, '']}
+              />
+              {spec.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
+              {spec.series.map((s, i) => (
+                <Radar
                   key={s.key}
-                  type="monotone"
-                  dataKey={s.key}
                   name={s.label}
+                  dataKey={s.key}
                   stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  // Gaps stay gaps rather than being bridged across a period
-                  // we never observed.
-                  connectNulls={false}
-                />
-              ) : (
-                <Bar
-                  key={s.key}
-                  dataKey={s.key}
-                  name={s.label}
                   fill={SERIES_COLORS[i % SERIES_COLORS.length]}
-                  radius={[4, 4, 0, 0]}
-                  // Recharts splits the full width across however many
-                  // categories exist, so a two-category snapshot produced two
-                  // columns hundreds of pixels wide — a shape that reads as a
-                  // rendering fault rather than as data. A bar's width should
-                  // never encode how few categories there happen to be.
-                  maxBarSize={56}
+                  fillOpacity={0.3}
                 />
-              ),
-            )}
-          </Chart>
+              ))}
+            </RadarChart>
+          ) : (
+            <Chart data={chartRows} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+              <XAxis
+                dataKey={dimensionKey}
+                tick={{ fill: tickFill, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: gridStroke }}
+              />
+              <YAxis
+                tick={{ fill: tickFill, fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                label={{
+                  value: spec.unit,
+                  angle: -90,
+                  position: 'insideLeft',
+                  fill: tickFill,
+                  fontSize: 10,
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: isDark ? '#0F172A' : '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 12,
+                  fontSize: 12,
+                }}
+                formatter={(value) =>
+                  value == null ? ['No observation', ''] : [`${value} ${spec.unit}`, '']
+                }
+              />
+              {spec.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
+              {spec.series.map((s, i) =>
+                spec.kind === 'line' ? (
+                  <Line
+                    key={s.key}
+                    type="monotone"
+                    dataKey={s.key}
+                    name={s.label}
+                    stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    connectNulls={false}
+                  />
+                ) : (
+                  <Bar
+                    key={s.key}
+                    dataKey={s.key}
+                    name={s.label}
+                    fill={SERIES_COLORS[i % SERIES_COLORS.length]}
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={56}
+                  />
+                ),
+              )}
+            </Chart>
+          )}
         </ResponsiveContainer>
       </div>
 

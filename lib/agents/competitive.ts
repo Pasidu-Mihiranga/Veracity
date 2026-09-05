@@ -28,52 +28,74 @@ import {
 async function run(ctx: AgentContext): Promise<AgentOutput> {
   const { query, product, competitor, priorContext, evidencePackBlock} = ctx;
 
+  const vertical = ctx.industryVertical || 'GENERAL';
   const competitorName = competitor?.trim() || null;
   const searchSubject = competitorName || `${product} competitors alternatives`;
   const compUrl = competitorSiteUrl(ctx);
 
-  // ── Parallel data fetch ────────────────────────────────────────────────────
+  // ── Parallel data fetch with vertical awareness ────────────────────────────
+  const webQuery = vertical === 'FMCG_RETAIL'
+    ? `${searchSubject} products SKU portfolio market share 2025 2026`
+    : vertical === 'FINANCE'
+    ? `${searchSubject} banking products interest rates loans market share 2025 2026`
+    : `${searchSubject} features product update 2025 2026`;
+
+  const newsQuery = vertical === 'FMCG_RETAIL'
+    ? `${searchSubject} retail distribution factory export expansion product launch 2025 2026`
+    : vertical === 'FINANCE'
+    ? `${searchSubject} financial performance banking growth branch network 2025 2026`
+    : `${searchSubject} funding launch product announcement 2025`;
+
+  const socialQuery = vertical === 'FMCG_RETAIL'
+    ? `${searchSubject} ${product} quality taste packaging retail feedback`
+    : `${searchSubject} ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com launch feature feedback`;
+
   const [webResult, newsResult, hnResult, scrapeResult, pricingResult, socialSignalsResult, apifyTwitterResult] = await Promise.allSettled([
-    searchWeb(`${searchSubject} features product update 2025 2026`),
-    searchNews(`${searchSubject} funding launch product announcement 2025`),
-    searchHN(competitorName ? `${competitorName} ${product}` : `${product} competitors`),
+    searchWeb(webQuery),
+    searchNews(newsQuery),
+    vertical === 'B2B_SAAS' || vertical === 'CONSUMER_TECH'
+      ? searchHN(competitorName ? `${competitorName} ${product}` : `${product} competitors`)
+      : Promise.resolve({ data: [], status: 'ok', timestamp: new Date().toISOString(), source: 'hn' }),
     compUrl ? scrapePage(compUrl) : skippedScrapePromise(),
     compUrl ? scrapeCompetitorPricing(compUrl) : skippedScrapePromise(),
-    searchWeb(`${searchSubject} ${product} site:x.com OR site:twitter.com OR site:instagram.com OR site:linkedin.com launch feature feedback`),
+    searchWeb(socialQuery),
     scrapeTwitterX(
       competitorName
-        ? [`${competitorName} ${product}`, `${competitorName} launch feedback`]
+        ? [`${competitorName} ${product}`, `${competitorName} feedback`]
         : [`${product} competitors`, `${product} alternatives`],
       {
-      maxItems: 80,
-      sort: 'Latest',
-      language: 'en',
-    }),
+        maxItems: 40,
+        sort: 'Latest',
+        language: 'en',
+      },
+    ),
   ]);
 
-  // Hiring signals
-  const hiringResult = await Promise.allSettled([
-    searchWeb(`${searchSubject} jobs hiring "AI" OR "machine learning" OR "sales" site:linkedin.com OR site:greenhouse.io`),
-  ]);
+  // Hiring signals (only for tech/SaaS where dev hiring reflects feature velocity)
+  const hiringResult = vertical === 'B2B_SAAS' || vertical === 'CONSUMER_TECH'
+    ? await Promise.allSettled([
+        searchWeb(`${searchSubject} jobs hiring "AI" OR "machine learning" OR "sales" site:linkedin.com OR site:greenhouse.io`),
+      ])
+    : [];
 
   // ── Collect sources ────────────────────────────────────────────────────────
   const sources: AgentSource[] = [];
   const rawContent: string[] = [];
 
-  if (webResult.status === 'fulfilled') {
-    webResult.value.data.slice(0, 5).forEach(r => {
+  if (webResult.status === 'fulfilled' && 'data' in webResult.value) {
+    webResult.value.data.slice(0, 5).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: webResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[COMPETITOR WEB] ${r.title}: ${r.snippet}`);
     });
   }
-  if (newsResult.status === 'fulfilled') {
-    newsResult.value.data.slice(0, 4).forEach(r => {
+  if (newsResult.status === 'fulfilled' && 'data' in newsResult.value) {
+    newsResult.value.data.slice(0, 4).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: newsResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[COMPETITOR NEWS] ${r.title}: ${r.snippet}`);
     });
   }
-  if (hnResult.status === 'fulfilled') {
-    hnResult.value.data.slice(0, 3).forEach(p => {
+  if (hnResult.status === 'fulfilled' && 'data' in hnResult.value) {
+    (hnResult.value.data as any[]).slice(0, 3).forEach((p: any) => {
       sources.push({ url: p.url, title: p.title, timestamp: p.created, tool: 'hn' });
       rawContent.push(`[HN] ${p.title}`);
     });
@@ -89,14 +111,14 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
     sources.push({ url: page.url, title: label, timestamp: pricingResult.value.timestamp, tool: 'firecrawl' });
     rawContent.push(`[COMPETITOR PRICING] ${page.excerpt}`);
   }
-  if (socialSignalsResult.status === 'fulfilled') {
-    socialSignalsResult.value.data.slice(0, 3).forEach(r => {
+  if (socialSignalsResult.status === 'fulfilled' && 'data' in socialSignalsResult.value) {
+    socialSignalsResult.value.data.slice(0, 3).forEach((r: any) => {
       sources.push({ url: r.url, title: r.title, timestamp: socialSignalsResult.value.timestamp, tool: 'serpapi' });
       rawContent.push(`[SOCIAL SIGNAL] ${r.title}: ${r.snippet}`);
     });
   }
-  if (apifyTwitterResult.status === 'fulfilled') {
-    apifyTwitterResult.value.data.slice(0, 8).forEach(t => {
+  if (apifyTwitterResult.status === 'fulfilled' && 'data' in apifyTwitterResult.value) {
+    apifyTwitterResult.value.data.slice(0, 8).forEach((t: any) => {
       sources.push({
         url: t.url,
         title: `X @${t.authorHandle ?? 'unknown'}`,
@@ -109,19 +131,26 @@ async function run(ctx: AgentContext): Promise<AgentOutput> {
       );
     });
   }
-  if (hiringResult[0].status === 'fulfilled') {
-    hiringResult[0].value.data.slice(0, 3).forEach(r => {
+  if (hiringResult[0]?.status === 'fulfilled' && 'data' in hiringResult[0].value) {
+    hiringResult[0].value.data.slice(0, 3).forEach((r: any) => {
       rawContent.push(`[HIRING SIGNAL] ${r.title}: ${r.snippet}`);
     });
   }
 
   // ── Gemini synthesis ───────────────────────────────────────────────────────
-  const systemPrompt = `You are a competitive intelligence analyst specialising in B2B SaaS. You compare product capabilities with brutal honesty. You separate facts from interpretation. You never fabricate features.
+  const verticalSpecialty = vertical === 'FMCG_RETAIL'
+    ? 'FMCG, Retail, and Consumer Packaged Goods. You compare brand market share, product variety & SKUs, retail shelf distribution, ingredient quality, and consumer loyalty'
+    : vertical === 'FINANCE'
+    ? 'Banking and Financial Services. You compare interest rates, loan portfolios, regulatory compliance, branch reach, and customer trust'
+    : 'competitive intelligence. You compare product capabilities, value delivery, and market positioning';
+
+  const systemPrompt = `You are a competitive intelligence analyst specialising in ${verticalSpecialty} with brutal honesty. You separate facts from interpretation. You never fabricate features or metrics. Use parametric corporate facts when retrieved evidence is sparse.
 ${priorContext ? `\nPrior conversation context:\n${priorContext}` : ''}${evidencePackBlock ? `\n\n${evidencePackBlock}` : ''}`;
 
   const userPrompt = `Query: "${query}"
 Our product: ${product}
 Competitor: ${competitorName ?? `${product} category alternatives`}
+Industry Vertical: ${vertical}
 
 Raw signals:
 ${rawContent.join('\n')}

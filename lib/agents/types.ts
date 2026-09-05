@@ -314,6 +314,7 @@ export interface OrchestratorOutput {
   query: string;
   product: string;
   competitor?: string;
+  industryVertical?: IndustryVertical;
   agentRuns: AgentRun[];
   outputs: AgentOutput[];
   synthesizedAnswer: string;       // prose summary for chat
@@ -592,6 +593,13 @@ export interface ConversationMessage {
   timestamp: string;
 }
 
+export type IndustryVertical =
+  | 'FMCG_RETAIL'
+  | 'B2B_SAAS'
+  | 'CONSUMER_TECH'
+  | 'FINANCE'
+  | 'GENERAL';
+
 // ─── Agent config (what the orchestrator dispatches) ─────────────────────────
 export interface AgentConfig {
   id: IntelligenceDomain;
@@ -607,6 +615,7 @@ export interface AgentContext {
   productUrl?: string;
   competitorUrl?: string;
   entities?: string[];
+  industryVertical?: IndustryVertical;
   researchIntent?: ResearchIntentClass;
   priorContext?: string;    // serialised prior conversation findings
   images?: ImageAttachment[];  // optional visual context from user
