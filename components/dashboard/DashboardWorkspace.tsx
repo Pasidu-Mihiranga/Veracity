@@ -448,7 +448,7 @@ export function DashboardWorkspace({
                 <AgentProgressGrid
                   queryLabel={recentQuery}
                   userImages={messages.filter((m) => m.role === 'user').pop()?.images}
-                  isLoading={isLoading}
+                  isLoading={isLoading || isFollowingUp}
                   pipelineStages={pipelineStages}
                   orchLogLen={orchLogLen}
                   visibleTabDomains={visibleTabDomains}

@@ -57,11 +57,30 @@ interface IntelligenceStoriesProps {
 }
 
 export function IntelligenceStories({ onAsk }: IntelligenceStoriesProps) {
+  const [stories, setStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  // Cards track locally so a story dims once viewed — mock "seen" state.
-  const [seen, setSeen] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(HOME_STORIES.map((s) => [s.id, s.seen])),
-  );
+  const [seen, setSeen] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    fetch('/api/stories', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload) => {
+        const list = payload?.data?.stories ?? payload?.stories ?? [];
+        if (Array.isArray(list) && list.length > 0) {
+          setStories(list);
+          setSeen(Object.fromEntries(list.map((s: Story) => [s.id, s.seen])));
+        } else {
+          setStories([]);
+        }
+      })
+      .catch(() => {
+        setStories([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const markSeen = useCallback((id: string) => {
     setSeen((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
@@ -69,8 +88,57 @@ export function IntelligenceStories({ onAsk }: IntelligenceStoriesProps) {
 
   const openStory = (i: number) => {
     setOpenIndex(i);
-    markSeen(HOME_STORIES[i].id);
+    if (stories[i]) {
+      markSeen(stories[i].id);
+    }
   };
+
+  if (loading) {
+    return (
+      <section
+        className="rounded-2xl p-5 bg-card border border-border shadow-sm"
+        style={{ boxShadow: 'var(--shadow-extruded)' }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles size={15} className="text-accent animate-pulse" />
+          <div className="h-4 w-40 rounded skeleton" />
+        </div>
+        <div className="flex gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-28 w-44 rounded-xl skeleton shrink-0" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (stories.length === 0) {
+    return (
+      <section
+        className="rounded-2xl p-5 sm:p-6 bg-card border border-border shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        style={{ boxShadow: 'var(--shadow-extruded)' }}
+      >
+        <div className="flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent shrink-0 mt-0.5">
+            <Sparkles size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm sm:text-base font-bold text-foreground">Personalized Intelligence Stories</h2>
+            <p className="mt-1 text-xs text-muted-foreground max-w-xl">
+              Track your competitors or ask a market question below to start generating AI-synthesized intelligence story reels for your business.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onAsk?.('Track a new company and analyze its pricing and features for me.')}
+          className="px-4 py-2 rounded-xl bg-accent text-white text-xs font-semibold hover:opacity-90 transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
+        >
+          <Plus size={13} /> Start tracking
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -82,11 +150,11 @@ export function IntelligenceStories({ onAsk }: IntelligenceStoriesProps) {
           <Sparkles size={15} className="text-accent" />
           <h2 className="text-sm font-semibold text-foreground">Your intelligence briefing</h2>
         </div>
-        <span className="text-[11px] font-mono text-muted-foreground">Updated 2m ago</span>
+        <span className="text-[11px] font-mono text-muted-foreground">Live Intelligence</span>
       </div>
 
       <div className="flex items-stretch gap-3 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {HOME_STORIES.map((story, i) => (
+        {stories.map((story, i) => (
           <StoryCard
             key={story.id}
             story={story}
@@ -95,13 +163,13 @@ export function IntelligenceStories({ onAsk }: IntelligenceStoriesProps) {
             onOpen={() => openStory(i)}
           />
         ))}
-        <AddFocusCard index={HOME_STORIES.length} onClick={() => onAsk?.('Track a new company or market for me.')} />
+        <AddFocusCard index={stories.length} onClick={() => onAsk?.('Track a new company or market for me.')} />
       </div>
 
       <AnimatePresence>
-        {openIndex !== null && (
+        {openIndex !== null && stories[openIndex] && (
           <StoryViewer
-            stories={HOME_STORIES}
+            stories={stories}
             startIndex={openIndex}
             onClose={() => setOpenIndex(null)}
             onSeen={markSeen}

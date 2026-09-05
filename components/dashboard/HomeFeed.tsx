@@ -352,6 +352,30 @@ export function HomeFeed({ onOpenProject, onStartTracking, onOpenSession, onLaun
         </div>
       ))}
 
+      {!loadingProjects && filteredFeeds.length === 0 && (
+        <div
+          className="rounded-2xl p-6 sm:p-8 bg-card border border-border shadow-sm flex flex-col items-center justify-center text-center gap-3"
+          style={{ boxShadow: 'var(--shadow-extruded)' }}
+        >
+          <div className="h-12 w-12 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
+            <Building2 size={24} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">No tracked companies yet</h3>
+            <p className="mt-1 text-xs text-muted-foreground max-w-md">
+              Start monitoring your primary product and rivals. We check competitor websites and pricing changes daily and notify you when shifts happen.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onStartTracking}
+            className="mt-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus size={14} /> Track your first company
+          </button>
+        </div>
+      )}
+
       {filteredFeeds.map((feed) => (
         <div
           key={feed.project.id}
