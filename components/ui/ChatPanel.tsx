@@ -181,7 +181,7 @@ export function ChatPanel({
       {followUps.length > 0 && <div ref={followUpEndRef} />}
 
       {showComposer && (
-        <div className="shrink-0 z-20 px-2 sm:px-4 md:px-8 pb-3 sm:pb-6 pt-1 sm:pt-2 pointer-events-none">
+        <div className="shrink-0 z-20 px-2 sm:px-4 md:px-8 pb-20 md:pb-6 pt-1 sm:pt-2 pointer-events-none">
           <div className="pointer-events-auto max-w-[920px] mx-auto w-full">
             {attachedImages.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 px-1">

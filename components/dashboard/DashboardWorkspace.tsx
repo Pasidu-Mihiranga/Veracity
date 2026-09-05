@@ -251,7 +251,7 @@ export function DashboardWorkspace({
       <div
         ref={mainScrollRef}
         onScroll={onMainScroll}
-        className="flex-1 overflow-y-auto w-full"
+        className="flex-1 overflow-y-auto w-full pb-20 md:pb-0"
         style={{
           paddingTop: hasResult ? '12px' : 'clamp(16px, 2.5vw, 32px)',
           paddingRight: 'clamp(16px, 3vw, 32px)',
