@@ -309,12 +309,12 @@ export function IntelligenceResults({
       {/* Level 1: Hero Section (Direct Answer) */}
       <section className="results-panel overflow-hidden">
         <div
-          className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
+          className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 sm:px-5 sm:py-3.5"
           style={{ borderBottom: `1px solid ${borderC || 'var(--border)'}` }}
         >
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <Layers size={14} style={{ color: 'var(--accent)' }} />
-            <span className="results-section-title">{layout.answerLabel}</span>
+            <span className="results-section-title text-sm sm:text-base">{layout.answerLabel}</span>
             {(() => {
               const template = selectReportTemplate(
                 currentResult.content || product,
@@ -322,7 +322,7 @@ export function IntelligenceResults({
               );
               return (
                 <span
-                  className="ui-mono px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                  className="ui-mono px-2 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-semibold"
                   style={{
                     color: 'var(--accent)',
                     background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
@@ -334,21 +334,21 @@ export function IntelligenceResults({
               );
             })()}
             {isDevMode && latencyLabel ? (
-              <span className="ui-mono" style={{ color: 'var(--foreground-subtle)', fontSize: 11 }}>
+              <span className="ui-mono text-[10px] sm:text-[11px]" style={{ color: 'var(--foreground-subtle)' }}>
                 {latencyLabel}
               </span>
             ) : null}
           </div>
         </div>
-        <div className="p-6 lg:p-8 flex flex-col gap-4">
+        <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
           <FormattedResearchContent content={currentResult.content} />
           {trust ? (
-            <p className="text-[12px] leading-relaxed" style={{ color: textMuted }}>
+            <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: textMuted }}>
               {trust}
             </p>
           ) : null}
           {!isTier0 ? (
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1">
               <ExportReportButton
                 message={currentResult}
                 accentInk={accentInk}

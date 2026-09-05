@@ -1127,18 +1127,18 @@ export function StealStrategyPanel() {
 
                           {/* Sub-Branches (Branching Tree Lines) */}
                           {isExpanded && (
-                            <div className="ml-5 sm:ml-7 mt-2 pl-4 sm:pl-6 border-l-2 border-border/70 flex flex-col gap-4 py-2 animate-fadeIn">
+                            <div className="ml-2 sm:ml-7 mt-2 pl-2 sm:pl-6 border-l-2 border-border/70 flex flex-col gap-4 py-2 animate-fadeIn">
                               {/* 1. Core Objectives Sub-Branch */}
                               {phase.objectives && phase.objectives.length > 0 && (
                                 <div className="relative flex flex-col gap-2">
-                                  <div className="absolute -left-4 sm:-left-6 top-3.5 w-3 sm:w-4 border-t-2 border-border/70" />
+                                  <div className="absolute -left-2 sm:-left-6 top-3.5 w-2 sm:w-4 border-t-2 border-border/70" />
                                   <div className="flex items-center gap-2 text-xs font-mono uppercase font-bold text-accent">
                                     <Target size={14} /> Core Goals & Objectives
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {phase.objectives.map((obj, oIdx) => (
-                                      <div key={oIdx} className="p-3.5 rounded-xl bg-card border border-border text-sm text-foreground flex items-start gap-2.5">
-                                        <CornerDownRight size={15} className="text-accent shrink-0 mt-0.5" />
+                                      <div key={oIdx} className="p-3 sm:p-3.5 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground flex items-start gap-2 sm:gap-2.5">
+                                        <CornerDownRight size={14} className="text-accent shrink-0 mt-0.5" />
                                         <span className="leading-relaxed">{obj}</span>
                                       </div>
                                     ))}
@@ -1149,14 +1149,14 @@ export function StealStrategyPanel() {
                               {/* 2. Key Deliverables Sub-Branch */}
                               {phase.deliverables && phase.deliverables.length > 0 && (
                                 <div className="relative flex flex-col gap-2">
-                                  <div className="absolute -left-4 sm:-left-6 top-3.5 w-3 sm:w-4 border-t-2 border-border/70" />
+                                  <div className="absolute -left-2 sm:-left-6 top-3.5 w-2 sm:w-4 border-t-2 border-border/70" />
                                   <div className="flex items-center gap-2 text-xs font-mono uppercase font-bold text-accent">
                                     <Layers size={14} /> Key Deliverables & Offers
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {phase.deliverables.map((del) => (
-                                      <div key={del.id} className="p-3.5 rounded-xl bg-card border border-border text-sm text-foreground flex items-start gap-2.5">
-                                        <CornerDownRight size={15} className="text-accent shrink-0 mt-0.5" />
+                                      <div key={del.id} className="p-3 sm:p-3.5 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground flex items-start gap-2 sm:gap-2.5">
+                                        <CornerDownRight size={14} className="text-accent shrink-0 mt-0.5" />
                                         <span className="leading-relaxed">{del.text}</span>
                                       </div>
                                     ))}
@@ -1167,14 +1167,14 @@ export function StealStrategyPanel() {
                               {/* 3. Tactical Action Steps Sub-Branch */}
                               {phase.weeklyActions && phase.weeklyActions.length > 0 && (
                                 <div className="relative flex flex-col gap-2">
-                                  <div className="absolute -left-4 sm:-left-6 top-3.5 w-3 sm:w-4 border-t-2 border-border/70" />
+                                  <div className="absolute -left-2 sm:-left-6 top-3.5 w-2 sm:w-4 border-t-2 border-border/70" />
                                   <div className="flex items-center gap-2 text-xs font-mono uppercase font-bold text-accent">
                                     <GitBranch size={14} /> Action Steps to Execute
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {phase.weeklyActions.map((act) => (
-                                      <div key={act.id} className="p-3.5 rounded-xl bg-card border border-border text-sm text-foreground flex items-start gap-2.5">
-                                        <CornerDownRight size={15} className="text-accent shrink-0 mt-0.5" />
+                                      <div key={act.id} className="p-3 sm:p-3.5 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground flex items-start gap-2 sm:gap-2.5">
+                                        <CornerDownRight size={14} className="text-accent shrink-0 mt-0.5" />
                                         <span className="leading-relaxed">{act.text}</span>
                                       </div>
                                     ))}

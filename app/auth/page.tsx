@@ -167,33 +167,33 @@ function AuthForm() {
         </div>
 
         {/* Right — sign-in */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-8 max-h-screen overflow-hidden">
-          <div className="w-full max-w-[420px] pointer-events-auto my-auto max-h-[calc(100vh-2rem)] flex flex-col justify-center">
-            <div className="lg:hidden mb-3 shrink-0 auth-card w-fit px-4 py-3">
-              <div className="flex items-center gap-2.5">
+        <div className="flex-1 flex items-center justify-center p-3 sm:p-8 max-h-screen overflow-y-auto">
+          <div className="w-full max-w-[420px] pointer-events-auto my-auto max-h-[calc(100vh-1rem)] flex flex-col justify-center py-2">
+            <div className="lg:hidden mb-2 sm:mb-3 shrink-0 auth-card w-fit px-3.5 py-2.5 sm:px-4 sm:py-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 <img
                   src="/robot.avif"
                   alt=""
                   width={40}
                   height={44}
-                  className="brand-mascot h-10 w-auto shrink-0"
+                  className="brand-mascot h-8 sm:h-10 w-auto shrink-0"
                   draggable={false}
                 />
                 <div className="min-w-0">
                   <BrandWordmark size="sm" />
-                  <p className="auth-muted text-xs font-medium tracking-wide mt-1">
+                  <p className="auth-muted text-[11px] sm:text-xs font-medium tracking-wide mt-0.5 sm:mt-1">
                     Growth Intelligence Platform
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="auth-card p-6 sm:p-7 w-full flex flex-col justify-between min-h-[480px] max-h-[calc(100vh-3rem)] overflow-y-auto pr-2 sm:pr-3">
+            <div className="auth-card p-5 sm:p-7 w-full flex flex-col justify-between min-h-0 max-h-[calc(100vh-2rem)] overflow-y-auto pr-2 sm:pr-3">
               <div>
-                <h2 className="font-display text-xl font-extrabold tracking-tight mb-1">
+                <h2 className="font-display text-lg sm:text-xl font-extrabold tracking-tight mb-1">
                   {mode === 'signin' ? 'Sign in' : 'Create account'}
                 </h2>
-                <p className="auth-muted text-sm mb-4">
+                <p className="auth-muted text-xs sm:text-sm mb-3 sm:mb-4">
                   {mode === 'signin'
                     ? 'Access your intelligence workspace.'
                     : signupStep === 1

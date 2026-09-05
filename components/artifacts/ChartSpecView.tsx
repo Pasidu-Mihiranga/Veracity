@@ -157,23 +157,23 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
         </div>
       </div>
 
-      <div className="h-72 w-full">
+      <div className="h-64 sm:h-72 md:h-80 w-full min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           {spec.kind === 'radar' ? (
-            <RadarChart data={chartRows} margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+            <RadarChart data={chartRows} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
               <PolarGrid stroke={gridStroke} />
-              <PolarAngleAxis dataKey={dimensionKey} tick={{ fill: tickFill, fontSize: 11 }} />
-              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: tickFill, fontSize: 9 }} />
+              <PolarAngleAxis dataKey={dimensionKey} tick={{ fill: tickFill, fontSize: 10 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: tickFill, fontSize: 8 }} />
               <Tooltip
                 contentStyle={{
                   background: isDark ? '#0F172A' : '#FFFFFF',
                   border: '1px solid #E2E8F0',
                   borderRadius: 12,
-                  fontSize: 12,
+                  fontSize: 11,
                 }}
                 formatter={(value) => [`${value} / 100`, '']}
               />
-              {spec.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
+              {spec.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 10 }} /> : null}
               {spec.series.map((s, i) => (
                 <Radar
                   key={s.key}
@@ -190,12 +190,12 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
               <XAxis
                 dataKey={dimensionKey}
-                tick={{ fill: tickFill, fontSize: 11 }}
+                tick={{ fill: tickFill, fontSize: 10 }}
                 tickLine={false}
                 axisLine={{ stroke: gridStroke }}
               />
               <YAxis
-                tick={{ fill: tickFill, fontSize: 11 }}
+                tick={{ fill: tickFill, fontSize: 10 }}
                 tickLine={false}
                 axisLine={false}
                 label={{
@@ -203,7 +203,7 @@ export function ChartSpecView({ spec, unavailableReasons, onOpenEvidence }: Char
                   angle: -90,
                   position: 'insideLeft',
                   fill: tickFill,
-                  fontSize: 10,
+                  fontSize: 9,
                 }}
               />
               <Tooltip

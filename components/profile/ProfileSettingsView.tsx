@@ -116,21 +116,21 @@ export function ProfileSettingsView({
     <div className="w-full flex flex-col gap-6 animate-fadeIn pb-24">
       {/* Top Header Card */}
       <div
-        className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
+        className="rounded-2xl p-4 sm:p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
         style={{ boxShadow: 'var(--shadow-extruded)' }}
       >
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-2xl font-bold shrink-0">
-            {userEmail ? userEmail[0].toUpperCase() : <User size={24} />}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-xl sm:text-2xl font-bold shrink-0">
+            {userEmail ? userEmail[0].toUpperCase() : <User size={22} />}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-foreground">Executive Profile & Personal Memory</h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-[11px] font-semibold text-accent">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Executive Profile & Personal Memory</h1>
+              <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-[10.5px] sm:text-[11px] font-semibold text-accent">
                 Executive SaaS
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Manage your company baseline and inspect AI-extracted personalized memory facts.
             </p>
           </div>
@@ -139,7 +139,7 @@ export function ProfileSettingsView({
         <button
           type="button"
           onClick={() => handleSave()}
-          className="px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <CheckCircle2 size={14} className="text-white" />
           <span className="text-white">{savedSuccess ? 'Saved!' : 'Save Baseline'}</span>
@@ -147,11 +147,11 @@ export function ProfileSettingsView({
       </div>
 
       {/* Sub-Navigation Pills inside Profile & Settings */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-card border border-border w-fit shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 rounded-2xl bg-card border border-border w-full sm:w-fit shadow-xs">
         <button
           type="button"
           onClick={() => setSubTab('profile')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             subTab === 'profile'
               ? 'bg-accent text-white shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent/10'
@@ -163,7 +163,7 @@ export function ProfileSettingsView({
         <button
           type="button"
           onClick={() => setSubTab('agents')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             subTab === 'agents'
               ? 'bg-accent text-white shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent/10'
@@ -175,7 +175,7 @@ export function ProfileSettingsView({
         <button
           type="button"
           onClick={() => setSubTab('usage')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             subTab === 'usage'
               ? 'bg-accent text-white shadow-sm'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent/10'
