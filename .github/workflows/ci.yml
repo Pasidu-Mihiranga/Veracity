@@ -78,33 +78,23 @@ jobs:
 
             # 2. Automatically generate and update server .env from GitHub Secrets
             echo "🔐 Synchronizing .env with GitHub Secrets..."
-            cat << 'ENV_EOF' > $APP_DIR/.env
-            # ── Database & Auth ──────────────────────────────────
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            AUTH_SECRET=${{ secrets.AUTH_SECRET }}
-
-            # ── AI (Gemini primary & fallbacks) ─────────────────
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            GEMINI_API_KEY_FALLBACK=${{ secrets.GEMINI_API_KEY_FALLBACK }}
-            GEMINI_API_KEY_FALLBACK_2=${{ secrets.GEMINI_API_KEY_FALLBACK_2 }}
-            GEMINI_MODEL=gemini-3.1-flash-lite
-            GEMINI_EMBEDDING_MODEL=gemini-embedding-001
-
-            # ── Tool APIs & Fallbacks ───────────────────────────
-            FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY }}
-            SERPAPI_KEY=${{ secrets.SERPAPI_KEY }}
-            SCRAPE_DO_TOKEN=${{ secrets.SCRAPE_DO_TOKEN }}
-            APIFY_API_TOKEN=${{ secrets.APIFY_API_TOKEN }}
-
-            # ── App & OAuth ─────────────────────────────────────
-            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
-            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-
-            # ── Architecture Flags ──────────────────────────────
-            NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1
-            INNGEST_DEV=1
-            ENV_EOF
+            printf "%s\n" \
+              "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+              "AUTH_SECRET=${{ secrets.AUTH_SECRET }}" \
+              "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" \
+              "GEMINI_API_KEY_FALLBACK=${{ secrets.GEMINI_API_KEY_FALLBACK }}" \
+              "GEMINI_API_KEY_FALLBACK_2=${{ secrets.GEMINI_API_KEY_FALLBACK_2 }}" \
+              "GEMINI_MODEL=gemini-3.1-flash-lite" \
+              "GEMINI_EMBEDDING_MODEL=gemini-embedding-001" \
+              "FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY }}" \
+              "SERPAPI_KEY=${{ secrets.SERPAPI_KEY }}" \
+              "SCRAPE_DO_TOKEN=${{ secrets.SCRAPE_DO_TOKEN }}" \
+              "APIFY_API_TOKEN=${{ secrets.APIFY_API_TOKEN }}" \
+              "NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}" \
+              "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" \
+              "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              "NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1" \
+              "INNGEST_DEV=1" > $APP_DIR/.env
 
             # 3. Install dependencies
             echo "📦 Installing npm dependencies..."
