@@ -535,21 +535,21 @@ export function WatchlistsView() {
 
       {/* Header Executive Card - Standardized Across Top Tabs */}
       <div
-        className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
+        className="rounded-2xl p-4 sm:p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
         style={{ boxShadow: 'var(--shadow-extruded)' }}
       >
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-2xl font-bold shrink-0">
-            <Eye size={24} />
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-accent/15 border border-accent/25 flex items-center justify-center text-accent text-xl sm:text-2xl font-bold shrink-0">
+            <Eye size={22} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground">Competitor Monitoring & Tracking</h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-xs font-semibold text-accent">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-2xl font-bold text-foreground">Competitor Monitoring & Tracking</h1>
+              <span className="px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-[10.5px] sm:text-xs font-semibold text-accent">
                 Automated Live Alerts
               </span>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed">
               Automatically track competitor websites, pricing changes, product releases, and market strategy shifts in real-time.
             </p>
           </div>
@@ -558,7 +558,7 @@ export function WatchlistsView() {
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
-          className="px-5 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center gap-1.5 cursor-pointer"
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent text-white text-xs sm:text-sm font-bold hover:opacity-90 transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Plus size={15} /> Track New Competitor
         </button>

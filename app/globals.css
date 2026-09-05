@@ -222,6 +222,16 @@ html {
   margin-bottom: 1rem;
 }
 
+/* Hide scrollbar for clean horizontal tab rails and chips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

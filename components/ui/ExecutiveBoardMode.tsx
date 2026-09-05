@@ -122,11 +122,11 @@ export function ExecutiveBoardMode({ message }: Props) {
             ))}
           </nav>
 
-          <main className="flex-1 overflow-y-auto px-8 py-10 max-w-5xl w-full mx-auto">
+          <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-10 max-w-5xl w-full mx-auto">
             {slide.id === 'decision' && (
               <div className="flex flex-col gap-6">
                 <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Decision</p>
-                <p className="text-2xl md:text-3xl leading-snug text-foreground whitespace-pre-wrap">
+                <p className="text-lg sm:text-2xl md:text-3xl leading-snug text-foreground whitespace-pre-wrap">
                   {boardPack?.executiveBrief ?? message.content}
                 </p>
                 {boardPack?.decision ? (

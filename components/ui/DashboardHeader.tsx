@@ -108,25 +108,27 @@ export function DashboardHeader({
           </button>
         )}
 
-        <div className="header-island-brand flex items-center shrink-0 pl-1 pr-3 gap-2.5">
+        <div className="header-island-brand flex items-center shrink-0 pl-1 pr-2 sm:pr-3 gap-2 sm:gap-2.5">
           <img
             src="/robot.avif"
             alt="Veracity Robot"
             width={42}
             height={46}
-            className="brand-mascot h-10 w-auto shrink-0 transition-transform hover:scale-105"
+            className="brand-mascot h-8 sm:h-10 w-auto shrink-0 transition-transform hover:scale-105"
             draggable={false}
           />
-          <BrandWordmark size="md" />
+          <div className="hidden min-[380px]:block">
+            <BrandWordmark size="md" />
+          </div>
         </div>
 
-        <div className="header-island-tabs flex items-center gap-1 shrink-0 overflow-x-auto no-scrollbar" role="tablist">
+        <div className="header-island-tabs flex items-center gap-1 shrink-0 overflow-x-auto no-scrollbar py-0.5" role="tablist">
           {([
-            { id: 'home' as const, label: 'Home' },
-            { id: 'intelligence' as const, label: 'Research' },
-            ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists' }] : []),
-            { id: 'steal' as const, label: 'Strategy Playbook' },
-            { id: 'profile' as const, label: 'Profile & Settings' },
+            { id: 'home' as const, label: 'Home', shortLabel: 'Home' },
+            { id: 'intelligence' as const, label: 'Research', shortLabel: 'Research' },
+            ...(featureFlags.watchlists ? [{ id: 'watchlists' as const, label: 'Watchlists', shortLabel: 'Watchlists' }] : []),
+            { id: 'steal' as const, label: 'Strategy Playbook', shortLabel: 'Playbook' },
+            { id: 'profile' as const, label: 'Profile & Settings', shortLabel: 'Settings' },
           ]).map(tab => {
             const active = topTab === tab.id;
             return (
@@ -136,24 +138,25 @@ export function DashboardHeader({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onTopTabChange(tab.id)}
-                className="header-nav-tab flex items-center justify-center px-3.5 py-1.5 text-[13.5px] sm:text-[14px] font-medium transition-all min-h-9 rounded-xl cursor-pointer"
+                className="header-nav-tab flex items-center justify-center px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[12px] sm:text-[13.5px] font-medium transition-all min-h-8 sm:min-h-9 rounded-xl cursor-pointer shrink-0"
                 data-active={active ? 'true' : 'false'}
               >
-                <span className="header-island-tab-label">{tab.label}</span>
+                <span className="header-island-tab-label sm:hidden">{tab.shortLabel}</span>
+                <span className="header-island-tab-label hidden sm:inline">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        <div className="header-island-row flex items-center gap-2 sm:gap-3 ml-auto min-w-0">
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="header-island-row flex items-center gap-1.5 sm:gap-3 ml-auto min-w-0 shrink-0">
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
             {mirofishRunning ? (
               <span className="neu-pill-accent ui-mono px-2 py-1" style={{ color: accentInk, fontSize: 10 }}>
                 scenario running
               </span>
             ) : null}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {featureFlags.workspaces ? (
               <WorkspaceSwitcher
                 onOpenMembers={onOpenMembers}

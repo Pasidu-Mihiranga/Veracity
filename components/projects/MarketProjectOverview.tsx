@@ -26,7 +26,7 @@ export function MarketProjectOverview({ projectId, refreshKey }: { projectId: st
         <p className="ui-section-label flex items-center gap-2 text-accent"><Activity size={13} /> Project research history</p>
         <span className="text-[10px] font-mono text-muted-foreground">Coverage changes, not claimed market events</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <Metric icon={<MessageSquare size={13} />} label="Conversations" value={overview.conversationCount} />
         <Metric icon={<RefreshCw size={13} />} label="Research runs" value={overview.researchRunCount} />
         <Metric icon={<Database size={13} />} label="Latest sources" value={latest?.source_count ?? 0} />

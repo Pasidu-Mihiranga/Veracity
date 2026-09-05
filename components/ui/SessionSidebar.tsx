@@ -194,7 +194,7 @@ export function SessionSidebar({
       >
       <button
         onClick={onToggleCollapsed}
-        className="sidebar-collapse-btn"
+        className="sidebar-collapse-btn hidden md:flex"
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         style={{ right: collapsed ? '-36px' : '-14px' }}
       >
