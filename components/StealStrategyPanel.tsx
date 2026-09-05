@@ -33,6 +33,7 @@ import {
   SlidersHorizontal,
   ChevronRightCircle,
   HelpCircle,
+  BarChart3,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
 import type {
@@ -1412,9 +1413,48 @@ export function StealStrategyPanel() {
                   <h4 className="text-xs font-mono uppercase tracking-wider font-bold text-accent">
                     Advisor Recommendation Tips
                   </h4>
-                  <p className="text-xs sm:text-sm text-foreground/90 mt-1 leading-relaxed">
+                  <p className="text-sm text-foreground/90 mt-1 leading-relaxed">
                     Pick <strong>1 to 2 levers</strong> to focus on first before expanding. Consistent execution on one high-leverage channel produces significantly better traction than spreading resources thin.
                   </p>
+                </div>
+              </div>
+
+              {/* Visual Component 1: Recommended Weekly Strategy Focus & Effort Allocation Bar */}
+              <div className="p-5 rounded-2xl bg-card border border-border flex flex-col gap-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={15} className="text-accent" />
+                    <h4 className="text-xs font-mono uppercase font-bold tracking-wider text-foreground">
+                      Recommended Weekly Effort Allocation
+                    </h4>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Based on your {data.stage.split('(')[0].trim()} stage</span>
+                </div>
+
+                {/* Proportional Segment Bar */}
+                <div className="w-full h-3 rounded-full bg-secondary/80 overflow-hidden flex shadow-inner">
+                  <div className="h-full bg-accent transition-all" style={{ width: '40%' }} title="40% Value Prop & Setup" />
+                  <div className="h-full bg-blue-400 transition-all" style={{ width: '30%' }} title="30% Pricing & Monetization" />
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: '30%' }} title="30% Retention & Referral" />
+                </div>
+
+                {/* Effort Legend Chips */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-3 h-3 rounded-full bg-accent shrink-0" />
+                    <span className="font-bold text-foreground">40% Focus:</span>
+                    <span className="text-muted-foreground truncate">Value Prop & Onboarding</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-3 h-3 rounded-full bg-blue-400 shrink-0" />
+                    <span className="font-bold text-foreground">30% Focus:</span>
+                    <span className="text-muted-foreground truncate">Pricing & Conversion Tiers</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="font-bold text-foreground">30% Focus:</span>
+                    <span className="text-muted-foreground truncate">Customer Retention & Loops</span>
+                  </div>
                 </div>
               </div>
 
@@ -1462,6 +1502,94 @@ export function StealStrategyPanel() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Visual Component 2: Key Target Metrics & Velocity Gauges */}
+              <div className="p-6 rounded-2xl bg-secondary/30 border border-border flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-mono uppercase font-bold tracking-wider text-accent">
+                      Key Growth Velocity Targets
+                    </h4>
+                    <p className="text-sm font-bold text-foreground mt-0.5">
+                      Recommended Pace to Reach: {data.goal}
+                    </p>
+                  </div>
+                  <span className="hidden sm:inline-flex px-2.5 py-1 rounded-full bg-accent/10 text-accent font-mono text-xs font-bold">
+                    Target Scorecard
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-1">
+                  {(data.keyMetrics || [
+                    {
+                      id: 'metric-1',
+                      metric: 'Customer Discovery Conversations',
+                      target: '20 per week',
+                      whyItMatters: 'Talking directly to potential buyers teaches you what they really want.',
+                    },
+                    {
+                      id: 'metric-2',
+                      metric: 'New Paying Customers',
+                      target: '5–10 per week',
+                      whyItMatters: 'Proves that buyers find enough value to pay for your solution.',
+                    },
+                    {
+                      id: 'metric-3',
+                      metric: 'Organic Referrals',
+                      target: '2–3 per month',
+                      whyItMatters: 'Indicates high customer delight and fuels organic growth.',
+                    },
+                  ]).map((m, idx) => {
+                    const gaugeValues = [75, 60, 50];
+                    const gaugeVal = gaugeValues[idx % gaugeValues.length];
+
+                    return (
+                      <div
+                        key={m.id || idx}
+                        className="p-5 rounded-xl bg-card border border-border flex flex-col justify-between gap-4 shadow-xs"
+                      >
+                        <div className="flex items-center gap-3.5">
+                          {/* Mini SVG Gauge Ring */}
+                          <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                              <path
+                                className="text-secondary stroke-current"
+                                strokeWidth="3.5"
+                                fill="none"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              />
+                              <path
+                                className="text-accent stroke-current"
+                                strokeDasharray={`${gaugeVal}, 100`}
+                                strokeWidth="3.5"
+                                strokeLinecap="round"
+                                fill="none"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              />
+                            </svg>
+                            <span className="absolute font-mono font-bold text-xs text-foreground">
+                              {idx + 1}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-xs font-mono uppercase font-bold text-muted-foreground block">
+                              {m.metric}
+                            </span>
+                            <span className="text-base font-bold text-foreground">
+                              {m.target}
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-border/50">
+                          {m.whyItMatters}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

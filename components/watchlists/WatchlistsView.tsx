@@ -337,6 +337,58 @@ export function WatchlistsView() {
 
   const displayAlerts: AlertEvent[] = filteredAlerts;
 
+  // Helper to accurately classify any alert
+  const getAlertCategory = (a: AlertEvent): 'pricing' | 'feature' | 'positioning' => {
+    const cat = String(a.diff?.category ?? '').toLowerCase();
+    const titleLower = a.title.toLowerCase();
+
+    // Comprehensive Pricing indicators
+    if (
+      cat.includes('price') ||
+      cat.includes('pricing') ||
+      titleLower.includes('price') ||
+      titleLower.includes('pricing') ||
+      titleLower.includes('usd') ||
+      titleLower.includes('lkr') ||
+      titleLower.includes('eur') ||
+      titleLower.includes('gbp') ||
+      titleLower.includes('basis points') ||
+      titleLower.includes('bps') ||
+      titleLower.includes('plan') ||
+      titleLower.includes('rate') ||
+      titleLower.includes('tier') ||
+      titleLower.includes('$') ||
+      titleLower.includes('€') ||
+      titleLower.includes('£') ||
+      titleLower.includes('→') ||
+      titleLower.includes('->')
+    ) {
+      return 'pricing';
+    }
+
+    // Comprehensive Feature indicators
+    if (
+      cat.includes('feature') ||
+      cat.includes('launch') ||
+      cat.includes('release') ||
+      cat.includes('product') ||
+      cat.includes('docs') ||
+      titleLower.includes('feature') ||
+      titleLower.includes('launch') ||
+      titleLower.includes('release') ||
+      titleLower.includes('tool') ||
+      titleLower.includes('integration') ||
+      titleLower.includes('version') ||
+      titleLower.includes('beta') ||
+      titleLower.includes('api')
+    ) {
+      return 'feature';
+    }
+
+    // Default to positioning
+    return 'positioning';
+  };
+
   // Dynamic calculation of Delta Category Shifts from actual alerts
   const totalAlertsCount = displayAlerts.length;
   let pricingCount = 0;
@@ -344,11 +396,10 @@ export function WatchlistsView() {
   let positioningCount = 0;
 
   displayAlerts.forEach((a) => {
-    const cat = String(a.diff?.category ?? '').toLowerCase();
-    const titleLower = a.title.toLowerCase();
-    if (cat.includes('price') || cat.includes('pricing') || titleLower.includes('price') || titleLower.includes('pricing')) {
+    const category = getAlertCategory(a);
+    if (category === 'pricing') {
       pricingCount++;
-    } else if (cat.includes('feature') || cat.includes('launch') || cat.includes('docs') || titleLower.includes('feature') || titleLower.includes('launch')) {
+    } else if (category === 'feature') {
       featureCount++;
     } else {
       positioningCount++;
@@ -357,7 +408,7 @@ export function WatchlistsView() {
 
   const pricingPct = totalAlertsCount > 0 ? Math.round((pricingCount / totalAlertsCount) * 100) : 0;
   const featurePct = totalAlertsCount > 0 ? Math.round((featureCount / totalAlertsCount) * 100) : 0;
-  const positioningPct = totalAlertsCount > 0 ? Math.round((positioningCount / totalAlertsCount) * 100) : 0;
+  const positioningPct = totalAlertsCount > 0 ? Math.max(0, 100 - pricingPct - featurePct) : 0;
 
   const totalMaxCapacity = targetLists.reduce((acc, wl) => acc + (wl.max_competitors || 6), 0);
   const targetCapacityPct = totalMaxCapacity > 0 ? Math.min(100, Math.round((targetCompetitorCount / totalMaxCapacity) * 100)) : 0;
@@ -606,295 +657,227 @@ export function WatchlistsView() {
                   </button>
                 </div>
               ) : (
-                lists.map((wl) => {
-                  const isSelected = selectedWatchlistId === wl.id;
-                  const isCollapsed = collapsedIds[wl.id] ?? true;
+                <div className="flex flex-col gap-4 max-h-[860px] overflow-y-auto pr-1.5">
+                  {lists.map((wl) => {
+                    const isSelected = selectedWatchlistId === wl.id;
+                    const isCollapsed = collapsedIds[wl.id] ?? true;
 
-                  return (
-                    <div
-                      key={wl.id}
-                      onClick={() => setSelectedWatchlistId((prev) => (prev === wl.id ? null : wl.id))}
-                      /*
-                        Selection has to survive comparison with the row above
-                        it. It used to be bg-accent/10 against bg-accent/5 —
-                        a five percent difference in tint, invisible unless the
-                        two cards happened to be adjacent.
-
-                        So unselected is now plainly neutral, and selected gets
-                        a solid accent spine down its left edge. The spine is
-                        the signal; the wash only supports it. Both states carry
-                        the same 3px border-left so nothing shifts sideways when
-                        selection moves.
-                      */
-                      aria-selected={isSelected}
-                      className={`rounded-xl p-5 border transition-all cursor-pointer flex flex-col gap-4 ${isSelected
+                    return (
+                      <div
+                        key={wl.id}
+                        onClick={() => setSelectedWatchlistId((prev) => (prev === wl.id ? null : wl.id))}
+                        aria-selected={isSelected}
+                        className={`rounded-xl p-5 border transition-all cursor-pointer flex flex-col gap-4 ${isSelected
                           ? 'bg-accent/[0.07] border-accent/40'
                           : 'bg-card border-border hover:border-accent/40'
-                        }`}
-                      /* The spine is set here rather than with a border-l-*
-                         utility: that class resolved to transparent, so the
-                         signal silently did not render and the wash was doing
-                         all the work on its own. */
-                      style={{
-                        borderLeftWidth: '3px',
-                        borderLeftColor: isSelected ? 'var(--accent)' : 'transparent',
-                      }}
-                    >
-                      {/* Watchlist Header Row with Active/Paused Toggle, Accordion Chevron, & Delete */}
-                      <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/40">
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={(e) => toggleCollapse(wl.id, e)}
-                            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
-                            title={isCollapsed ? 'Expand watchlist details' : 'Collapse watchlist details'}
-                          >
-                            {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                          </button>
-                          <div>
-                            <span className="text-[10px] font-mono uppercase text-muted-foreground block">
-                              Your Product / Market
-                            </span>
-                            <h3 className="text-base font-bold text-foreground mt-0.5 flex items-center gap-2">
-                              {wl.product || wl.name}
-                              {isSelected && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedWatchlistId(null);
-                                  }}
-                                  className="text-[10px] font-semibold text-accent bg-accent/15 border border-accent/30 hover:bg-accent/25 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
-                                  title="Click to clear watchlist selection"
-                                >
-                                  Selected ✕
-                                </button>
-                              )}
-                            </h3>
+                          }`}
+                        style={{
+                          borderLeftWidth: '3px',
+                          borderLeftColor: isSelected ? 'var(--accent)' : 'transparent',
+                        }}
+                      >
+                        {/* Watchlist Header Row with Active/Paused Toggle, Accordion Chevron, & Delete */}
+                        <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/40">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={(e) => toggleCollapse(wl.id, e)}
+                              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+                              title={isCollapsed ? 'Expand watchlist details' : 'Collapse watchlist details'}
+                            >
+                              {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                            </button>
+                            <div>
+                              <span className="text-[10px] font-mono uppercase text-muted-foreground block">
+                                Your Product / Market
+                              </span>
+                              <h3 className="text-base font-bold text-foreground mt-0.5 flex items-center gap-2">
+                                {wl.product || wl.name}
+                                {isSelected && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedWatchlistId(null);
+                                    }}
+                                    className="text-[10px] font-semibold text-accent bg-accent/15 border border-accent/30 hover:bg-accent/25 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                    title="Click to clear watchlist selection"
+                                  >
+                                    Selected ✕
+                                  </button>
+                                )}
+                              </h3>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
-                          {/* Active / Inactive Status Toggle Switch */}
-                          <button
-                            type="button"
-                            onClick={() => void updateMonitoringConfig(wl.id, { enabled: !wl.enabled })}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${wl.enabled
+                          <div className="flex items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
+                            {/* Active / Inactive Status Toggle Switch */}
+                            <button
+                              type="button"
+                              onClick={() => void updateMonitoringConfig(wl.id, { enabled: !wl.enabled })}
+                              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${wl.enabled
                                 ? 'status-chip status-chip--good'
                                 : 'status-chip status-chip--warn'
-                              }`}
-                            title={wl.enabled ? 'Click to Pause monitoring' : 'Click to Activate monitoring'}
-                          >
-                            {wl.enabled ? (
-                              <>
-                                <ToggleRight size={16} className="status-good" />
-                                <span>Active</span>
-                              </>
-                            ) : (
-                              <>
-                                <ToggleLeft size={16} className="status-warn" />
-                                <span>Paused</span>
-                              </>
-                            )}
-                          </button>
+                                }`}
+                              title={wl.enabled ? 'Click to Pause monitoring' : 'Click to Activate monitoring'}
+                            >
+                              {wl.enabled ? (
+                                <>
+                                  <ToggleRight size={16} className="status-good" />
+                                  <span>Active</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ToggleLeft size={16} className="status-warn" />
+                                  <span>Paused</span>
+                                </>
+                              )}
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDeleteConfirm({
-                                type: 'watchlist',
-                                id: wl.id,
-                                title: `watchlist "${wl.product || wl.name}"`,
-                              })
-                            }
-                            className="p-1.5 text-muted-foreground hover:text-[var(--evidence-unsupported)] rounded-lg transition-colors cursor-pointer"
-                            title="Delete Watchlist"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeleteConfirm({
+                                  type: 'watchlist',
+                                  id: wl.id,
+                                  title: `watchlist "${wl.product || wl.name}"`,
+                                })
+                              }
+                              className="p-1.5 text-muted-foreground hover:text-[var(--evidence-unsupported)] rounded-lg transition-colors cursor-pointer"
+                              title="Delete Watchlist"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Collapsible Card Body */}
-                      {!isCollapsed && (
-                        <div className="flex flex-col gap-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
-                          {/* Sweep Status Info */}
-                          <div className="flex items-center justify-between text-xs text-muted-foreground font-mono bg-background/60 px-3.5 py-2 rounded-lg border border-border/30">
-                            <span>Last Check: <strong>{formatRelativeSweep(wl.last_sweep_at)}</strong></span>
-                            <span>Next Check: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}</strong></span>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                            <label className="flex flex-col gap-1 text-muted-foreground">
-                              <span className="font-mono uppercase text-[9px]">Check Frequency</span>
-                              <select
-                                value={wl.cadence}
-                                disabled={busy}
-                                onChange={(event) => void updateMonitoringConfig(wl.id, { cadence: event.target.value })}
-                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
-                              >
-                                <option value="daily">Daily</option>
-                                <option value="twice_weekly">2× Weekly</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                              </select>
-                            </label>
-                            <label className="flex flex-col gap-1 text-muted-foreground">
-                              <span className="font-mono uppercase text-[9px]">Max Competitors</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={12}
-                                defaultValue={wl.max_competitors}
-                                disabled={busy}
-                                onBlur={(event) => void updateMonitoringConfig(wl.id, {
-                                  maxCompetitors: Number(event.target.value),
-                                })}
-                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
-                              />
-                            </label>
-                            <label className="flex flex-col gap-1 text-muted-foreground">
-                              <span className="font-mono uppercase text-[9px]">Weekly Alert Limit</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={50}
-                                defaultValue={wl.weekly_alert_budget}
-                                disabled={busy}
-                                onBlur={(event) => void updateMonitoringConfig(wl.id, {
-                                  weeklyAlertBudget: Number(event.target.value),
-                                })}
-                                className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
-                              />
-                            </label>
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] font-mono uppercase text-muted-foreground">
-                            <span>Channels: {wl.alert_channels.map((c) => c.replace('_', '-')).join(', ')}</span>
-                            {(['email', 'slack'] as const).map((channel) => (
-                              <label key={channel} className="flex items-center gap-1">
-                                <input
-                                  type="checkbox"
-                                  checked={wl.alert_channels.includes(channel)}
-                                  disabled={busy}
-                                  onChange={(event) => {
-                                    const channels = event.target.checked
-                                      ? [...new Set([...wl.alert_channels, channel])]
-                                      : wl.alert_channels.filter((value) => value !== channel);
-                                    void updateMonitoringConfig(wl.id, { alertChannels: channels });
-                                  }}
-                                />
-                                {channel}
-                              </label>
-                            ))}
-                          </div>
-                          {(wl.last_sweep_summary?.limitations?.length ?? 0) > 0 ? (
-                            <div className="rounded-lg px-3 py-2 border border-border text-xs status-warn">
-                              <span className="font-mono uppercase text-[9px] block mb-1">Monitoring Notes</span>
-                              {wl.last_sweep_summary.limitations!.slice(0, 2).join(' ')}
+                        {/* Collapsible Card Body */}
+                        {!isCollapsed && (
+                          <div className="flex flex-col gap-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+                            {/* Sweep Status Info */}
+                            <div className="flex items-center justify-between text-xs text-muted-foreground font-mono bg-background/60 px-3.5 py-2 rounded-lg border border-border/30">
+                              <span>Last Check: <strong>{formatRelativeSweep(wl.last_sweep_at)}</strong></span>
+                              <span>Next Check: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}</strong></span>
                             </div>
-                          ) : null}
 
-                          {/* Competitor Chips List */}
-                          <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-foreground">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                              <label className="flex flex-col gap-1 text-muted-foreground">
+                                <span className="font-mono uppercase text-[9px]">Check Frequency</span>
+                                <select
+                                  value={wl.cadence}
+                                  disabled={busy}
+                                  onChange={(event) => void updateMonitoringConfig(wl.id, { cadence: event.target.value })}
+                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                >
+                                  <option value="daily">Daily</option>
+                                  <option value="twice_weekly">2× Weekly</option>
+                                  <option value="weekly">Weekly</option>
+                                  <option value="monthly">Monthly</option>
+                                </select>
+                              </label>
+                              <label className="flex flex-col gap-1 text-muted-foreground">
+                                <span className="font-mono uppercase text-[9px]">Max Competitors</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={12}
+                                  defaultValue={wl.max_competitors}
+                                  disabled={busy}
+                                  onBlur={(event) => void updateMonitoringConfig(wl.id, {
+                                    max_competitors: Number(event.target.value),
+                                  })}
+                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                />
+                              </label>
+                              <label className="flex flex-col gap-1 text-muted-foreground">
+                                <span className="font-mono uppercase text-[9px]">Alert Budget/wk</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={50}
+                                  defaultValue={wl.weekly_alert_budget}
+                                  disabled={busy}
+                                  onBlur={(event) => void updateMonitoringConfig(wl.id, {
+                                    weekly_alert_budget: Number(event.target.value),
+                                  })}
+                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                />
+                              </label>
+                            </div>
+
+                            {/* Competitor List */}
+                            <div className="flex flex-col gap-2">
+                              <span className="text-[10px] font-mono uppercase text-muted-foreground font-semibold">
                                 Monitored Competitors ({wl.items?.length ?? 0})
                               </span>
-                              <span className="text-[10px] text-muted-foreground font-mono">
-                                Tracked Web Pages
-                              </span>
-                            </div>
-
-                            {wl.items?.length === 0 ? (
-                              <p className="text-xs text-muted-foreground italic">No competitors added yet.</p>
-                            ) : (
-                              <div className="flex flex-col gap-2">
-                                {wl.items.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-card border border-border/50 text-xs gap-2"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className="font-semibold text-foreground truncate">{item.competitor}</span>
-                                      {item.competitor_url ? (
-                                        <a
-                                          href={item.competitor_url.startsWith('http') ? item.competitor_url : `https://${item.competitor_url}`}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-[10px] text-accent hover:underline flex items-center gap-1 font-mono truncate max-w-[200px] bg-accent/10 px-2 py-0.5 rounded"
-                                          title={item.competitor_url}
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <Globe size={10} />
-                                          <span className="truncate">{item.competitor_url.replace(/^https?:\/\//, '')}</span>
-                                          <ExternalLink size={9} />
-                                        </a>
-                                      ) : (
-                                        <span className="text-[10px] text-muted-foreground font-mono bg-accent/5 px-1.5 py-0.5 rounded">
-                                          Auto-Discovered Website
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteConfirm({
-                                          type: 'item',
-                                          id: wl.id,
-                                          itemId: item.id,
-                                          title: `competitor "${item.competitor}"`,
-                                        });
-                                      }}
-                                      className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-0.5 transition-colors cursor-pointer shrink-0"
-                                      title="Remove competitor"
+                              {(!wl.items || wl.items.length === 0) ? (
+                                <p className="text-xs text-muted-foreground italic">No competitors added yet.</p>
+                              ) : (
+                                <div className="flex flex-col gap-1.5">
+                                  {wl.items.map((item) => (
+                                    <div
+                                      key={item.id}
+                                      className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/30 text-xs"
                                     >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Add Competitor Input & Sweep Button */}
-                          <div className="flex flex-col gap-2.5 pt-2 border-t border-border/40">
-                            <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
-                              <input
-                                type="text"
-                                value={competitorInput[wl.id] ?? ''}
-                                onChange={(e) =>
-                                  setCompetitorInput((prev) => ({ ...prev, [wl.id]: e.target.value }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') void addCompetitor(wl.id);
-                                }}
-                                placeholder="Competitor Name (e.g. Clay)..."
-                                className="flex-1 w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-accent"
-                              />
-                              <input
-                                type="url"
-                                value={competitorUrlInput[wl.id] ?? ''}
-                                onChange={(e) =>
-                                  setCompetitorUrlInput((prev) => ({ ...prev, [wl.id]: e.target.value }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') void addCompetitor(wl.id);
-                                }}
-                                placeholder="Website URL (e.g. https://clay.com/pricing)..."
-                                className="flex-1 w-full px-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground focus:outline-none focus:border-accent font-mono"
-                              />
-                              <button
-                                type="button"
-                                disabled={busy || !(competitorInput[wl.id] ?? '').trim() || wl.items.length >= wl.max_competitors}
-                                onClick={() => void addCompetitor(wl.id)}
-                                className="px-3.5 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer shrink-0 w-full sm:w-auto"
-                              >
-                                <Plus size={14} className="inline mr-1" /> Add Competitor
-                              </button>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <Globe size={13} className="text-accent shrink-0" />
+                                        <span className="font-medium text-foreground truncate">{item.competitor}</span>
+                                        {item.competitor_url && (
+                                          <a
+                                            href={item.competitor_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-muted-foreground hover:text-accent shrink-0"
+                                            title={item.competitor_url}
+                                          >
+                                            <ExternalLink size={11} />
+                                          </a>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setDeleteConfirm({
+                                            type: 'item',
+                                            id: wl.id,
+                                            itemId: item.id,
+                                            title: `competitor "${item.competitor}"`,
+                                          })
+                                        }
+                                        className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded transition-colors"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
+                            {/* Add Competitor Input */}
+                            <div className="flex flex-col gap-2 pt-2 border-t border-border/30">
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Competitor company name..."
+                                  value={competitorInput[wl.id] ?? ''}
+                                  onChange={(e) =>
+                                    setCompetitorInput((prev) => ({ ...prev, [wl.id]: e.target.value }))
+                                  }
+                                  className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:border-accent"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={busy || !competitorInput[wl.id]?.trim()}
+                                  onClick={() => void addCompetitor(wl.id)}
+                                  className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  <Plus size={13} /> Add
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Run Sweep Now Button */}
                             <button
                               type="button"
                               disabled={busy || backgroundSweepStatus?.status === 'running'}
@@ -914,142 +897,250 @@ export function WatchlistsView() {
                               )}
                             </button>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Column (6 Cols): Equal Height Stacked Cards */}
-        <div className="lg:col-span-6 flex flex-col gap-6 justify-between h-full">
-          {/* Statistical Intelligence Visualizations */}
+        {/* Right Column (6 Cols): Unified Consolidated Intelligence Card */}
+        <div className="lg:col-span-6 flex flex-col h-full">
           <div
-            className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-5 shadow-sm"
+            className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-6 shadow-sm h-full justify-between"
             style={{ boxShadow: 'var(--shadow-extruded)' }}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-border/40">
-              <div className="flex items-center gap-2">
-                <BarChart3 size={16} className="text-accent" />
-                <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                  Market Change Breakdown
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedWatchlist ? (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedWatchlistId(null)}
-                    className="px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold hover:bg-accent/25 transition-colors flex items-center gap-1 cursor-pointer"
-                    title="Click to reset filter and show All Watchlists"
-                  >
-                    <Filter size={11} /> Filtered: {selectedWatchlist.product || selectedWatchlist.name} ✕
-                  </button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">All Trackers</span>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-              {/* Donut Chart Visual Representation */}
-              <div className="flex items-center justify-center gap-4 p-4 rounded-xl bg-accent/5 border border-border/40">
-                <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                    <path
-                      className="text-border"
-                      strokeWidth="3.8"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="text-accent"
-                      strokeDasharray={`${targetCapacityPct}, 100`}
-                      strokeWidth="3.8"
-                      strokeLinecap="round"
-                      stroke="currentColor"
-                      fill="none"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <div className="absolute flex flex-col items-center justify-center text-center">
-                    <span className="text-sm font-bold text-foreground">{totalTrackedCompetitors}</span>
-                    <span className="text-[9px] font-mono text-muted-foreground">Tracked</span>
-                  </div>
+            {/* Section 1: Market Change Breakdown & Visualizations */}
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={16} className="text-accent" />
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                    Market Change Breakdown
+                  </h2>
                 </div>
-
-                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-foreground mb-0.5">Competitor Share</span>
-                  {competitorEntries.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">No competitors tracked.</span>
+                <div className="flex items-center gap-2">
+                  {selectedWatchlist ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedWatchlistId(null)}
+                      className="px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-[11px] font-semibold hover:bg-accent/25 transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Click to reset filter and show All Trackers"
+                    >
+                      <Filter size={11} /> Filtered: {selectedWatchlist.product || selectedWatchlist.name} ✕
+                    </button>
                   ) : (
-                    competitorEntries.slice(0, 4).map(([name, count]) => {
-                      const pct = totalTrackedCompetitors > 0 ? Math.round((count / totalTrackedCompetitors) * 100) : 0;
-                      return (
-                        <div key={name} className="flex items-center justify-between text-[11px]">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                            <span className="text-muted-foreground truncate font-medium">{name}</span>
-                          </div>
-                          <span className="font-mono font-bold text-foreground ml-1.5">{pct}%</span>
-                        </div>
-                      );
-                    })
+                    <span className="text-xs text-muted-foreground">All Trackers</span>
                   )}
                 </div>
               </div>
 
-              {/* Signal Severity & Category Breakdown Bar Graph */}
-              <div className="flex flex-col gap-2.5 p-4 rounded-xl bg-accent/5 border border-border/40">
-                <span className="text-[11px] font-bold text-foreground">Detected Market Changes</span>
+              {/* Executive Market Digest Callout */}
+              <div className="p-3.5 rounded-xl bg-accent/5 border border-accent/20 flex items-start gap-2.5">
+                <Sparkles size={15} className="text-accent shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[10px] font-mono uppercase font-bold text-accent block">
+                    Executive Market Digest
+                  </span>
+                  <p className="text-xs text-foreground/90 font-medium mt-0.5 leading-relaxed">
+                    {totalAlertsCount === 0
+                      ? 'No significant shifts detected across your tracked competitors in recent sweeps. The market landscape remains stable.'
+                      : pricingCount > 0 && featureCount > 0
+                      ? `${pricingCount} pricing adjustments and ${featureCount} new feature releases detected. Competitors are actively adjusting rates and expanding product value.`
+                      : pricingCount > 0
+                      ? `${pricingCount} competitor price change${pricingCount > 1 ? 's' : ''} detected. Monitor your entry-tier pricing to maintain a strong value advantage.`
+                      : featureCount > 0
+                      ? `${featureCount} product capability release${featureCount > 1 ? 's' : ''} detected. Competitors are expanding feature sets to attract new users.`
+                      : `${positioningCount} website positioning shift${positioningCount > 1 ? 's' : ''} detected. Competitors are refining their core value proposition and marketing copy.`}
+                  </p>
+                </div>
+              </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground">Pricing & Plan Changes</span>
-                    <span className="font-mono font-bold text-foreground">{pricingPct}%</span>
+              {/* Visualization Sub-cards: Velocity Bars (Left) & Shift Categories Donut Pie Chart (Right) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+                {/* 1. Competitor Activity Velocity */}
+                <div className="flex flex-col gap-3 p-4 rounded-xl bg-accent/5 border border-border/40 justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-foreground">Competitor Activity Velocity</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{totalAlertsCount} Total Shifts</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${pricingPct}%` }} />
+
+                  <div className="flex flex-col gap-2.5 my-auto">
+                    {competitorEntries.length === 0 ? (
+                      <span className="text-xs text-muted-foreground italic py-2">No competitors tracked yet.</span>
+                    ) : (
+                      competitorEntries.slice(0, 4).map(([name]) => {
+                        // Count alerts for this competitor
+                        const compAlertsCount = displayAlerts.filter(
+                          (a) => a.competitor.toLowerCase() === name.toLowerCase()
+                        ).length;
+                        const maxCount = Math.max(
+                          ...competitorEntries.map(
+                            ([n]) => displayAlerts.filter((a) => a.competitor.toLowerCase() === n.toLowerCase()).length
+                          ),
+                          1
+                        );
+                        const barPct = compAlertsCount > 0 ? Math.round((compAlertsCount / maxCount) * 100) : 10;
+
+                        return (
+                          <div key={name} className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-foreground font-medium truncate">{name}</span>
+                              <span className="font-mono text-muted-foreground text-[10px]">
+                                {compAlertsCount} {compAlertsCount === 1 ? 'update' : 'updates'}
+                              </span>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-border/60 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  compAlertsCount > 0 ? 'bg-accent' : 'bg-muted-foreground/30'
+                                }`}
+                                style={{ width: `${barPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground">New Features & Releases</span>
-                    <span className="font-mono font-bold text-foreground">{featurePct}%</span>
+                {/* 2. Detected Shift Categories Donut Pie Chart & Legend */}
+                <div className="flex flex-col gap-3 p-4 rounded-xl bg-accent/5 border border-border/40 justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-foreground">Detected Shift Categories</span>
+                    <span className="text-[10px] font-mono text-accent font-bold">Live Breakdown</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-accent/80 rounded-full transition-all duration-500" style={{ width: `${featurePct}%` }} />
-                  </div>
-                </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-muted-foreground">Website & Positioning Shifts</span>
-                    <span className="font-mono font-bold text-foreground">{positioningPct}%</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                    <div className="h-full bg-accent/60 rounded-full transition-all duration-500" style={{ width: `${positioningPct}%` }} />
+                  <div className="flex flex-col sm:flex-row items-center gap-3 my-auto">
+                    {/* SVG Donut / Pie Chart */}
+                    <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+                      <svg viewBox="0 0 42 42" className="w-full h-full -rotate-90">
+                        {/* Background Base Ring */}
+                        <circle
+                          cx="21"
+                          cy="21"
+                          r="15.91549430918954"
+                          fill="transparent"
+                          stroke="currentColor"
+                          strokeWidth="5"
+                          className="text-border/40"
+                        />
+                        {totalAlertsCount > 0 ? (
+                          <>
+                            {/* Segment 1: Pricing */}
+                            {pricingPct > 0 && (
+                              <circle
+                                cx="21"
+                                cy="21"
+                                r="15.91549430918954"
+                                fill="transparent"
+                                stroke="var(--accent)"
+                                strokeWidth="5"
+                                strokeDasharray={`${pricingPct} ${100 - pricingPct}`}
+                                strokeDashoffset="25"
+                                className="transition-all duration-700"
+                              />
+                            )}
+                            {/* Segment 2: Feature */}
+                            {featurePct > 0 && (
+                              <circle
+                                cx="21"
+                                cy="21"
+                                r="15.91549430918954"
+                                fill="transparent"
+                                stroke="#60a5fa"
+                                strokeWidth="5"
+                                strokeDasharray={`${featurePct} ${100 - featurePct}`}
+                                strokeDashoffset={`${25 - pricingPct}`}
+                                className="transition-all duration-700"
+                              />
+                            )}
+                            {/* Segment 3: Positioning */}
+                            {positioningPct > 0 && (
+                              <circle
+                                cx="21"
+                                cy="21"
+                                r="15.91549430918954"
+                                fill="transparent"
+                                stroke="#10b981"
+                                strokeWidth="5"
+                                strokeDasharray={`${positioningPct} ${100 - positioningPct}`}
+                                strokeDashoffset={`${25 - pricingPct - featurePct}`}
+                                className="transition-all duration-700"
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <circle
+                            cx="21"
+                            cy="21"
+                            r="15.91549430918954"
+                            fill="transparent"
+                            stroke="currentColor"
+                            strokeWidth="5"
+                            strokeDasharray="100 0"
+                            className="text-border/60"
+                          />
+                        )}
+                      </svg>
+                      {/* Donut Inner Label */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-sm font-bold font-mono text-foreground leading-none">
+                          {totalAlertsCount}
+                        </span>
+                        <span className="text-[8px] font-mono text-muted-foreground uppercase leading-tight mt-0.5">
+                          Shifts
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Donut Legend */}
+                    <div className="flex flex-col gap-1.5 w-full">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-foreground/90 flex items-center gap-1.5 truncate">
+                          <span className="w-2 h-2 rounded-full bg-accent shrink-0" /> Pricing
+                        </span>
+                        <span className="font-mono font-bold text-foreground">
+                          {pricingCount} ({pricingPct}%)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-foreground/90 flex items-center gap-1.5 truncate">
+                          <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" /> Features
+                        </span>
+                        <span className="font-mono font-bold text-foreground">
+                          {featureCount} ({featurePct}%)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-foreground/90 flex items-center gap-1.5 truncate">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" /> Positioning
+                        </span>
+                        <span className="font-mono font-bold text-foreground">
+                          {positioningCount} ({positioningPct}%)
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Swept Intelligence Signals Feed Card - Flexible Fill for Height Equalization */}
-          <div
-            className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-4 shadow-sm flex-1 justify-between"
-            style={{ boxShadow: 'var(--shadow-extruded)' }}
-          >
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-border/40">
+            {/* Section Divider */}
+            <div className="border-t border-border/50" />
+
+            {/* Section 2: Recent Competitor Alerts & Updates (Scrollable Feed) */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between pb-2 border-b border-border/30">
                 <div className="flex items-center gap-2">
-                  <Bell size={16} className="text-accent" />
-                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                  <Bell size={15} className="text-accent" />
+                  <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
                     Recent Competitor Alerts & Updates
                   </h2>
                 </div>
@@ -1063,52 +1154,93 @@ export function WatchlistsView() {
                       Show All Feed
                     </button>
                   )}
-                  <span className="text-xs text-muted-foreground">
-                    {selectedWatchlist ? 'Filtered Feed' : 'Live Updates Feed'}
+                  <span className="text-[11px] text-muted-foreground">
+                    {selectedWatchlist ? 'Filtered Feed' : 'Live Feed'}
                   </span>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 mt-4">
+              {/* Scrollable Alerts Feed Container */}
+              <div className="flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1.5 custom-scrollbar">
                 {displayAlerts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-6">
+                  <p className="text-xs text-muted-foreground text-center py-8">
                     {selectedWatchlist
                       ? `No competitor updates detected for ${selectedWatchlist.product || selectedWatchlist.name} yet.`
                       : 'No competitor updates detected yet. We check competitor websites daily and notify you here when changes occur.'}
                   </p>
                 ) : null}
-                {displayAlerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="p-3.5 rounded-xl bg-accent/5 border border-border/40 flex flex-col gap-1.5 text-xs transition-all hover:border-accent/30"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-accent/15 text-accent font-mono font-bold text-[10px]">
-                          {alert.competitor}
-                        </span>
-                        <span className="text-muted-foreground text-[11px]">vs {alert.product}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-muted-foreground text-[10px]">
-                          {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void dismissAlert(alert.id)}
-                          className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded-md transition-colors cursor-pointer"
-                          title="Clear signal from feed"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    </div>
+                {displayAlerts.map((alert) => {
+                  const alertCategory = getAlertCategory(alert);
 
-                    <h4 className="font-bold text-foreground leading-snug">{alert.title}</h4>
-                    <p className="text-muted-foreground text-[11px] leading-relaxed">{alert.summary}</p>
-                  </div>
-                ))}
+                  // Clean up summary string from raw internal scoring
+                  let cleanedSummary = alert.summary
+                    .replace(/Scored\s+[0-9.]+\s+because\s+[^.]*\.?/gi, '')
+                    .replace(/carries a base weight of [0-9.]+\.?/gi, '')
+                    .replace(/the change is \d+%, which is substantial\.?/gi, '')
+                    .trim();
+
+                  if (!cleanedSummary || cleanedSummary.length < 5) {
+                    if (alertCategory === 'pricing') {
+                      cleanedSummary = 'Competitor updated pricing rates on their primary checkout or store page.';
+                    } else if (alertCategory === 'feature') {
+                      cleanedSummary = 'New product feature or capability update published on their website.';
+                    } else {
+                      cleanedSummary = 'Detected strategic positioning and customer-facing messaging updates.';
+                    }
+                  }
+
+                  const isSelfComparison = alert.competitor.toLowerCase() === alert.product.toLowerCase();
+
+                  return (
+                    <div
+                      key={alert.id}
+                      className="p-3.5 rounded-xl bg-accent/5 border border-border/40 flex flex-col gap-2 text-xs transition-all hover:border-accent/30"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent font-mono font-bold text-[11px]">
+                            {alert.competitor}
+                          </span>
+                          {!isSelfComparison && (
+                            <span className="text-muted-foreground text-[10px]">vs {alert.product}</span>
+                          )}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase font-semibold border ${
+                              alertCategory === 'pricing'
+                                ? 'bg-accent/15 border-accent/30 text-accent'
+                                : alertCategory === 'feature'
+                                ? 'bg-blue-500/15 border-blue-500/30 text-blue-400'
+                                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
+                            }`}
+                          >
+                            {alertCategory === 'pricing'
+                              ? 'Pricing Shift'
+                              : alertCategory === 'feature'
+                              ? 'Feature Update'
+                              : 'Positioning Update'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-muted-foreground text-[10px]">
+                            {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void dismissAlert(alert.id)}
+                            className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded-md transition-colors cursor-pointer"
+                            title="Clear signal from feed"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h4 className="font-bold text-foreground text-sm leading-snug">{alert.title}</h4>
+                      <p className="text-foreground/80 text-xs leading-relaxed">{cleanedSummary}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
