@@ -47,6 +47,8 @@ const envSchema = z.object({
   GEMINI_API_KEY: requiredString,
   /** Optional second key used when the primary key hits 401/403/429. */
   GEMINI_API_KEY_FALLBACK: optionalString,
+  /** Optional third key used when primary and fallback 1 hit 401/403/429. */
+  GEMINI_API_KEY_FALLBACK_2: optionalString,
 
   // ── AI (optional overrides) ────────────────────────────
   GEMINI_MODEL: optionalString,

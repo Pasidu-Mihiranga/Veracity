@@ -1,12 +1,14 @@
-name: CI
+name: CI / CD & Deployment
 
 on:
   push:
     branches: [main, master]
   pull_request:
+    branches: [main, master]
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-cd-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,9 +42,86 @@ jobs:
       - name: Phase 6 release gate
         run: npm run test:phase6
 
-      # Offline anti-hallucination / abstain scenarios (no live LLM or secrets)
       - name: Output quality gate
         run: npm run test:quality
 
-      # Live HTTP smoke needs a running server + session cookie — run locally:
-      #   COOKIE='veracity_session=…' npm run test:api-smoke
+  deploy:
+    name: Deploy to AWS EC2
+    needs: quality
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            echo "🚀 Starting Automated Deployment on EC2..."
+            APP_DIR="/home/ubuntu/verasity"
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            # 1. Update repository code
+            if [ -d .git ]; then
+              echo "📦 Pulling latest changes from git..."
+              git fetch origin
+              git reset --hard origin/main || git reset --hard origin/master
+            fi
+
+            # 2. Automatically generate and update server .env from GitHub Secrets
+            echo "🔐 Synchronizing .env with GitHub Secrets..."
+            cat << 'ENV_EOF' > $APP_DIR/.env
+            # ── Database & Auth ──────────────────────────────────
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            AUTH_SECRET=${{ secrets.AUTH_SECRET }}
+
+            # ── AI (Gemini primary & fallbacks) ─────────────────
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GEMINI_API_KEY_FALLBACK=${{ secrets.GEMINI_API_KEY_FALLBACK }}
+            GEMINI_API_KEY_FALLBACK_2=${{ secrets.GEMINI_API_KEY_FALLBACK_2 }}
+            GEMINI_MODEL=gemini-3.1-flash-lite
+            GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+
+            # ── Tool APIs & Fallbacks ───────────────────────────
+            FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY }}
+            SERPAPI_KEY=${{ secrets.SERPAPI_KEY }}
+            SCRAPE_DO_TOKEN=${{ secrets.SCRAPE_DO_TOKEN }}
+            APIFY_API_TOKEN=${{ secrets.APIFY_API_TOKEN }}
+
+            # ── App & OAuth ─────────────────────────────────────
+            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+
+            # ── Architecture Flags ──────────────────────────────
+            NEXT_PUBLIC_FF_LANGGRAPH_EXECUTOR=1
+            INNGEST_DEV=1
+            ENV_EOF
+
+            # 3. Install dependencies
+            echo "📦 Installing npm dependencies..."
+            npm install --prefer-offline --no-audit
+
+            # 4. Run database migrations
+            echo "🗄️ Running database migrations..."
+            node scripts/apply-local-schema.mjs || true
+            node scripts/db-migrate.mjs || true
+
+            # 5. Build Next.js production bundle
+            echo "⚡ Compiling production build..."
+            npm run build
+
+            # 6. Restart/Reload application via PM2
+            echo "🔄 Reloading PM2 process..."
+            pm2 restart verasity --update-env || pm2 start npm --name "verasity" -- start
+            pm2 save
+
+            echo "✅ Deployment completed successfully!"

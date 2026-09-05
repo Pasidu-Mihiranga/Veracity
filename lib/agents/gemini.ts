@@ -103,10 +103,14 @@ function safePreview(value: string, maxLength = 300): string {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
-/** Primary key first, then optional fallback key (quota / auth failures). */
+/** Primary key first, then optional fallback keys (quota / auth failures). */
 export function geminiApiKeyCandidates(): string[] {
   const cfg = getConfig();
-  const keys = [cfg.GEMINI_API_KEY, cfg.GEMINI_API_KEY_FALLBACK]
+  const keys = [
+    cfg.GEMINI_API_KEY,
+    cfg.GEMINI_API_KEY_FALLBACK,
+    cfg.GEMINI_API_KEY_FALLBACK_2,
+  ]
     .map((k) => k?.trim())
     .filter((k): k is string => Boolean(k && k.length > 0));
   return [...new Set(keys)];
