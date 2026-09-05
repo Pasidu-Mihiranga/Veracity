@@ -242,25 +242,6 @@ export function ChatPanel({
 
               <div className="query-composer-toolbar flex flex-wrap items-center justify-between gap-2 px-3 pb-3 pt-2 sm:px-3.5 sm:pb-3.5">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  {onViewModeChange ? (
-                    <div className="relative inline-flex items-center">
-                      <select
-                        aria-label="Select Intelligence Mode"
-                        value={viewMode}
-                        onChange={(e) => onViewModeChange(e.target.value as import('@/types/chat-ui').ProductViewMode)}
-                        className="appearance-none ui-mono text-[10.5px] font-medium pl-3 pr-7 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/15 text-accent border border-accent/25 cursor-pointer outline-none capitalize transition-colors"
-                        title="Product View Mode"
-                        disabled={composerBusy}
-                      >
-                        <option value="executive">Mode: Executive</option>
-                        <option value="business">Mode: Business</option>
-                        <option value="analyst">Mode: Analyst</option>
-                        <option value="developer">Mode: Developer</option>
-                      </select>
-                      <ChevronDown size={12} className="absolute right-2.5 pointer-events-none text-accent shrink-0 opacity-80" />
-                    </div>
-                  ) : null}
-                  {/* Turn mode dropdown removed as requested */}
                   <button
                     type="button"
                     onClick={onAttachClick}

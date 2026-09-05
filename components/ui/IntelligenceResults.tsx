@@ -98,27 +98,19 @@ function pickPrimaryVisual(outputs: AgentOutput[] = []): AgentOutput | null {
   return null;
 }
 
-function modeLayout(mode: ProductViewMode) {
+function modeLayout(_mode?: ProductViewMode) {
   return {
-    showKeyVisual: mode !== 'executive',
-    /** Business keeps the matrix/scorecard on the short path */
-    keyVisualOnShortPath: mode === 'business',
-    showMindMap: mode === 'analyst' || mode === 'developer',
-    showBusinessCanvas: mode === 'business' || mode === 'analyst' || mode === 'developer',
-    showAnalyst: mode === 'analyst' || mode === 'developer',
-    showSourcesDefault: mode === 'analyst' || mode === 'developer',
-    showDev: mode === 'developer',
-    /** Executive / Business keep deep analysis behind one click */
-    useProgressiveAnalysis: mode === 'executive' || mode === 'business',
-    answerLabel:
-      mode === 'executive' ? 'The bottom line'
-      : mode === 'business' ? 'What this means for the business'
-      : mode === 'analyst' ? 'Decision Answer'
-      : 'Decision Answer',
-    recsLabel:
-      mode === 'executive' ? 'What to do next'
-      : mode === 'business' ? 'Recommended moves'
-      : 'Actionable Recommendations',
+    showKeyVisual: true,
+    /** Show the key comparison visual / radar / matrix directly on the main path */
+    keyVisualOnShortPath: true,
+    showMindMap: false,
+    showBusinessCanvas: true,
+    showAnalyst: false,
+    showSourcesDefault: false,
+    showDev: false,
+    useProgressiveAnalysis: true,
+    answerLabel: 'Executive Summary & Key Takeaways',
+    recsLabel: 'Recommended Strategic Actions',
   };
 }
 
@@ -855,38 +847,6 @@ export function IntelligenceResults({
       {showBusinessDeep && !showAnalystBlock ? (
         <section className="results-panel p-5 lg:p-6">
           <StrategyCanvas message={currentResult} />
-        </section>
-      ) : null}
-
-      {/* Hide empty Tier-0 diagnostics (0 agents / no mission) — avoids noise after conceptual answers */}
-      {isDevMode && !isTier0 ? (
-        <section className="results-panel p-5 lg:p-6 border-dashed border-accent/30">
-          <SectionToggle
-            title="Developer diagnostics & swarm logs"
-            icon={<Terminal size={13} />}
-            open={openDevDiagnostics}
-            onToggle={() => setOpenDevDiagnostics((v) => !v)}
-            textMuted={textMuted}
-            accentInk={accentInk}
-          />
-          {openDevDiagnostics && (
-            <div className="mt-4 flex flex-col gap-4">
-              {(currentResult.missionSummary || currentResult.orchestratorOutput?.missionPlan) ? (
-                <MissionSummaryCard
-                  summary={
-                    currentResult.missionSummary
-                    ?? {
-                      steps: currentResult.orchestratorOutput?.missionPlan?.steps ?? [],
-                      agentCount: currentResult.orchestratorOutput?.missionPlan?.steps?.length ?? 0,
-                    }
-                  }
-                />
-              ) : null}
-
-              <ResearchReplay message={currentResult} />
-              <ResultsInsightCharts message={currentResult} outputs={outputs} />
-            </div>
-          )}
         </section>
       ) : null}
     </div>
