@@ -103,11 +103,11 @@ export function computeSignalQualityPenalty(
  */
 export function extractToolResults(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  settled: PromiseSettledResult<any>[],
+  settled: (PromiseSettledResult<any> | undefined | null)[],
 ): ToolResult<unknown>[] {
   return settled
     .filter((r): r is PromiseFulfilledResult<ToolResult<unknown>> =>
-      r.status === 'fulfilled' && r.value != null && typeof r.value === 'object' && 'confidence' in r.value
+      r != null && r.status === 'fulfilled' && r.value != null && typeof r.value === 'object' && 'confidence' in r.value
     )
     .map(r => r.value);
 }

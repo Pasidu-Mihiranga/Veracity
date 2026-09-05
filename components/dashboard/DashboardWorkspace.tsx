@@ -254,12 +254,12 @@ export function DashboardWorkspace({
         className="flex-1 overflow-y-auto w-full"
         style={{
           paddingTop: hasResult ? '12px' : 'clamp(16px, 2.5vw, 32px)',
-          paddingRight: 'clamp(24px, 3.5vw, 48px)',
+          paddingRight: 'clamp(16px, 3vw, 32px)',
           paddingBottom: 'clamp(24px, 3.5vw, 40px)',
-          paddingLeft: 'clamp(24px, 3.5vw, 48px)',
+          paddingLeft: 'clamp(16px, 3vw, 32px)',
         }}
       >
-        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1240px] w-full mx-auto`}>
+        <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1400px] w-full mx-auto`}>
           {/*
             The landing screen. Answers "what changed while I was away?" from
             already-collected data — it never triggers research and never calls a

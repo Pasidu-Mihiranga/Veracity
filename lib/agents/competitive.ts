@@ -197,7 +197,7 @@ For the matrix, infer the most relevant feature dimensions from the signals abov
   }
 
   const rawScore: number = typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : 0.6;
-  const toolResults = extractToolResults([webResult, newsResult, hnResult, scrapeResult, pricingResult, socialSignalsResult, apifyTwitterResult, hiringResult[0]]);
+  const toolResults = extractToolResults([webResult, newsResult, hnResult, scrapeResult, pricingResult, socialSignalsResult, apifyTwitterResult, ...hiringResult]);
   const confScore = Number.parseFloat((rawScore * computeSignalQualityPenalty(toolResults, 8)).toFixed(2));
   const confidence: ConfidenceLevel = scoreToLevel(confScore);
 
