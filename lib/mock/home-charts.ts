@@ -15,12 +15,9 @@ export const TRACKED_COMPANIES = [
 
 export type CompanyKey = (typeof TRACKED_COMPANIES)[number]['key'];
 
-/** Share of voice per week over the last 12 weeks (percent, sums ≈ 100). */
 export interface MomentumPoint {
   week: string;
-  dialog: number;
-  slt: number;
-  hutch: number;
+  [key: string]: any;
 }
 
 export const MOMENTUM_SERIES: MomentumPoint[] = [

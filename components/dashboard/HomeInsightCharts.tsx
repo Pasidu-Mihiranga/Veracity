@@ -132,8 +132,8 @@ function MarketMomentum({
               tick={{ fill: colors.tick, fontSize: 11 }}
             />
             <YAxis
-              width={32}
-              domain={[0, 50]}
+              width={34}
+              domain={[0, (dataMax: number) => Math.min(100, Math.max(50, Math.ceil(dataMax / 10) * 10))]}
               tickFormatter={(v) => `${v}%`}
               tickLine={false}
               axisLine={false}
