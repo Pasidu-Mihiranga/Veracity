@@ -1,5 +1,5 @@
 /**
- * Dedicated Evaluator & Demo Seed Script for demo@veracity.ai
+ * Demo Seed Script for demo@veracity.ai
  *
  * Populates all modules with realistic Sri Lankan enterprise market intelligence:
  * 1. User demo@veracity.ai (Password: DemoVeracity2026!)
@@ -8,7 +8,7 @@
  * 4. Active Watchlists & formatted Alert Events (with clear titles and summaries)
  *
  * Usage:
- *   npm run seed:evaluator
+ *   npm run seed:demo-user
  */
 
 import bcrypt from 'bcryptjs';
@@ -23,7 +23,7 @@ async function seedEvaluatorDemo() {
   const DEMO_PASSWORD = 'DemoVeracity2026!';
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
-  console.log(`\n🚀 [DEMO SEED] Provisioning Evaluator User: ${DEMO_EMAIL}...`);
+  console.log(`\n[DEMO SEED] Provisioning Demo User: ${DEMO_EMAIL}...`);
 
   const { rows: userRows } = await query<{ id: string }>(
     `INSERT INTO users (email, password_hash)
@@ -35,9 +35,9 @@ async function seedEvaluatorDemo() {
   );
 
   const userId = userRows[0].id;
-  console.log(`✅ Demo user ID: ${userId}`);
+  console.log(`Demo user ID: ${userId}`);
 
-  console.log(`\n📊 [DEMO SEED] Seeding Market Projects across 5 enterprise sectors...`);
+  console.log(`\n[DEMO SEED] Seeding Market Projects across 5 enterprise sectors...`);
 
   for (const domain of DOMAINS) {
     const competitors = domain.companies
@@ -239,7 +239,7 @@ async function seedEvaluatorDemo() {
     }
   }
 
-  console.log(`\n🎉 [DEMO SEED COMPLETE] Successfully seeded enterprise demo data for ${DEMO_EMAIL}!`);
+  console.log(`\n[DEMO SEED COMPLETE] Successfully seeded enterprise demo data for ${DEMO_EMAIL}!`);
 }
 
 seedEvaluatorDemo()

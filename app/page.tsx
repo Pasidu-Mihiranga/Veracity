@@ -147,9 +147,28 @@ export default function VeracityDashboard() {
   const userMemory = memoryQuery.data ?? null;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let mounted = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted && data.user?.email) {
+        setUserEmail(data.user.email);
+      } else {
+        void fetch('/api/auth/me', { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (mounted && d?.user?.email) setUserEmail(d.user.email);
+          })
+          .catch(() => {});
+      }
+    }).catch(() => {
+      void fetch('/api/auth/me', { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (mounted && d?.user?.email) setUserEmail(d.user.email);
+        })
+        .catch(() => {});
+    });
+    return () => { mounted = false; };
+  }, [supabase]);
 
   useEffect(() => {
     if (!featureFlags.workspaces) return;
@@ -181,9 +200,16 @@ export default function VeracityDashboard() {
     if (followUps.length > 0) followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [followUps]);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
+    } catch {}
     try {
       void supabase.auth.signOut();
+    } catch {}
+    try {
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
     } catch {}
     window.location.href = '/auth';
   };

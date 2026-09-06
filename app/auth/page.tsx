@@ -110,7 +110,7 @@ function AuthForm() {
       router.push('/');
       router.refresh();
     } catch (err: any) {
-      setError(err?.message || 'Failed to sign in demo evaluator.');
+      setError(err?.message || 'Failed to sign in demo user.');
     } finally {
       setDemoLoading(false);
     }
@@ -288,9 +288,9 @@ function AuthForm() {
                     {demoLoading ? (
                       <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
                     ) : (
-                      <Sparkles size={16} className="text-accent shrink-0 animate-pulse" />
+                      <Sparkles size={16} className="text-accent shrink-0" />
                     )}
-                    <span>⚡ Quick Demo Login (Evaluator Access)</span>
+                    <span>Demo user</span>
                   </button>
 
                   <button

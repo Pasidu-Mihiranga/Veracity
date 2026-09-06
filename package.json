@@ -10,7 +10,7 @@
     "dev:seed": "node scripts/seed-dev-user.mjs",
     "seed:demo": "npx tsx --env-file=.env scripts/seed-prototype-demo.ts",
     "seed:full": "npx tsx --env-file=.env scripts/seed-demo-full.ts",
-    "seed:evaluator": "npx tsx --env-file=.env scripts/seed-demo-evaluator.ts",
+    "seed:demo-user": "npx tsx --env-file=.env scripts/seed-demo-evaluator.ts",
     "seed:watchlists": "npx tsx --env-file=.env scripts/seed-watchlists.ts",
     "dev:local": "npm run db:local:start && npm run db:migrate && npm run dev:seed && npm run dev",
     "db:setup": "psql -U postgres -h localhost -c \"CREATE DATABASE veracity;\" || true && psql -U postgres -h localhost -d veracity -f db/schema.sql",

@@ -507,16 +507,27 @@ export function ProfileSettingsView({
               </div>
             </div>
 
-            {onSignOut && (
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-destructive/40 bg-destructive/10 hover:bg-destructive text-destructive hover:text-white text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <LogOut size={14} />
-                <span>Sign out</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={async () => {
+                if (onSignOut) {
+                  onSignOut();
+                } else {
+                  try {
+                    await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
+                  } catch {}
+                  try {
+                    localStorage.removeItem('supabase.auth.token');
+                    sessionStorage.clear();
+                  } catch {}
+                  window.location.href = '/auth';
+                }
+              }}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-destructive/40 bg-destructive/10 hover:bg-destructive text-destructive hover:text-white text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <LogOut size={14} />
+              <span>Sign out</span>
+            </button>
           </div>
         </>
       )}
