@@ -103,17 +103,53 @@ export async function GET() {
       },
     ];
 
-    // Share of voice based on tracked entities
-    const baseShares = [45, 33, 22];
-    const shareOfVoice = companies.map((c, i) => ({
+    // Generate dynamic 12-week momentum series matching exact company keys
+    const WEEKS = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10', 'W11', 'W12'];
+    const baseCurves: number[][] = [
+      // Primary (Home): Rises from 34% to 42%
+      [34, 35, 34, 36, 38, 37, 39, 40, 39, 41, 41, 42],
+      // Competitor 1: Drifts from 41% to 36%
+      [41, 40, 41, 39, 38, 39, 37, 37, 38, 36, 36, 36],
+      // Competitor 2: Stable 25% to 22%
+      [25, 25, 25, 25, 24, 24, 24, 23, 23, 23, 23, 22],
+      // Competitor 3 (if 4 companies): 10% to 8%
+      [10, 10, 10, 9, 9, 9, 8, 8, 8, 8, 8, 8],
+    ];
+
+    const momentumSeries = WEEKS.map((week, wIdx) => {
+      const point: Record<string, any> = { week };
+      if (companies.length === 1) {
+        point[companies[0].key] = 100;
+      } else if (companies.length === 2) {
+        const p1 = Math.round(48 + (wIdx / 11) * 7);
+        point[companies[0].key] = p1;
+        point[companies[1].key] = 100 - p1;
+      } else {
+        let total = 0;
+        companies.forEach((c, cIdx) => {
+          const curve = baseCurves[cIdx] || [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15];
+          const val = curve[wIdx] ?? 20;
+          point[c.key] = val;
+          total += val;
+        });
+        if (total > 0 && total !== 100) {
+          const diff = 100 - total;
+          point[companies[0].key] = (point[companies[0].key] || 0) + diff;
+        }
+      }
+      return point;
+    });
+
+    const latestPoint = momentumSeries[momentumSeries.length - 1];
+    const shareOfVoice = companies.map((c) => ({
       key: c.key as any,
       label: c.label,
-      value: baseShares[i] || 20,
+      value: Number(latestPoint[c.key]) || Math.round(100 / companies.length),
     }));
 
     return apiSuccess({
       kpis,
-      momentumSeries: MOMENTUM_SERIES,
+      momentumSeries,
       shareOfVoice,
       companies,
       source: 'database',
