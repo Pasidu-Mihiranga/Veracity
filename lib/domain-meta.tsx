@@ -15,9 +15,11 @@ import {
  * These are examples, not defaults: the product works on any company.
  */
 export const DEMO_QUERIES = [
-  'Compare PickMe and Uber in the Sri Lankan ride-hailing market.',
   'How is Dialog Axiata positioned against SLT-Mobitel right now?',
-  'What is Daraz LK doing on pricing that Kapruka is not?',
+  'Compare PickMe and Uber in the Sri Lankan ride-hailing market.',
+  'Compare Commercial Bank and Sampath Bank in digital banking and deposit growth.',
+  'Compare Dilmah and Akbar Brothers in value-added Ceylon tea export.',
+  'Compare MAS Holdings and Brandix in sustainable technical apparel manufacturing.',
 ];
 
 export const ALL_DOMAINS = [

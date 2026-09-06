@@ -285,13 +285,13 @@ async function handleChatPost(req: NextRequest, userId: string) {
         const total = agents.length;
         const startedAtById = new Map<string, string>();
 
-        // Whole agent wave runs for ~45s so every agent is seen working fully.
-        const TOTAL_MS = 45_000;
-        const startGap = 550;                       // stagger each agent to running
-        const completeGap = 1_200;                  // stagger each agent to completed
-        const startPhase = startGap * total;        // ~3.3s
-        const completePhase = completeGap * total;  // ~7.2s
-        const holdMs = Math.max(6_000, TOTAL_MS - startPhase - completePhase);
+        // Whole agent wave runs for ~10s so every agent is seen working fast and smoothly.
+        const TOTAL_MS = 10_000;
+        const startGap = 350;                       // stagger each agent to running (~2.1s)
+        const completeGap = 500;                    // stagger each agent to completed (~3.0s)
+        const startPhase = startGap * total;        // ~2.1s
+        const completePhase = completeGap * total;  // ~3.0s
+        const holdMs = Math.max(3_500, TOTAL_MS - startPhase - completePhase);
 
         // Deep-research log lines, cycled during the hold so the run feels alive.
         const workLines = [
