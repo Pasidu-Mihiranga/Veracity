@@ -261,6 +261,9 @@ export function DashboardWorkspace({
           paddingRight: 'clamp(16px, 3vw, 32px)',
           paddingBottom: 'clamp(24px, 3.5vw, 40px)',
           paddingLeft: 'clamp(16px, 3vw, 32px)',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain',
         }}
       >
         <div className={`flex flex-col ${hasResult ? 'gap-4' : 'gap-7'} max-w-[1400px] w-full mx-auto`}>
@@ -545,7 +548,7 @@ export function DashboardWorkspace({
                   {...composerProps}
                 />
               </AppErrorBoundary>
-              <div className="h-4" />
+              <div className="h-16 sm:h-8" />
             </>
           )}
         </div>

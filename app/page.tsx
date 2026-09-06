@@ -73,7 +73,7 @@ export default function VeracityDashboard() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [topTab, setTopTab] = useState<TopTab>('home');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
   const [turnMode, setTurnMode] = useState<ResearchTurnMode>('verify');
@@ -82,6 +82,12 @@ export default function VeracityDashboard() {
     m.role === 'assistant'
     && (m.type === 'intelligence' || Boolean(m.orchestratorOutput) || Boolean(m.agentRuns?.length)),
   );
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setSidebarCollapsed(false);
+    }
+  }, []);
 
   useEffect(() => {
     resetHeaderCompress();

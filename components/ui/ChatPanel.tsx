@@ -210,10 +210,15 @@ export function ChatPanel({
             )}
 
             <div
-              className={`query-bar-glow query-bar-float query-composer flex w-full flex-col ${
+              className={`query-bar-glow query-bar-float query-composer flex w-full flex-col cursor-text ${
                 inputValue.includes('\n') || inputValue.length > 80 ? 'query-composer--expanded' : ''
               }`}
               style={{ background: headerBg }}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).tagName !== 'BUTTON' && (e.target as HTMLElement).tagName !== 'INPUT') {
+                  textareaRef.current?.focus();
+                }
+              }}
             >
               <div className="query-composer-input flex min-w-0 items-start gap-2 sm:gap-2.5 px-3 pt-3 sm:px-4 sm:pt-4">
                 <Search
@@ -233,7 +238,7 @@ export function ChatPanel({
                     }
                   }}
                   placeholder={composerPlaceholder}
-                  className="query-textarea min-w-0 flex-1 bg-transparent outline-none focus:outline-none focus-visible:outline-none font-sans text-sm sm:text-base"
+                  className="query-textarea min-w-0 flex-1 bg-transparent outline-none focus:outline-none focus-visible:outline-none font-sans text-sm sm:text-base cursor-text pointer-events-auto"
                   style={{ color: textMain }}
                   disabled={composerBusy}
                   rows={1}
