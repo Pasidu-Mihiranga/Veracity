@@ -624,13 +624,13 @@ export function WatchlistsView() {
         {/* Left Column (6 Cols): Active Watchlists & Competitors */}
         <div className="lg:col-span-6 flex flex-col h-full">
           <div
-            className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-5 shadow-sm h-full justify-between"
+            className="rounded-2xl p-4 sm:p-6 bg-card border border-border flex flex-col gap-4 sm:gap-5 shadow-sm h-full justify-between"
             style={{ boxShadow: 'var(--shadow-extruded)' }}
           >
-            <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between pb-3 border-b border-border/40">
+            <div className="flex flex-col gap-4 sm:gap-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
-                  <Eye size={16} className="text-accent" />
+                  <Eye size={16} className="text-accent shrink-0" />
                   <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
                     Your Competitor Trackers ({lists.length})
                   </h2>
@@ -657,7 +657,7 @@ export function WatchlistsView() {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4 max-h-[860px] overflow-y-auto pr-1.5">
+                <div className="flex flex-col gap-4 lg:max-h-[860px] lg:overflow-y-auto pr-0 lg:pr-1.5 custom-scrollbar">
                   {lists.map((wl) => {
                     const isSelected = selectedWatchlistId === wl.id;
                     const isCollapsed = collapsedIds[wl.id] ?? true;
@@ -667,7 +667,7 @@ export function WatchlistsView() {
                         key={wl.id}
                         onClick={() => setSelectedWatchlistId((prev) => (prev === wl.id ? null : wl.id))}
                         aria-selected={isSelected}
-                        className={`rounded-xl p-5 border transition-all cursor-pointer flex flex-col gap-4 ${isSelected
+                        className={`rounded-xl p-3.5 sm:p-5 border transition-all cursor-pointer flex flex-col gap-3 sm:gap-4 overflow-hidden ${isSelected
                           ? 'bg-accent/[0.07] border-accent/40'
                           : 'bg-card border-border hover:border-accent/40'
                           }`}
@@ -677,22 +677,24 @@ export function WatchlistsView() {
                         }}
                       >
                         {/* Watchlist Header Row with Active/Paused Toggle, Accordion Chevron, & Delete */}
-                        <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/40">
-                          <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2.5 pb-3 border-b border-border/40">
+                          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
                             <button
                               type="button"
                               onClick={(e) => toggleCollapse(wl.id, e)}
-                              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+                              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors shrink-0 mt-0.5 sm:mt-0"
                               title={isCollapsed ? 'Expand watchlist details' : 'Collapse watchlist details'}
                             >
                               {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                             </button>
-                            <div>
-                              <span className="text-[10px] font-mono uppercase text-muted-foreground block">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] font-mono uppercase text-muted-foreground block truncate">
                                 Your Product / Market
                               </span>
-                              <h3 className="text-base font-bold text-foreground mt-0.5 flex items-center gap-2">
-                                {wl.product || wl.name}
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                <h3 className="text-sm sm:text-base font-bold text-foreground break-words">
+                                  {wl.product || wl.name}
+                                </h3>
                                 {isSelected && (
                                   <button
                                     type="button"
@@ -700,22 +702,22 @@ export function WatchlistsView() {
                                       e.stopPropagation();
                                       setSelectedWatchlistId(null);
                                     }}
-                                    className="text-[10px] font-semibold text-accent bg-accent/15 border border-accent/30 hover:bg-accent/25 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                    className="text-[10px] font-semibold text-accent bg-accent/15 border border-accent/30 hover:bg-accent/25 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                                     title="Click to clear watchlist selection"
                                   >
                                     Selected ✕
                                   </button>
                                 )}
-                              </h3>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2.5" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
                             {/* Active / Inactive Status Toggle Switch */}
                             <button
                               type="button"
                               onClick={() => void updateMonitoringConfig(wl.id, { enabled: !wl.enabled })}
-                              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${wl.enabled
+                              className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer border shrink-0 ${wl.enabled
                                 ? 'status-chip status-chip--good'
                                 : 'status-chip status-chip--warn'
                                 }`}
@@ -723,12 +725,12 @@ export function WatchlistsView() {
                             >
                               {wl.enabled ? (
                                 <>
-                                  <ToggleRight size={16} className="status-good" />
+                                  <ToggleRight size={15} className="status-good" />
                                   <span>Active</span>
                                 </>
                               ) : (
                                 <>
-                                  <ToggleLeft size={16} className="status-warn" />
+                                  <ToggleLeft size={15} className="status-warn" />
                                   <span>Paused</span>
                                 </>
                               )}
@@ -743,7 +745,7 @@ export function WatchlistsView() {
                                   title: `watchlist "${wl.product || wl.name}"`,
                                 })
                               }
-                              className="p-1.5 text-muted-foreground hover:text-[var(--evidence-unsupported)] rounded-lg transition-colors cursor-pointer"
+                              className="p-1 sm:p-1.5 text-muted-foreground hover:text-[var(--evidence-unsupported)] rounded-lg transition-colors cursor-pointer shrink-0"
                               title="Delete Watchlist"
                             >
                               <Trash2 size={15} />
@@ -753,30 +755,39 @@ export function WatchlistsView() {
 
                         {/* Collapsible Card Body */}
                         {!isCollapsed && (
-                          <div className="flex flex-col gap-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-col gap-3 sm:gap-3.5 animate-fadeIn pt-1" onClick={(e) => e.stopPropagation()}>
                             {/* Sweep Status Info */}
-                            <div className="flex items-center justify-between text-xs text-muted-foreground font-mono bg-background/60 px-3.5 py-2 rounded-lg border border-border/30">
-                              <span>Last Check: <strong>{formatRelativeSweep(wl.last_sweep_at)}</strong></span>
-                              <span>Next Check: <strong>{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}</strong></span>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-background/70 p-2.5 rounded-xl border border-border/30">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground">Last Check</span>
+                                <span className="font-bold text-foreground text-[11px] sm:text-xs truncate">{formatRelativeSweep(wl.last_sweep_at)}</span>
+                              </div>
+                              <div className="flex flex-col gap-0.5 text-right min-w-0">
+                                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground">Next Check</span>
+                                <span className="font-bold text-foreground text-[11px] sm:text-xs truncate">
+                                  {wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                              <label className="flex flex-col gap-1 text-muted-foreground">
-                                <span className="font-mono uppercase text-[9px]">Check Frequency</span>
+                            {/* 3-Column Compact Configuration Settings */}
+                            <div className="grid grid-cols-3 gap-2 text-xs bg-background/40 p-2.5 rounded-xl border border-border/30">
+                              <label className="flex flex-col gap-1 text-muted-foreground min-w-0">
+                                <span className="font-mono uppercase text-[9px] font-semibold truncate">Frequency</span>
                                 <select
                                   value={wl.cadence}
                                   disabled={busy}
                                   onChange={(event) => void updateMonitoringConfig(wl.id, { cadence: event.target.value })}
-                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                  className="w-full px-1.5 sm:px-2 py-1.5 rounded-lg bg-card border border-border text-foreground font-medium text-xs truncate focus:outline-none focus:border-accent cursor-pointer"
                                 >
                                   <option value="daily">Daily</option>
-                                  <option value="twice_weekly">2× Weekly</option>
+                                  <option value="twice_weekly">2× Wk</option>
                                   <option value="weekly">Weekly</option>
                                   <option value="monthly">Monthly</option>
                                 </select>
                               </label>
-                              <label className="flex flex-col gap-1 text-muted-foreground">
-                                <span className="font-mono uppercase text-[9px]">Max Competitors</span>
+                              <label className="flex flex-col gap-1 text-muted-foreground min-w-0">
+                                <span className="font-mono uppercase text-[9px] font-semibold truncate">Max Comps</span>
                                 <input
                                   type="number"
                                   min={1}
@@ -786,11 +797,11 @@ export function WatchlistsView() {
                                   onBlur={(event) => void updateMonitoringConfig(wl.id, {
                                     max_competitors: Number(event.target.value),
                                   })}
-                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                  className="w-full px-1.5 sm:px-2 py-1.5 rounded-lg bg-card border border-border text-foreground text-center font-medium font-mono text-xs focus:outline-none focus:border-accent"
                                 />
                               </label>
-                              <label className="flex flex-col gap-1 text-muted-foreground">
-                                <span className="font-mono uppercase text-[9px]">Alert Budget/wk</span>
+                              <label className="flex flex-col gap-1 text-muted-foreground min-w-0">
+                                <span className="font-mono uppercase text-[9px] font-semibold truncate">Budget/Wk</span>
                                 <input
                                   type="number"
                                   min={1}
@@ -800,26 +811,26 @@ export function WatchlistsView() {
                                   onBlur={(event) => void updateMonitoringConfig(wl.id, {
                                     weekly_alert_budget: Number(event.target.value),
                                   })}
-                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                  className="w-full px-1.5 sm:px-2 py-1.5 rounded-lg bg-card border border-border text-foreground text-center font-medium font-mono text-xs focus:outline-none focus:border-accent"
                                 />
                               </label>
                             </div>
 
                             {/* Competitor List */}
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 pt-1">
                               <span className="text-[10px] font-mono uppercase text-muted-foreground font-semibold">
                                 Monitored Competitors ({wl.items?.length ?? 0})
                               </span>
                               {(!wl.items || wl.items.length === 0) ? (
-                                <p className="text-xs text-muted-foreground italic">No competitors added yet.</p>
+                                <p className="text-xs text-muted-foreground italic py-1">No competitors added yet.</p>
                               ) : (
                                 <div className="flex flex-col gap-1.5">
                                   {wl.items.map((item) => (
                                     <div
                                       key={item.id}
-                                      className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/30 text-xs"
+                                      className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-background/50 border border-border/30 text-xs gap-2"
                                     >
-                                      <div className="flex items-center gap-2 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
                                         <Globe size={13} className="text-accent shrink-0" />
                                         <span className="font-medium text-foreground truncate">{item.competitor}</span>
                                         {item.competitor_url && (
@@ -844,7 +855,8 @@ export function WatchlistsView() {
                                             title: `competitor "${item.competitor}"`,
                                           })
                                         }
-                                        className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded transition-colors"
+                                        className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded transition-colors shrink-0 cursor-pointer"
+                                        title="Remove competitor"
                                       >
                                         <Trash2 size={13} />
                                       </button>
@@ -864,13 +876,19 @@ export function WatchlistsView() {
                                   onChange={(e) =>
                                     setCompetitorInput((prev) => ({ ...prev, [wl.id]: e.target.value }))
                                   }
-                                  className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:border-accent"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && competitorInput[wl.id]?.trim()) {
+                                      e.preventDefault();
+                                      void addCompetitor(wl.id);
+                                    }
+                                  }}
+                                  className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:border-accent"
                                 />
                                 <button
                                   type="button"
                                   disabled={busy || !competitorInput[wl.id]?.trim()}
                                   onClick={() => void addCompetitor(wl.id)}
-                                  className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-1"
+                                  className="px-3.5 py-2 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-1 shrink-0 cursor-pointer"
                                 >
                                   <Plus size={13} /> Add
                                 </button>
@@ -882,7 +900,7 @@ export function WatchlistsView() {
                               type="button"
                               disabled={busy || backgroundSweepStatus?.status === 'running'}
                               onClick={() => void runSweepNow(wl.id)}
-                              className="w-full py-2.5 rounded-xl border border-accent/30 bg-accent/15 hover:bg-accent/25 text-accent text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                              className="w-full py-2.5 rounded-xl border border-accent/30 bg-accent/15 hover:bg-accent/25 text-accent text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 mt-1"
                             >
                               {backgroundSweepStatus?.watchlistId === wl.id && backgroundSweepStatus.status === 'running' ? (
                                 <>
@@ -910,14 +928,14 @@ export function WatchlistsView() {
         {/* Right Column (6 Cols): Unified Consolidated Intelligence Card */}
         <div className="lg:col-span-6 flex flex-col h-full">
           <div
-            className="rounded-2xl p-6 bg-card border border-border flex flex-col gap-6 shadow-sm h-full justify-between"
+            className="rounded-2xl p-4 sm:p-6 bg-card border border-border flex flex-col gap-5 sm:gap-6 shadow-sm h-full justify-between"
             style={{ boxShadow: 'var(--shadow-extruded)' }}
           >
             {/* Section 1: Market Change Breakdown & Visualizations */}
-            <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between pb-3 border-b border-border/40">
+            <div className="flex flex-col gap-4 sm:gap-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
-                  <BarChart3 size={16} className="text-accent" />
+                  <BarChart3 size={16} className="text-accent shrink-0" />
                   <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
                     Market Change Breakdown
                   </h2>
@@ -1137,9 +1155,9 @@ export function WatchlistsView() {
 
             {/* Section 2: Recent Competitor Alerts & Updates (Scrollable Feed) */}
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between pb-2 border-b border-border/30">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-border/30">
                 <div className="flex items-center gap-2">
-                  <Bell size={15} className="text-accent" />
+                  <Bell size={15} className="text-accent shrink-0" />
                   <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">
                     Recent Competitor Alerts & Updates
                   </h2>
@@ -1194,18 +1212,18 @@ export function WatchlistsView() {
                   return (
                     <div
                       key={alert.id}
-                      className="p-3.5 rounded-xl bg-accent/5 border border-border/40 flex flex-col gap-2 text-xs transition-all hover:border-accent/30"
+                      className="p-3.5 rounded-xl bg-accent/5 border border-border/40 flex flex-col gap-2 text-xs transition-all hover:border-accent/30 overflow-hidden"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent font-mono font-bold text-[11px]">
+                      <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <span className="px-2 py-0.5 rounded-md bg-accent/15 text-accent font-mono font-bold text-[11px] truncate">
                             {alert.competitor}
                           </span>
                           {!isSelfComparison && (
-                            <span className="text-muted-foreground text-[10px]">vs {alert.product}</span>
+                            <span className="text-muted-foreground text-[10px] truncate">vs {alert.product}</span>
                           )}
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase font-semibold border ${
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase font-semibold border shrink-0 ${
                               alertCategory === 'pricing'
                                 ? 'bg-accent/15 border-accent/30 text-accent'
                                 : alertCategory === 'feature'
@@ -1221,7 +1239,7 @@ export function WatchlistsView() {
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0 ml-auto">
                           <span className="font-mono text-muted-foreground text-[10px]">
                             {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>

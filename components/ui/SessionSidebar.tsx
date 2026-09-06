@@ -174,29 +174,34 @@ export function SessionSidebar({
       {!collapsed && (
         <div
           onClick={onToggleCollapsed}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-fadeIn"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-fadeIn cursor-pointer"
         />
       )}
       <aside
         role="navigation"
         aria-label="Main Navigation"
-        className={`sidebar-transition flex-shrink-0 flex flex-col h-full relative z-40 md:z-auto ${
-          !collapsed ? 'fixed inset-y-0 left-0 md:relative' : ''
+        className={`sidebar-transition flex-shrink-0 flex flex-col h-full z-40 md:z-auto ${
+          collapsed
+            ? 'hidden md:flex overflow-hidden pointer-events-none'
+            : 'fixed inset-y-0 left-0 md:relative pointer-events-auto shadow-2xl md:shadow-none'
         }`}
         style={{
           width: collapsed ? '0px' : '305px',
           minWidth: collapsed ? '0px' : '305px',
+          maxWidth: '85vw',
           background: sidebarBg,
           borderRight: 'none',
           boxShadow: collapsed ? 'none' : neuExtrudedSm,
-          overflow: 'visible',
+          overflow: collapsed ? 'hidden' : 'visible',
+          pointerEvents: collapsed ? 'none' : 'auto',
+          visibility: collapsed ? 'hidden' : 'visible',
         }}
       >
       <button
         onClick={onToggleCollapsed}
         className="sidebar-collapse-btn hidden md:flex"
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        style={{ right: collapsed ? '-36px' : '-14px' }}
+        style={{ right: collapsed ? '-36px' : '-14px', pointerEvents: 'auto', visibility: 'visible' }}
       >
         {collapsed ? (
           <PanelLeft size={14} style={{ color: textMuted }} />
@@ -209,9 +214,11 @@ export function SessionSidebar({
         className="flex flex-col h-full"
         style={{
           width: '305px',
+          maxWidth: '85vw',
           opacity: collapsed ? 0 : 1,
           transition: 'opacity 0.2s ease',
           overflow: 'hidden',
+          pointerEvents: collapsed ? 'none' : 'auto',
         }}
       >
         {/*
@@ -228,7 +235,12 @@ export function SessionSidebar({
         <div className="px-3 pt-3 pb-2">
           <button
             type="button"
-            onClick={() => onNewQuery(undefined)}
+            onClick={() => {
+              onNewQuery(undefined);
+              if (typeof window !== 'undefined' && window.innerWidth < 768 && !collapsed) {
+                onToggleCollapsed();
+              }
+            }}
             className="bg-gradient-signature w-full flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] font-semibold font-sans focus-ring min-h-11 cursor-pointer rounded-xl"
           >
             <Plus size={14} /> New research
@@ -344,6 +356,9 @@ export function SessionSidebar({
                                   onClick={() => {
                                     onSelectProject?.(project);
                                     onLoadSession(session.id);
+                                    if (typeof window !== 'undefined' && window.innerWidth < 768 && !collapsed) {
+                                      onToggleCollapsed();
+                                    }
                                   }}
                                   className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-xs transition-all ${
                                     currentSessionId === session.id
@@ -412,6 +427,9 @@ export function SessionSidebar({
                               onClick={() => {
                                 onSelectProject?.(projects.find((project) => project.id === session.project_id) ?? null);
                                 onLoadSession(session.id);
+                                if (typeof window !== 'undefined' && window.innerWidth < 768 && !collapsed) {
+                                  onToggleCollapsed();
+                                }
                               }}
                               className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-xs transition-all ${
                                 currentSessionId === session.id

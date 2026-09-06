@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Building2, Globe, Crosshair, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Brain, Tag, Sun, Moon, Palette, Trash2, Bot, ToggleLeft, ToggleRight, BarChart3 } from 'lucide-react';
+import { User, Building2, Globe, Crosshair, Sparkles, CheckCircle2, ShieldCheck, AlertCircle, Brain, Tag, Sun, Moon, Palette, Trash2, Bot, ToggleLeft, ToggleRight, BarChart3, LogOut } from 'lucide-react';
 import { loadUserProfile, saveUserProfile, UserProfile } from '@/lib/user-profile';
 import { getFactText, updateUserMemoryFacts, type MemoryFact, type UserMemory } from '@/lib/memory';
 import { useTheme } from '@/lib/theme-provider';
@@ -16,6 +16,7 @@ interface ProfileSettingsViewProps {
   forceFullSweep?: boolean;
   onToggleForceFullSweep?: () => void;
   initialSubTab?: 'profile' | 'agents' | 'usage';
+  onSignOut?: () => void;
 }
 
 export function ProfileSettingsView({
@@ -26,6 +27,7 @@ export function ProfileSettingsView({
   forceFullSweep: initialForceFullSweep = false,
   onToggleForceFullSweep,
   initialSubTab = 'profile',
+  onSignOut,
 }: ProfileSettingsViewProps) {
   const { theme, setThemeMode } = useTheme();
   const [subTab, setSubTab] = useState<'profile' | 'agents' | 'usage'>(initialSubTab);
@@ -485,6 +487,35 @@ export function ProfileSettingsView({
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          {/* Account & Session Management (Sign Out) */}
+          <div
+            className="rounded-2xl p-6 bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
+            style={{ boxShadow: 'var(--shadow-extruded)' }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 text-destructive border border-destructive/25 flex items-center justify-center shrink-0">
+                <LogOut size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Account & Session</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Signed in as <span className="font-semibold text-foreground">{userEmail || 'Executive User'}</span>
+                </p>
+              </div>
+            </div>
+
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-destructive/40 bg-destructive/10 hover:bg-destructive text-destructive hover:text-white text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <LogOut size={14} />
+                <span>Sign out</span>
+              </button>
             )}
           </div>
         </>

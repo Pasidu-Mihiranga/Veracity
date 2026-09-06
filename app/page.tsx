@@ -73,7 +73,7 @@ export default function VeracityDashboard() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [selectedAgents, setSelectedAgents] = useState<Record<Domain, boolean>>(defaultSelectedAgents);
   const [forceFullSweep, setForceFullSweep] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [topTab, setTopTab] = useState<TopTab>('home');
   const [viewMode, setViewMode] = useState<import('@/types/chat-ui').ProductViewMode>('executive');
   const [turnMode, setTurnMode] = useState<ResearchTurnMode>('verify');
@@ -82,6 +82,12 @@ export default function VeracityDashboard() {
     m.role === 'assistant'
     && (m.type === 'intelligence' || Boolean(m.orchestratorOutput) || Boolean(m.agentRuns?.length)),
   );
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setSidebarCollapsed(false);
+    }
+  }, []);
 
   useEffect(() => {
     resetHeaderCompress();
@@ -175,7 +181,12 @@ export default function VeracityDashboard() {
     if (followUps.length > 0) followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [followUps]);
 
-  const handleSignOut = async () => { await supabase.auth.signOut(); router.push('/auth'); router.refresh(); };
+  const handleSignOut = () => {
+    try {
+      void supabase.auth.signOut();
+    } catch {}
+    window.location.href = '/auth';
+  };
   const resetDraftInput = useCallback(() => {
     setInputValue('');
     setAttachedImages([]);
@@ -319,6 +330,8 @@ export default function VeracityDashboard() {
           selectedProject={selectedProject}
           onTopTabChange={setTopTab}
           onOpenSession={(id) => { void loadSession(id); }}
+          onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
+          onSignOut={handleSignOut}
           onProjectCreated={(project) => {
             // Select it immediately so the dashboard, ledger, charts and
             // timeline render straight away, and refresh the sidebar list.

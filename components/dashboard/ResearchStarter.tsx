@@ -110,6 +110,9 @@ export function ResearchStarter({ onAsk, onTrackNew }: ResearchStarterProps) {
       });
   }, []);
 
+  const [customInputA, setCustomInputA] = useState('');
+  const [customInputB, setCustomInputB] = useState('');
+
   const chosen = INTENTS.find((i) => i.id === intent);
   const needs = intent === 'compare' ? 2 : 1;
   const companies = groups.flatMap((group) => group.companies);
@@ -126,15 +129,28 @@ export function ResearchStarter({ onAsk, onTrackNew }: ResearchStarterProps) {
 
   function send() {
     if (!chosen) return;
+    const targetA = picked[0] || customInputA.trim();
+    const targetB = picked[1] || customInputB.trim();
+
     if (chosen.id === 'market') {
-      const market = markets.find(([id]) => id === picked[0])?.[1];
-      onAsk(chosen.build('', '', market));
+      const market = markets.find(([id]) => id === picked[0])?.[1] || targetA;
+      if (market) onAsk(chosen.build('', '', market));
+    } else if (chosen.id === 'compare') {
+      if (targetA && targetB) onAsk(chosen.build(targetA, targetB));
     } else {
-      onAsk(chosen.build(picked[0], picked[1] ?? ''));
+      if (targetA) onAsk(chosen.build(targetA));
     }
     setIntent(null);
     setPicked([]);
+    setCustomInputA('');
+    setCustomInputB('');
   }
+
+  const canSend = chosen && (
+    picked.length === needs ||
+    (chosen.id === 'compare' && customInputA.trim() && customInputB.trim()) ||
+    (chosen.id !== 'compare' && (picked.length > 0 || customInputA.trim()))
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -282,9 +298,39 @@ export function ResearchStarter({ onAsk, onTrackNew }: ResearchStarterProps) {
                   })}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              No tracked companies yet. Type any company name in the chat box below to begin.
-            </p>
+            <div className="flex flex-col gap-3">
+              {chosen.id === 'compare' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <input
+                    type="text"
+                    placeholder="First company (e.g. Linear)"
+                    value={customInputA}
+                    onChange={(e) => setCustomInputA(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && customInputA.trim() && customInputB.trim() && send()}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Second company (e.g. Jira)"
+                    value={customInputB}
+                    onChange={(e) => setCustomInputB(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && customInputA.trim() && customInputB.trim() && send()}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder={chosen.id === 'market' ? 'Enter market name (e.g. B2B Sales AI)' : 'Enter company name (e.g. Snowflake)'}
+                    value={customInputA}
+                    onChange={(e) => setCustomInputA(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && customInputA.trim() && send()}
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-accent/5 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           {hovered && factFor(hovered) && (
@@ -293,17 +339,17 @@ export function ResearchStarter({ onAsk, onTrackNew }: ResearchStarterProps) {
             </p>
           )}
 
-          {picked.length === needs && (
+          {canSend && (
             <div className="flex items-center justify-between pt-2 border-t border-border">
-              <span className="text-xs text-foreground font-mono">
+              <span className="text-xs text-foreground font-mono truncate mr-2">
                 {chosen.id === 'compare'
-                  ? `Ready: ${picked[0]} vs ${picked[1]}`
-                  : `Target: ${picked[0]}`}
+                  ? `Ready: ${picked[0] || customInputA} vs ${picked[1] || customInputB}`
+                  : `Target: ${picked[0] || customInputA}`}
               </span>
               <button
                 type="button"
                 onClick={send}
-                className="bg-accent text-white rounded-xl py-2 px-4 text-xs font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                className="bg-accent text-white rounded-xl py-2 px-4 text-xs font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shrink-0"
               >
                 Run Research <ArrowRight size={13} />
               </button>
