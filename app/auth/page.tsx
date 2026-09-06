@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
-import { Eye, EyeOff, AlertCircle, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { useForcedTheme } from '@/lib/theme-provider';
 import { BrandWordmark } from '@/components/ui/BrandWordmark';
 
@@ -60,6 +60,60 @@ function AuthForm() {
       return;
     }
     setSignupStep(2);
+  };
+
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const handleDemoSignIn = async () => {
+    setDemoLoading(true);
+    setError('');
+    setSuccessMsg('');
+    setEmail('demo@veracity.ai');
+    setPassword('DemoVeracity2026!');
+
+    try {
+      const res = await fetch('/api/auth/demo', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        // Fallback directly via browser client
+        let authRes = await supabase.auth.signInWithPassword({
+          email: 'demo@veracity.ai',
+          password: 'DemoVeracity2026!',
+        });
+        if (authRes.error) {
+          await supabase.auth.signUp({
+            email: 'demo@veracity.ai',
+            password: 'DemoVeracity2026!',
+          });
+          authRes = await supabase.auth.signInWithPassword({
+            email: 'demo@veracity.ai',
+            password: 'DemoVeracity2026!',
+          });
+        }
+        if (authRes.error) {
+          setError(authRes.error.message);
+          setDemoLoading(false);
+          return;
+        }
+      }
+
+      try {
+        const { saveUserProfile } = await import('@/lib/user-profile');
+        saveUserProfile({
+          company: 'Veracity Enterprise Lab',
+          role: 'VP of Market Intelligence & Growth',
+          websiteUrl: 'https://veracity.ai',
+          onboarded: true,
+        });
+      } catch {}
+
+      router.push('/');
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in demo user.');
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   const handleGoogleSignIn = () => {
@@ -227,8 +281,22 @@ function AuthForm() {
                 <>
                   <button
                     type="button"
+                    onClick={handleDemoSignIn}
+                    disabled={demoLoading || loading || googleLoading}
+                    className="w-full mb-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent/20 hover:bg-accent/30 border border-accent/45 text-accent font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer min-h-11 active:scale-[0.98]"
+                  >
+                    {demoLoading ? (
+                      <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles size={16} className="text-accent shrink-0" />
+                    )}
+                    <span>Demo user</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleGoogleSignIn}
-                    disabled={googleLoading || loading}
+                    disabled={googleLoading || loading || demoLoading}
                     className="auth-btn-secondary w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-semibold disabled:opacity-60 mb-4 min-h-11"
                   >
                     {googleLoading ? (
@@ -241,7 +309,7 @@ function AuthForm() {
 
                   <div className="flex items-center gap-3 mb-4">
                     <div className="auth-divider flex-1 h-px" />
-                    <span className="auth-divider-label text-[10px] font-semibold uppercase tracking-widest">or</span>
+                    <span className="auth-divider-label text-[10px] font-semibold uppercase tracking-widest">or email</span>
                     <div className="auth-divider flex-1 h-px" />
                   </div>
                 </>

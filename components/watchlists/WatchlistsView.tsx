@@ -1207,7 +1207,14 @@ export function WatchlistsView() {
                     }
                   }
 
-                  const isSelfComparison = alert.competitor.toLowerCase() === alert.product.toLowerCase();
+                  const isSelfComparison = Boolean(
+                    alert.product && alert.competitor && alert.product.toLowerCase() === alert.competitor.toLowerCase()
+                  );
+
+                  const displayTitle = alert.title?.trim()
+                    || `${alert.competitor} ${alertCategory === 'pricing' ? 'Pricing Rate Adjustment' : alertCategory === 'feature' ? 'New Product Feature Update' : 'Strategic Positioning Move'}`;
+                  const displaySummary = cleanedSummary
+                    || 'Automated background sweep detected competitive adjustments on primary marketing and product channels.';
 
                   return (
                     <div
@@ -1254,8 +1261,8 @@ export function WatchlistsView() {
                         </div>
                       </div>
 
-                      <h4 className="font-bold text-foreground text-sm leading-snug">{alert.title}</h4>
-                      <p className="text-foreground/80 text-xs leading-relaxed">{cleanedSummary}</p>
+                      <h4 className="font-bold text-foreground text-sm leading-snug">{displayTitle}</h4>
+                      <p className="text-foreground/80 text-xs leading-relaxed">{displaySummary}</p>
                     </div>
                   );
                 })}
