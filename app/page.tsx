@@ -175,7 +175,12 @@ export default function VeracityDashboard() {
     if (followUps.length > 0) followUpEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [followUps]);
 
-  const handleSignOut = async () => { await supabase.auth.signOut(); router.push('/auth'); router.refresh(); };
+  const handleSignOut = () => {
+    try {
+      void supabase.auth.signOut();
+    } catch {}
+    window.location.href = '/auth';
+  };
   const resetDraftInput = useCallback(() => {
     setInputValue('');
     setAttachedImages([]);
@@ -319,6 +324,8 @@ export default function VeracityDashboard() {
           selectedProject={selectedProject}
           onTopTabChange={setTopTab}
           onOpenSession={(id) => { void loadSession(id); }}
+          onOpenSidebar={() => setSidebarCollapsed((v) => !v)}
+          onSignOut={handleSignOut}
           onProjectCreated={(project) => {
             // Select it immediately so the dashboard, ledger, charts and
             // timeline render straight away, and refresh the sidebar list.

@@ -100,19 +100,6 @@ export function DashboardHeader({
           className={`header-island ${headerCompact ? 'header-island--compact' : ''}`}
           style={{ background: headerBg }}
         >
-          {/* Mobile Hamburger Menu Button (when sidebar is available) */}
-          {isIntelligence && onOpenSidebar && (
-            <button
-              type="button"
-              onClick={onOpenSidebar}
-              className="md:hidden flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/10 mr-1 shrink-0 transition-colors"
-              title="Open Sessions & Domain Sidebar"
-              aria-label="Toggle Sidebar"
-            >
-              <Menu size={18} />
-            </button>
-          )}
-
           <div className="header-island-brand flex items-center shrink-0 pl-0.5 pr-2 sm:pr-3 gap-2 sm:gap-2.5">
             <img
               src="/robot.avif"
@@ -159,17 +146,19 @@ export function DashboardHeader({
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {featureFlags.workspaces ? (
-                <WorkspaceSwitcher
-                  onOpenMembers={onOpenMembers}
-                  accentInk={accentInk}
-                  textMuted={textMuted}
-                />
+                <div className="hidden sm:block">
+                  <WorkspaceSwitcher
+                    onOpenMembers={onOpenMembers}
+                    accentInk={accentInk}
+                    textMuted={textMuted}
+                  />
+                </div>
               ) : null}
               {featureFlags.orgIntelligence && onOpenOrgIntel ? (
                 <button
                   type="button"
                   onClick={onOpenOrgIntel}
-                  className="neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0"
+                  className="hidden sm:flex neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl items-center justify-center shrink-0"
                   style={{ color: textMuted }}
                   title="Organization Intelligence"
                 >
@@ -180,7 +169,7 @@ export function DashboardHeader({
                 <button
                   type="button"
                   onClick={onOpenKgExplorer}
-                  className="neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0"
+                  className="hidden sm:flex neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl items-center justify-center shrink-0"
                   style={{ color: textMuted }}
                   title="Knowledge Graph"
                 >
@@ -191,7 +180,7 @@ export function DashboardHeader({
                 <button
                   type="button"
                   onClick={onOpenAlerts}
-                  className="neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 relative"
+                  className="neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 relative cursor-pointer"
                   style={{ color: textMuted }}
                   title="Alerts"
                 >
@@ -206,13 +195,14 @@ export function DashboardHeader({
               <button
                 type="button"
                 onClick={onOpenMemory}
-                className="neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0"
+                className="neu-extruded-sm w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer"
                 style={{ color: textMuted }}
                 title="Durable memory"
               >
                 <Brain size={14} />
               </button>
-              <div className="relative shrink-0">
+              {/* Profile Avatar & Dropdown (Desktop Only on md: and up) */}
+              <div className="relative shrink-0 hidden md:block">
                 <button
                   type="button"
                   onClick={onToggleUserMenu}

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, History } from 'lucide-react';
 import type { RecommendationRating } from '@/lib/feedback';
 import type { AttachedImage, ChatMessage, FollowUp, PipelineStage } from '@/types/chat-ui';
 import type { Domain } from '@/lib/domain-meta';
@@ -86,6 +86,8 @@ type Props = {
   onTopTabChange?: (tab: TopTab) => void;
   /** Reopen a past research session from Home. */
   onOpenSession?: (sessionId: string) => void;
+  onOpenSidebar?: () => void;
+  onSignOut?: () => void;
   messages: ChatMessage[];
   followUps: FollowUp[];
   followUpEndRef: React.RefObject<HTMLDivElement | null>;
@@ -156,6 +158,8 @@ export function DashboardWorkspace({
   onProjectCreated,
   onTopTabChange,
   onOpenSession,
+  onOpenSidebar,
+  onSignOut,
   messages,
   followUps,
   followUpEndRef,
@@ -295,10 +299,24 @@ export function DashboardWorkspace({
               forceFullSweep={forceFullSweep}
               onToggleForceFullSweep={onToggleForceFullSweep}
               initialSubTab={topTab === 'usage' ? 'usage' : 'profile'}
+              onSignOut={onSignOut}
             />
           )}
           {topTab === 'intelligence' && (
             <>
+              {onOpenSidebar && (
+                <div className="flex items-center justify-between gap-2 -mb-1">
+                  <button
+                    type="button"
+                    onClick={onOpenSidebar}
+                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent text-xs font-semibold shadow-xs active:scale-95 transition-all cursor-pointer"
+                    title="Open Research Sessions & Projects"
+                  >
+                    <History size={14} className="text-accent shrink-0" />
+                    <span>Research History & Projects</span>
+                  </button>
+                </div>
+              )}
               {selectedProject && (
                 <div className="veracity-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
