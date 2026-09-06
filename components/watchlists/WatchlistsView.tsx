@@ -657,7 +657,7 @@ export function WatchlistsView() {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4 max-h-[860px] overflow-y-auto pr-1.5 custom-scrollbar">
+                <div className="flex flex-col gap-4 lg:max-h-[860px] lg:overflow-y-auto pr-0 lg:pr-1.5 custom-scrollbar">
                   {lists.map((wl) => {
                     const isSelected = selectedWatchlistId === wl.id;
                     const isCollapsed = collapsedIds[wl.id] ?? true;
@@ -755,30 +755,39 @@ export function WatchlistsView() {
 
                         {/* Collapsible Card Body */}
                         {!isCollapsed && (
-                          <div className="flex flex-col gap-3.5 sm:gap-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-col gap-3 sm:gap-3.5 animate-fadeIn pt-1" onClick={(e) => e.stopPropagation()}>
                             {/* Sweep Status Info */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-muted-foreground font-mono bg-background/60 px-3 py-2 rounded-lg border border-border/30">
-                              <span className="truncate">Last Check: <strong className="text-foreground">{formatRelativeSweep(wl.last_sweep_at)}</strong></span>
-                              <span className="truncate">Next Check: <strong className="text-foreground">{wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}</strong></span>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-background/70 p-2.5 rounded-xl border border-border/30">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground">Last Check</span>
+                                <span className="font-bold text-foreground text-[11px] sm:text-xs truncate">{formatRelativeSweep(wl.last_sweep_at)}</span>
+                              </div>
+                              <div className="flex flex-col gap-0.5 text-right min-w-0">
+                                <span className="text-[9px] uppercase tracking-wider font-semibold text-muted-foreground">Next Check</span>
+                                <span className="font-bold text-foreground text-[11px] sm:text-xs truncate">
+                                  {wl.next_sweep_at ? new Date(wl.next_sweep_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily'}
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                              <label className="flex flex-col gap-1 text-muted-foreground">
-                                <span className="font-mono uppercase text-[9px]">Check Frequency</span>
+                            {/* 3-Column Compact Configuration Settings */}
+                            <div className="grid grid-cols-3 gap-2 text-xs bg-background/40 p-2.5 rounded-xl border border-border/30">
+                              <label className="flex flex-col gap-1 text-muted-foreground min-w-0">
+                                <span className="font-mono uppercase text-[9px] font-semibold truncate">Frequency</span>
                                 <select
                                   value={wl.cadence}
                                   disabled={busy}
                                   onChange={(event) => void updateMonitoringConfig(wl.id, { cadence: event.target.value })}
-                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                  className="w-full px-1.5 sm:px-2 py-1.5 rounded-lg bg-card border border-border text-foreground font-medium text-xs truncate focus:outline-none focus:border-accent cursor-pointer"
                                 >
                                   <option value="daily">Daily</option>
-                                  <option value="twice_weekly">2× Weekly</option>
+                                  <option value="twice_weekly">2× Wk</option>
                                   <option value="weekly">Weekly</option>
                                   <option value="monthly">Monthly</option>
                                 </select>
                               </label>
-                              <label className="flex flex-col gap-1 text-muted-foreground">
-                                <span className="font-mono uppercase text-[9px]">Max Competitors</span>
+                              <label className="flex flex-col gap-1 text-muted-foreground min-w-0">
+                                <span className="font-mono uppercase text-[9px] font-semibold truncate">Max Comps</span>
                                 <input
                                   type="number"
                                   min={1}
@@ -788,11 +797,11 @@ export function WatchlistsView() {
                                   onBlur={(event) => void updateMonitoringConfig(wl.id, {
                                     max_competitors: Number(event.target.value),
                                   })}
-                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                  className="w-full px-1.5 sm:px-2 py-1.5 rounded-lg bg-card border border-border text-foreground text-center font-medium font-mono text-xs focus:outline-none focus:border-accent"
                                 />
                               </label>
-                              <label className="flex flex-col gap-1 text-muted-foreground">
-                                <span className="font-mono uppercase text-[9px]">Alert Budget/wk</span>
+                              <label className="flex flex-col gap-1 text-muted-foreground min-w-0">
+                                <span className="font-mono uppercase text-[9px] font-semibold truncate">Budget/Wk</span>
                                 <input
                                   type="number"
                                   min={1}
@@ -802,26 +811,26 @@ export function WatchlistsView() {
                                   onBlur={(event) => void updateMonitoringConfig(wl.id, {
                                     weekly_alert_budget: Number(event.target.value),
                                   })}
-                                  className="px-2.5 py-2 rounded-lg bg-card border border-border text-foreground font-medium"
+                                  className="w-full px-1.5 sm:px-2 py-1.5 rounded-lg bg-card border border-border text-foreground text-center font-medium font-mono text-xs focus:outline-none focus:border-accent"
                                 />
                               </label>
                             </div>
 
                             {/* Competitor List */}
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 pt-1">
                               <span className="text-[10px] font-mono uppercase text-muted-foreground font-semibold">
                                 Monitored Competitors ({wl.items?.length ?? 0})
                               </span>
                               {(!wl.items || wl.items.length === 0) ? (
-                                <p className="text-xs text-muted-foreground italic">No competitors added yet.</p>
+                                <p className="text-xs text-muted-foreground italic py-1">No competitors added yet.</p>
                               ) : (
                                 <div className="flex flex-col gap-1.5">
                                   {wl.items.map((item) => (
                                     <div
                                       key={item.id}
-                                      className="flex items-center justify-between p-2 rounded-lg bg-background/50 border border-border/30 text-xs"
+                                      className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-background/50 border border-border/30 text-xs gap-2"
                                     >
-                                      <div className="flex items-center gap-2 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
                                         <Globe size={13} className="text-accent shrink-0" />
                                         <span className="font-medium text-foreground truncate">{item.competitor}</span>
                                         {item.competitor_url && (
@@ -846,7 +855,8 @@ export function WatchlistsView() {
                                             title: `competitor "${item.competitor}"`,
                                           })
                                         }
-                                        className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded transition-colors"
+                                        className="text-muted-foreground hover:text-[var(--evidence-unsupported)] p-1 rounded transition-colors shrink-0 cursor-pointer"
+                                        title="Remove competitor"
                                       >
                                         <Trash2 size={13} />
                                       </button>
@@ -866,13 +876,19 @@ export function WatchlistsView() {
                                   onChange={(e) =>
                                     setCompetitorInput((prev) => ({ ...prev, [wl.id]: e.target.value }))
                                   }
-                                  className="flex-1 px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:border-accent"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && competitorInput[wl.id]?.trim()) {
+                                      e.preventDefault();
+                                      void addCompetitor(wl.id);
+                                    }
+                                  }}
+                                  className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-none focus:border-accent"
                                 />
                                 <button
                                   type="button"
                                   disabled={busy || !competitorInput[wl.id]?.trim()}
                                   onClick={() => void addCompetitor(wl.id)}
-                                  className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-1"
+                                  className="px-3.5 py-2 rounded-lg bg-accent text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-1 shrink-0 cursor-pointer"
                                 >
                                   <Plus size={13} /> Add
                                 </button>
@@ -884,7 +900,7 @@ export function WatchlistsView() {
                               type="button"
                               disabled={busy || backgroundSweepStatus?.status === 'running'}
                               onClick={() => void runSweepNow(wl.id)}
-                              className="w-full py-2.5 rounded-xl border border-accent/30 bg-accent/15 hover:bg-accent/25 text-accent text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                              className="w-full py-2.5 rounded-xl border border-accent/30 bg-accent/15 hover:bg-accent/25 text-accent text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 mt-1"
                             >
                               {backgroundSweepStatus?.watchlistId === wl.id && backgroundSweepStatus.status === 'running' ? (
                                 <>
